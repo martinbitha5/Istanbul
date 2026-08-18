@@ -1,0 +1,7 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+
+  "//": "Sans ce filtre, Vercel installe tout le workspace — dont les deux applications Expo et leurs dépendances natives, inutiles ici et longues à télécharger. `--filter @istanbul/admin...` ne retient que le dashboard et les packages dont il dépend (types, core).",
+  "installCommand": "pnpm install --filter @istanbul/admin... --frozen-lockfile"
+}
