@@ -1,0 +1,13 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "./src",
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "paths": {
+      "@istanbul/tokens": ["../tokens/src/index.ts"],
+      "@istanbul/types": ["../types/src/index.ts"]
+    }
+  },
+  "include": ["src/**/*"]
+}

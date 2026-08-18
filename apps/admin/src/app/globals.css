@@ -1,0 +1,197 @@
+@import 'tailwindcss';
+
+/* ---------------------------------------------------------------------------
+   Tokens Istanbul.
+   Miroir exact de packages/tokens — régénérable via `pnpm tokens:css`.
+   Le mode sombre est défini deux fois : pour le choix explicite
+   (`[data-theme="dark"]`) et pour la préférence système, sans que l'un
+   n'écrase l'autre.
+--------------------------------------------------------------------------- */
+:root {
+  --color-background: #fffbf7;
+  --color-surface: #ffffff;
+  --color-surface-raised: #ffffff;
+  --color-surface-sunken: #fbf6f1;
+  --color-surface-inverse: #1a1613;
+  --color-scrim: rgba(26, 22, 19, 0.55);
+
+  --color-text: #1a1613;
+  --color-text-secondary: #5b5149;
+  --color-text-muted: #7a6e64;
+  --color-text-inverse: #ffffff;
+  --color-text-on-primary: #ffffff;
+
+  --color-primary: #e5431c;
+  --color-primary-pressed: #c4320f;
+  --color-primary-soft: #fff3ef;
+  --color-on-primary-soft: #9e260b;
+
+  --color-accent: #ebb43a;
+  --color-accent-soft: #fdecc4;
+  --color-on-accent-soft: #8b5b12;
+
+  --color-success: #2f8f49;
+  --color-success-soft: #ddf3e1;
+  --color-warning: #b27714;
+  --color-warning-soft: #fdecc4;
+  --color-danger: #d32f2f;
+  --color-danger-soft: #fbdddd;
+  --color-info: #1b7f9e;
+  --color-info-soft: #d6eef6;
+
+  --color-border: #e6dcd3;
+  --color-border-strong: #cfc3b8;
+  --color-divider: #f3ece5;
+  --color-skeleton: #f3ece5;
+
+  --color-disabled: #f3ece5;
+  --color-disabled-text: #a2958a;
+  --color-overlay: rgba(26, 22, 19, 0.45);
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+
+  --shadow-1: 0 2px 8px rgba(58, 30, 18, 0.06);
+  --shadow-2: 0 6px 16px rgba(58, 30, 18, 0.1);
+  --shadow-3: 0 12px 28px rgba(58, 30, 18, 0.16);
+}
+
+:root[data-theme='dark'] {
+  --color-background: #100d0b;
+  --color-surface: #1a1613;
+  --color-surface-raised: #292420;
+  --color-surface-sunken: #0a0807;
+  --color-surface-inverse: #fbf6f1;
+  --color-scrim: rgba(0, 0, 0, 0.65);
+
+  --color-text: #f7f1eb;
+  --color-text-secondary: #cfc3b8;
+  --color-text-muted: #a2958a;
+  --color-text-inverse: #1a1613;
+
+  /* Le 500 ne tient pas 4.5:1 sur fond encre 950 : on remonte d'un cran. */
+  --color-primary: #f76b45;
+  --color-primary-pressed: #ff9877;
+  --color-primary-soft: rgba(247, 107, 69, 0.16);
+  --color-on-primary-soft: #ff9877;
+
+  --color-accent: #f4c95d;
+  --color-accent-soft: rgba(244, 201, 93, 0.16);
+  --color-on-accent-soft: #fadd93;
+
+  --color-success: #8ed49e;
+  --color-success-soft: rgba(142, 212, 158, 0.16);
+  --color-warning: #f4c95d;
+  --color-warning-soft: rgba(244, 201, 93, 0.16);
+  --color-danger: #ee9a9a;
+  --color-danger-soft: rgba(238, 154, 154, 0.16);
+  --color-info: #79c8de;
+  --color-info-soft: rgba(121, 200, 222, 0.16);
+
+  --color-border: #332c27;
+  --color-border-strong: #4a413a;
+  --color-divider: #241f1b;
+  --color-skeleton: #241f1b;
+
+  --color-disabled: #241f1b;
+  --color-disabled-text: #7a6e64;
+  --color-overlay: rgba(0, 0, 0, 0.6);
+
+  --shadow-1: 0 2px 8px rgba(0, 0, 0, 0.4);
+  --shadow-2: 0 6px 16px rgba(0, 0, 0, 0.5);
+  --shadow-3: 0 12px 28px rgba(0, 0, 0, 0.6);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --color-background: #100d0b;
+    --color-surface: #1a1613;
+    --color-surface-raised: #292420;
+    --color-surface-sunken: #0a0807;
+    --color-text: #f7f1eb;
+    --color-text-secondary: #cfc3b8;
+    --color-text-muted: #a2958a;
+    --color-primary: #f76b45;
+    --color-primary-soft: rgba(247, 107, 69, 0.16);
+    --color-on-primary-soft: #ff9877;
+    --color-accent: #f4c95d;
+    --color-accent-soft: rgba(244, 201, 93, 0.16);
+    --color-success: #8ed49e;
+    --color-success-soft: rgba(142, 212, 158, 0.16);
+    --color-warning: #f4c95d;
+    --color-warning-soft: rgba(244, 201, 93, 0.16);
+    --color-danger: #ee9a9a;
+    --color-danger-soft: rgba(238, 154, 154, 0.16);
+    --color-info: #79c8de;
+    --color-info-soft: rgba(121, 200, 222, 0.16);
+    --color-border: #332c27;
+    --color-border-strong: #4a413a;
+    --color-divider: #241f1b;
+    --color-skeleton: #241f1b;
+    --shadow-1: 0 2px 8px rgba(0, 0, 0, 0.4);
+    --shadow-2: 0 6px 16px rgba(0, 0, 0, 0.5);
+    --shadow-3: 0 12px 28px rgba(0, 0, 0, 0.6);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Pas de bloc `@theme inline` ici, volontairement.
+
+   Le réflexe serait d'écrire `@theme inline { --color-primary: var(--color-primary) }`
+   pour obtenir des utilitaires `bg-primary`. C'est une auto-référence
+   circulaire : Tailwind résout le token avec la variable du même nom, qui se
+   résout avec elle-même. La valeur devient invalide.
+
+   Les composants utilisent la syntaxe de valeur arbitraire —
+   `bg-[var(--color-surface)]`, `text-[var(--color-text-muted)]` — qui lit les
+   variables ci-dessus sans intermédiaire. Un `@theme` serait possible en
+   nommant les primitives différemment (`--brand-ember` → `--color-primary`),
+   mais cela dédoublerait la palette pour un gain cosmétique.
+--------------------------------------------------------------------------- */
+
+* {
+  border-color: var(--color-border);
+}
+
+html,
+body {
+  background: var(--color-background);
+  color: var(--color-text);
+  /* --font-inter est injectée par next/font dans app/layout.tsx. */
+  font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Les chiffres d'un tableau ou d'un KPI ne doivent jamais faire sauter la
+   mise en page quand ils changent. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-border-strong);
+  border-radius: 999px;
+  border: 3px solid var(--color-background);
+}

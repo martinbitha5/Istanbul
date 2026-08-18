@@ -1,0 +1,31 @@
+{
+  "name": "@istanbul/ui",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "clean": "rimraf .turbo node_modules"
+  },
+  "dependencies": {
+    "@istanbul/tokens": "workspace:*",
+    "@istanbul/types": "workspace:*"
+  },
+  "peerDependencies": {
+    "expo-image": "*",
+    "phosphor-react-native": "*",
+    "react": ">=19",
+    "react-native": "*",
+    "react-native-reanimated": "*",
+    "react-native-safe-area-context": "*",
+    "react-native-svg": "*"
+  },
+  "devDependencies": {
+    "@types/react": "~19.1.0",
+    "typescript": "~5.9.2"
+  }
+}

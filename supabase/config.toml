@@ -1,0 +1,74 @@
+project_id = "istanbul-fast-food"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "storage", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 17
+
+[db.pooler]
+enabled = true
+port = 54329
+pool_mode = "transaction"
+default_pool_size = 20
+max_client_conn = 100
+
+[realtime]
+enabled = true
+
+[studio]
+enabled = true
+port = 54323
+
+[inbucket]
+enabled = true
+port = 54324
+
+[storage]
+enabled = true
+file_size_limit = "5MiB"
+
+[auth]
+enabled = true
+site_url = "istanbul://"
+additional_redirect_urls = [
+  "istanbul://",
+  "istanbuldriver://",
+  "http://localhost:3000",
+  "exp://127.0.0.1:8081",
+]
+jwt_expiry = 3600
+enable_refresh_token_rotation = true
+refresh_token_reuse_interval = 10
+enable_signup = true
+enable_anonymous_sign_ins = false
+
+[auth.email]
+enable_signup = true
+double_confirm_changes = true
+enable_confirmations = false
+secure_password_change = true
+
+[auth.sms]
+enable_signup = true
+enable_confirmations = true
+template = "Votre code Istanbul Fast Food : {{ .Code }}"
+
+# Fournisseur SMS à configurer pour la production (Twilio, Vonage…).
+# En local, le code OTP s'affiche dans les logs `supabase status`.
+[auth.sms.test_otp]
+"+243999000105" = "123456"
+
+[edge_runtime]
+enabled = true
+policy = "oneshot"
+inspector_port = 8083
+
+[analytics]
+enabled = false

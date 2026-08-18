@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "compilerOptions": {
+    "target": "ESNext",
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "forceConsistentCasingInFileNames": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "composite": false,
+    "paths": {
+      "@istanbul/tokens": ["./packages/tokens/src/index.ts"],
+      "@istanbul/tokens/*": ["./packages/tokens/src/*"],
+      "@istanbul/types": ["./packages/types/src/index.ts"],
+      "@istanbul/types/*": ["./packages/types/src/*"],
+      "@istanbul/core": ["./packages/core/src/index.ts"],
+      "@istanbul/core/*": ["./packages/core/src/*"],
+      "@istanbul/ui": ["./packages/ui/src/index.ts"],
+      "@istanbul/ui/*": ["./packages/ui/src/*"]
+    }
+  },
+  "exclude": ["node_modules", "dist", ".next", ".expo"]
+}

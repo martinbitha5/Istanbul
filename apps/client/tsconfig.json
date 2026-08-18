@@ -1,0 +1,17 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@istanbul/ui": ["../../packages/ui/src/index.ts"],
+      "@istanbul/core": ["../../packages/core/src/index.ts"],
+      "@istanbul/types": ["../../packages/types/src/index.ts"],
+      "@istanbul/tokens": ["../../packages/tokens/src/index.ts"]
+    }
+  },
+  "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"],
+  "exclude": ["node_modules"]
+}
