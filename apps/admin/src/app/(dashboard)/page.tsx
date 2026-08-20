@@ -2,18 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
+import dynamic from 'next/dynamic';
 import { CurrencyDollar, Package, Users } from '@phosphor-icons/react';
 import {
   formatMoney,
@@ -34,7 +23,21 @@ import {
   Skeleton,
   Toggle,
 } from '@/components/ui';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { OnboardingBanner } from '@/components/OnboardingBanner';
+import { useToast } from '@/components/Toaster';
 import { useRestaurantId } from '@/hooks/useRestaurantId';
+
+// Recharts (~100 ko) chargé à la demande, hors du bundle initial de la
+// première route : les KPIs s'affichent tout de suite, les graphes suivent.
+const SalesChart = dynamic(() => import('./charts').then((mod) => mod.SalesChart), {
+  ssr: false,
+  loading: () => <Skeleton className="h-72 w-full" />,
+});
+const TopProductsChart = dynamic(() => import('./charts').then((mod) => mod.TopProductsChart), {
+  ssr: false,
+  loading: () => <Skeleton className="h-64 w-full" />,
+});
 
 /**
  * Vue d'ensemble.
@@ -46,15 +49,33 @@ import { useRestaurantId } from '@/hooks/useRestaurantId';
 export default function DashboardPage() {
   const restaurantId = useRestaurantId();
   const [bucket, setBucket] = useState<SalesBucket>('day');
+  const [confirmClosing, setConfirmClosing] = useState(false);
 
   const stats = useDashboardStats(restaurantId);
   const series = useSalesSeries(restaurantId, bucket);
   const topProducts = useTopProducts(restaurantId);
   const { data: restaurant } = useRestaurant(restaurantId);
   const setAccepting = useSetAcceptingOrders();
+  const toast = useToast();
 
   // Rafraîchit les KPIs dès qu'une commande tombe, sans attendre le poll.
   useOrderQueueRealtime(restaurantId);
+
+  const applyAccepting = (accepting: boolean) => {
+    setAccepting.mutate(
+      { restaurantId, accepting },
+      {
+        onSuccess: () => {
+          toast.success(
+            accepting
+              ? 'Commandes ouvertes : les clients peuvent commander.'
+              : 'Commandes fermées : le menu reste consultable.',
+          );
+          setConfirmClosing(false);
+        },
+      },
+    );
+  };
 
   return (
     <div className="space-y-8">
@@ -64,8 +85,13 @@ export default function DashboardPage() {
           <h1 className="text-2xl font-bold tracking-tight" style={{ fontFamily: 'var(--font-sora)' }}>
             Vue d’ensemble
           </h1>
+          {/* Le nom de l'établissement en premier : sur un compte qui en gère
+              plusieurs, « Activité du jour » ne dit pas de quel comptoir on
+              parle, et c'est le genre d'ambiguïté qui fait refuser la
+              mauvaise commande. */}
           <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-            Activité du jour · {new Date().toLocaleDateString('fr-FR', { dateStyle: 'long' })}
+            {restaurant?.name ? `${restaurant.name} · ` : ''}
+            {new Date().toLocaleDateString('fr-FR', { dateStyle: 'long' })}
           </p>
         </div>
 
@@ -83,14 +109,33 @@ export default function DashboardPage() {
             </div>
             <Toggle
               checked={restaurant.is_accepting_orders}
-              onChange={(value) =>
-                setAccepting.mutate({ restaurantId, accepting: value })
-              }
+              onChange={(value) => {
+                // Fermer coupe les ventes : on confirme. Rouvrir est sans risque.
+                if (!value) {
+                  setConfirmClosing(true);
+                } else {
+                  applyAccepting(true);
+                }
+              }}
               label="Accepter les commandes"
             />
           </Card>
         ) : null}
       </div>
+
+      {/* Mise en route : ne s'affiche que pour un établissement non publié,
+          et disparaît d'elle-même une fois la carte en ligne. */}
+      <OnboardingBanner />
+
+      <ConfirmDialog
+        open={confirmClosing}
+        title="Fermer les commandes"
+        message="Les clients ne pourront plus commander tant que vous n’aurez pas rouvert. Le menu restera consultable."
+        confirmLabel="Fermer les commandes"
+        loading={setAccepting.isPending}
+        onClose={() => setConfirmClosing(false)}
+        onConfirm={() => applyAccepting(false)}
+      />
 
       {/* --- KPIs -------------------------------------------------------- */}
       {stats.isError ? (
@@ -102,7 +147,7 @@ export default function DashboardPage() {
           <StatCard
             label="Chiffre d’affaires"
             value={stats.data ? formatMoney(stats.data.revenue, restaurant?.currency) : null}
-            hint={`Panier moyen ${stats.data ? formatMoney(stats.data.avg_basket) : '—'}`}
+            hint={`Panier moyen ${stats.data ? formatMoney(stats.data.avg_basket, restaurant?.currency) : '—'}`}
             icon={<CurrencyDollar size={18} weight="bold" />}
             accent
           />
@@ -143,25 +188,25 @@ export default function DashboardPage() {
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <QueueTile
             label="Nouvelles"
-            count={stats.data?.orders_new ?? 0}
+            count={stats.data ? stats.data.orders_new : null}
             tone="warning"
             href="/orders?status=NEW"
           />
           <QueueTile
             label="En préparation"
-            count={stats.data?.orders_preparing ?? 0}
+            count={stats.data ? stats.data.orders_preparing : null}
             tone="info"
             href="/orders?status=PREPARING"
           />
           <QueueTile
             label="Prêtes"
-            count={stats.data?.orders_ready ?? 0}
+            count={stats.data ? stats.data.orders_ready : null}
             tone="info"
             href="/orders?status=READY"
           />
           <QueueTile
             label="En livraison"
-            count={stats.data?.orders_in_transit ?? 0}
+            count={stats.data ? stats.data.orders_in_transit : null}
             tone="neutral"
             href="/orders?status=PICKED_UP"
           />
@@ -170,14 +215,22 @@ export default function DashboardPage() {
 
       {/* --- Ventes ------------------------------------------------------ */}
       <Card>
+        {/* Le sélecteur Jour/Semaine/Mois vit dans l'en-tête de CETTE carte :
+            il n'agit que sur le graphe, pas sur les KPIs du haut. */}
         <SectionTitle
           title="Évolution des ventes"
+          description="La période choisie n’affecte que ce graphe."
           action={
-            <div className="flex gap-1 rounded-full bg-[var(--color-surface-sunken)] p-1">
+            <div
+              className="flex gap-1 rounded-full bg-[var(--color-surface-sunken)] p-1"
+              role="group"
+              aria-label="Période du graphe des ventes"
+            >
               {(['day', 'week', 'month'] as SalesBucket[]).map((value) => (
                 <button
                   key={value}
                   onClick={() => setBucket(value)}
+                  aria-pressed={bucket === value}
                   className="rounded-full px-3 py-1.5 text-xs font-semibold transition-colors"
                   style={{
                     background: bucket === value ? 'var(--color-surface)' : 'transparent',
@@ -201,43 +254,7 @@ export default function DashboardPage() {
             Aucune vente sur la période.
           </div>
         ) : (
-          <div className="h-72 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart
-                data={(series.data ?? []).map((point) => ({
-                  label: formatBucket(point.bucket, bucket),
-                  revenue: point.revenue / 100,
-                  orders: point.orders,
-                }))}
-                margin={{ top: 8, right: 8, left: -12, bottom: 0 }}
-              >
-                <CartesianGrid stroke="var(--color-divider)" vertical={false} />
-                <XAxis
-                  dataKey="label"
-                  tick={{ fontSize: 11, fill: 'var(--color-text-muted)' }}
-                  tickLine={false}
-                  axisLine={false}
-                  minTickGap={16}
-                />
-                <YAxis
-                  tick={{ fontSize: 11, fill: 'var(--color-text-muted)' }}
-                  tickLine={false}
-                  axisLine={false}
-                  tickFormatter={(value: number) => `${value} $`}
-                />
-                <Tooltip content={<ChartTooltip />} />
-                <Line
-                  type="monotone"
-                  dataKey="revenue"
-                  name="Chiffre d’affaires"
-                  stroke="var(--color-primary)"
-                  strokeWidth={2.5}
-                  dot={false}
-                  activeDot={{ r: 5 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
+          <SalesChart data={series.data ?? []} bucket={bucket} currency={restaurant?.currency} />
         )}
       </Card>
 
@@ -247,52 +264,14 @@ export default function DashboardPage() {
 
         {topProducts.isLoading ? (
           <Skeleton className="h-64 w-full" />
+        ) : topProducts.isError ? (
+          <ErrorState onRetry={() => void topProducts.refetch()} />
         ) : (topProducts.data?.length ?? 0) === 0 ? (
           <div className="flex h-64 items-center justify-center text-sm text-[var(--color-text-muted)]">
             Pas encore assez de données.
           </div>
         ) : (
-          <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={(topProducts.data ?? []).map((product) => ({
-                  name:
-                    product.product_name.length > 18
-                      ? `${product.product_name.slice(0, 17)}…`
-                      : product.product_name,
-                  quantity: product.quantity,
-                  revenue: product.revenue / 100,
-                }))}
-                layout="vertical"
-                margin={{ top: 0, right: 16, left: 8, bottom: 0 }}
-              >
-                <CartesianGrid stroke="var(--color-divider)" horizontal={false} />
-                <XAxis
-                  type="number"
-                  tick={{ fontSize: 11, fill: 'var(--color-text-muted)' }}
-                  tickLine={false}
-                  axisLine={false}
-                />
-                <YAxis
-                  type="category"
-                  dataKey="name"
-                  width={120}
-                  tick={{ fontSize: 11, fill: 'var(--color-text-secondary)' }}
-                  tickLine={false}
-                  axisLine={false}
-                />
-                <Tooltip content={<ChartTooltip unit=" vendus" />} cursor={{ fill: 'var(--color-surface-sunken)' }} />
-                <Bar dataKey="quantity" name="Quantité" radius={[0, 6, 6, 0]}>
-                  {(topProducts.data ?? []).map((_, index) => (
-                    <Cell
-                      key={index}
-                      fill={index === 0 ? 'var(--color-primary)' : 'var(--color-accent)'}
-                    />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          <TopProductsChart data={topProducts.data ?? []} />
         )}
       </Card>
     </div>
@@ -346,7 +325,8 @@ function QueueTile({
   href,
 }: {
   label: string;
-  count: number;
+  /** null = chargement : squelette plutôt qu'un « 0 » mensonger. */
+  count: number | null;
   tone: 'warning' | 'info' | 'neutral';
   href: string;
 }) {
@@ -355,9 +335,13 @@ function QueueTile({
       href={href as never}
       className="rounded-xl border border-[var(--color-border)] p-4 transition-colors hover:border-[var(--color-primary)]"
     >
-      <p className="tabular text-3xl font-bold" style={{ fontFamily: 'var(--font-sora)' }}>
-        {count}
-      </p>
+      {count === null ? (
+        <Skeleton className="h-9 w-12" />
+      ) : (
+        <p className="tabular text-3xl font-bold" style={{ fontFamily: 'var(--font-sora)' }}>
+          {count}
+        </p>
+      )}
       <div className="mt-2">
         <Badge tone={tone} dot>
           {label}
@@ -365,41 +349,4 @@ function QueueTile({
       </div>
     </Link>
   );
-}
-
-function ChartTooltip({
-  active,
-  payload,
-  label,
-  unit = ' $',
-}: {
-  active?: boolean;
-  payload?: { name: string; value: number }[];
-  label?: string;
-  unit?: string;
-}) {
-  if (!active || !payload?.length) return null;
-
-  return (
-    <div
-      className="rounded-xl border border-[var(--color-border)] px-3 py-2 text-xs"
-      style={{ background: 'var(--color-surface)', boxShadow: 'var(--shadow-2)' }}
-    >
-      <p className="font-semibold">{label}</p>
-      {payload.map((entry) => (
-        <p key={entry.name} className="tabular mt-0.5 text-[var(--color-text-secondary)]">
-          {entry.name} : {entry.value}
-          {unit}
-        </p>
-      ))}
-    </div>
-  );
-}
-
-function formatBucket(iso: string, bucket: SalesBucket): string {
-  const date = new Date(iso);
-  if (bucket === 'month') {
-    return date.toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' });
-  }
-  return date.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' });
 }

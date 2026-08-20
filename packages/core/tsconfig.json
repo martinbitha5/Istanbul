@@ -1,7 +1,9 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "rootDir": "./src",
+    // Pas de rootDir : les `paths` tirent les sources de @istanbul/types dans
+    // le programme, et un rootDir les rejetterait (TS6059). Sans émission
+    // (noEmit), rootDir n'apporte rien.
     "noEmit": true,
     "paths": {
       "@istanbul/types": ["../types/src/index.ts"]

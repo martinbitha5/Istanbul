@@ -34,6 +34,16 @@ export interface Theme {
   stagger: typeof stagger;
 }
 
+/** Re-teinte l'échelle d'élévation avec la couleur d'ombre du thème. */
+function themedElevation(shadowColor: string): typeof elevation {
+  return {
+    0: elevation[0],
+    1: { ...elevation[1], shadowColor },
+    2: { ...elevation[2], shadowColor },
+    3: { ...elevation[3], shadowColor },
+  };
+}
+
 export function createTheme(scheme: ColorSchemeName): Theme {
   return {
     scheme,
@@ -45,7 +55,7 @@ export function createTheme(scheme: ColorSchemeName): Theme {
     iconSize,
     hitTarget,
     zIndex,
-    elevation,
+    elevation: themedElevation(themes[scheme].shadow),
     text: textStyles,
     fontFamily,
     fontSize,

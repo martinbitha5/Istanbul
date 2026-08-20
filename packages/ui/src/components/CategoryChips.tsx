@@ -50,6 +50,8 @@ export function CategoryChips({
         return (
           <Pressable
             onPress={() => onSelect(id)}
+            // Hauteur visuelle 40 : le hitSlop porte la cible tactile à 44.
+            hitSlop={{ top: (theme.hitTarget - 40) / 2, bottom: (theme.hitTarget - 40) / 2 }}
             accessibilityRole="tab"
             accessibilityState={{ selected: active }}
             accessibilityLabel={item?.name ?? 'Toutes les catégories'}
@@ -114,6 +116,7 @@ export function FilterTabs<T extends string>({
             key={option.value}
             onPress={() => onChange(option.value)}
             noScale
+            hitSlop={{ top: (theme.hitTarget - 38) / 2, bottom: (theme.hitTarget - 38) / 2 }}
             accessibilityRole="tab"
             accessibilityState={{ selected: active }}
             style={[

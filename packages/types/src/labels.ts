@@ -1,6 +1,7 @@
 import type {
   DeliveryStatus,
   DriverAvailability,
+  EffectiveRestaurantRole,
   FulfillmentType,
   OrderStatus,
   PaymentProvider,
@@ -142,4 +143,32 @@ export const deliveryStatusTone: Record<DeliveryStatus, StatusTone> = {
   ARRIVED: 'warning',
   DELIVERED: 'success',
   CANCELLED: 'danger',
+};
+
+/**
+ * Rôles au sein d'un établissement.
+ *
+ * Le libellé dit ce que la personne *peut faire*, pas son titre : « Gérant »
+ * et « Équipe » sont plus parlants pour un propriétaire de fast-food que
+ * MANAGER et STAFF, et la description lève l'ambiguïté au moment de choisir.
+ */
+export const restaurantRoleLabel: Record<EffectiveRestaurantRole, string> = {
+  OWNER: 'Propriétaire',
+  MANAGER: 'Gérant',
+  STAFF: 'Équipe',
+  PLATFORM: 'Plateforme',
+};
+
+export const restaurantRoleDescription: Record<EffectiveRestaurantRole, string> = {
+  OWNER: 'Tout, y compris l’équipe et les paramètres de l’établissement.',
+  MANAGER: 'Menu, promotions, zones, livreurs et commandes. Pas l’équipe.',
+  STAFF: 'Commandes du jour et disponibilité des produits.',
+  PLATFORM: 'Administration de la plateforme : accès à tous les partenaires.',
+};
+
+export const restaurantRoleTone: Record<EffectiveRestaurantRole, StatusTone> = {
+  OWNER: 'success',
+  MANAGER: 'info',
+  STAFF: 'neutral',
+  PLATFORM: 'warning',
 };

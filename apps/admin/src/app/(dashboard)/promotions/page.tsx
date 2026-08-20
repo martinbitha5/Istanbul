@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Plus, Trash } from '@phosphor-icons/react';
 import {
   formatDate,
@@ -28,6 +28,10 @@ import {
   Toggle,
   inputClass,
 } from '@/components/ui';
+import { Alert } from '@/components/Alert';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { MoneyInput } from '@/components/MoneyInput';
+import { useToast } from '@/components/Toaster';
 import { useRestaurantId } from '@/hooks/useRestaurantId';
 
 const TYPE_LABEL: Record<PromotionType, string> = {
@@ -50,6 +54,7 @@ export default function PromotionsPage() {
   const deletePromotion = useDeletePromotion();
 
   const [editing, setEditing] = useState<Partial<Promotion> | null>(null);
+  const [deleting, setDeleting] = useState<Promotion | null>(null);
 
   const list = promotions.data ?? [];
 
@@ -67,6 +72,7 @@ export default function PromotionsPage() {
   return (
     <div className="space-y-6">
       <SectionTitle
+        as="h1"
         title="Promotions"
         description="Codes promo et bannières affichées dans l’application."
         action={
@@ -98,7 +104,7 @@ export default function PromotionsPage() {
             description="Créez un code de bienvenue pour convertir vos premiers visiteurs."
           />
         ) : (
-          <Table>
+          <Table ariaLabel="Liste des promotions">
             <thead>
               <tr>
                 <Th>Promotion</Th>
@@ -185,15 +191,11 @@ export default function PromotionsPage() {
                       </Button>
                       <Button
                         size="sm"
-                        variant="ghost"
+                        variant="danger"
                         title="Supprimer"
-                        onClick={() => {
-                          if (confirm(`Supprimer « ${promotion.title} » ?`)) {
-                            deletePromotion.mutate(promotion.id);
-                          }
-                        }}
+                        onClick={() => setDeleting(promotion)}
                       >
-                        <Trash size={16} color="var(--color-danger)" />
+                        <Trash size={16} />
                       </Button>
                     </div>
                   </Td>
@@ -204,7 +206,26 @@ export default function PromotionsPage() {
         )}
       </Card>
 
-      <PromotionModal promotion={editing} onClose={() => setEditing(null)} />
+      {/* key : remonte le formulaire quand la cible change — remplace
+          l'ancien hack lastId (setState pendant le rendu). */}
+      <PromotionModal
+        key={editing?.id ?? 'new'}
+        promotion={editing}
+        onClose={() => setEditing(null)}
+      />
+
+      <ConfirmDialog
+        open={deleting !== null}
+        title="Supprimer la promotion"
+        message={`Supprimer « ${deleting?.title ?? ''} » ? Les clients ne pourront plus utiliser ce code.`}
+        confirmLabel="Supprimer"
+        loading={deletePromotion.isPending}
+        onClose={() => setDeleting(null)}
+        onConfirm={() => {
+          if (!deleting) return;
+          deletePromotion.mutate(deleting.id, { onSuccess: () => setDeleting(null) });
+        }}
+      />
     </div>
   );
 }
@@ -218,14 +239,16 @@ function PromotionModal({
 }) {
   const restaurantId = useRestaurantId();
   const savePromotion = useSavePromotion();
+  const toast = useToast();
   const [form, setForm] = useState<Partial<Promotion>>(promotion ?? {});
   const [error, setError] = useState<string | null>(null);
-  const [lastId, setLastId] = useState<string | undefined>(promotion?.id);
+  const [fieldErrors, setFieldErrors] = useState<{ title?: string; value?: string }>({});
+  const alertRef = useRef<HTMLDivElement>(null);
 
-  if (promotion && promotion.id !== lastId) {
-    setLastId(promotion.id);
-    setForm(promotion);
-  }
+  // Soumission échouée : focus sur l'alerte pour lecture immédiate.
+  useEffect(() => {
+    if (error) alertRef.current?.focus();
+  }, [error]);
 
   if (!promotion) return null;
 
@@ -233,14 +256,13 @@ function PromotionModal({
   const isFreeDelivery = form.type === 'FREE_DELIVERY';
 
   const submit = async () => {
-    if (!form.title?.trim()) {
-      setError('Le titre est obligatoire.');
-      return;
-    }
+    const errors: { title?: string; value?: string } = {};
+    if (!form.title?.trim()) errors.title = 'Le titre est obligatoire.';
     if (isPercentage && (form.value == null || form.value <= 0 || form.value > 10000)) {
-      setError('Le pourcentage doit être compris entre 1 et 100.');
-      return;
+      errors.value = 'Le pourcentage doit être compris entre 1 et 100.';
     }
+    setFieldErrors(errors);
+    if (errors.title || errors.value) return;
 
     setError(null);
     try {
@@ -248,10 +270,11 @@ function PromotionModal({
         ...form,
         id: form.id,
         restaurant_id: restaurantId,
-        title: form.title.trim(),
+        title: form.title!.trim(),
         type: form.type ?? 'PERCENTAGE',
         value: isFreeDelivery ? 0 : (form.value ?? 0),
       });
+      toast.success('Promotion enregistrée');
       onClose();
     } catch (caught) {
       setError(toUserMessage(caught));
@@ -276,7 +299,7 @@ function PromotionModal({
       }
     >
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Titre" required>
+        <Field label="Titre" required error={fieldErrors.title}>
           <input
             className={inputClass}
             value={form.title ?? ''}
@@ -318,58 +341,49 @@ function PromotionModal({
         </Field>
 
         {!isFreeDelivery ? (
-          <Field
-            label={isPercentage ? 'Réduction (%)' : 'Réduction ($)'}
-            required
-            hint={isPercentage ? 'Stocké en points de base : 15 % → 1500.' : undefined}
-          >
-            <input
-              className={inputClass}
-              type="number"
-              step={isPercentage ? '1' : '0.01'}
-              min="0"
-              value={
-                form.value != null ? (isPercentage ? form.value / 100 : form.value / 100) : ''
-              }
-              onChange={(event) =>
-                setForm({ ...form, value: Math.round(Number(event.target.value || 0) * 100) })
-              }
-            />
-          </Field>
+          isPercentage ? (
+            <Field
+              label="Réduction (%)"
+              required
+              error={fieldErrors.value}
+              hint="Stocké en points de base : 15 % → 1500."
+            >
+              {/* Le pourcentage n'est pas un montant : saisie entière 1-100,
+                  convertie en points de base. */}
+              <input
+                className={inputClass}
+                type="number"
+                step="1"
+                min="0"
+                max="100"
+                value={form.value != null ? form.value / 100 : ''}
+                onChange={(event) =>
+                  setForm({ ...form, value: Math.round(Number(event.target.value || 0) * 100) })
+                }
+              />
+            </Field>
+          ) : (
+            <Field label="Réduction ($)" required error={fieldErrors.value}>
+              <MoneyInput
+                value={form.value}
+                onChange={(cents) => setForm({ ...form, value: cents ?? 0 })}
+              />
+            </Field>
+          )
         ) : null}
 
         <Field label="Commande minimum ($)">
-          <input
-            className={inputClass}
-            type="number"
-            step="0.01"
-            min="0"
-            value={form.min_order_amount != null ? form.min_order_amount / 100 : ''}
-            onChange={(event) =>
-              setForm({
-                ...form,
-                min_order_amount: Math.round(Number(event.target.value || 0) * 100),
-              })
-            }
+          <MoneyInput
+            value={form.min_order_amount}
+            onChange={(cents) => setForm({ ...form, min_order_amount: cents ?? 0 })}
           />
         </Field>
 
         {isPercentage ? (
           <Field label="Plafond de réduction ($)" hint="Évite qu’un gros panier vide la caisse.">
-            <input
-              className={inputClass}
-              type="number"
-              step="0.01"
-              min="0"
-              value={form.max_discount_amount != null ? form.max_discount_amount / 100 : ''}
-              onChange={(event) =>
-                setForm({
-                  ...form,
-                  max_discount_amount: event.target.value
-                    ? Math.round(Number(event.target.value) * 100)
-                    : null,
-                })
-              }
+            <MoneyInput
+              value={form.max_discount_amount}
+              onChange={(cents) => setForm({ ...form, max_discount_amount: cents })}
             />
           </Field>
         ) : null}
@@ -426,13 +440,9 @@ function PromotionModal({
       </div>
 
       {error ? (
-        <div
-          role="alert"
-          className="mt-4 rounded-xl px-3.5 py-2.5 text-sm"
-          style={{ background: 'var(--color-danger-soft)', color: 'var(--color-danger)' }}
-        >
+        <Alert ref={alertRef} className="mt-4">
           {error}
-        </div>
+        </Alert>
       ) : null}
     </Modal>
   );

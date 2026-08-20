@@ -1,22 +1,25 @@
 import { Alert, Linking, StyleSheet, Switch, View } from 'react-native';
 import { router } from 'expo-router';
+import Constants from 'expo-constants';
 import {
   Bell,
   CreditCard,
   Info,
+  Coins,
   MapPinLine,
   Moon,
   Phone,
   Receipt,
   SignOut,
-  User as UserIcon,
 } from 'phosphor-react-native';
 import {
   formatPhone,
   initials,
   signOut,
+  toUserMessage,
   updateMyProfile,
   useProfile,
+  useRestaurant,
   useSession,
 } from '@istanbul/core';
 import {
@@ -24,21 +27,49 @@ import {
   Button,
   Divider,
   Header,
+  IconBubble,
   ListRow,
   Screen,
   ScreenScroll,
+  Skeleton,
   Spacer,
   Surface,
   Text,
   useTheme,
   useThemeContext,
+  useToast,
 } from '@istanbul/ui';
+import { useRestaurantId } from '@/store/restaurant';
+import { FALLBACK_RESTAURANT_PHONE } from '@/lib/config';
 
 export default function Profile() {
   const theme = useTheme();
+  const toast = useToast();
   const { preference, setPreference, isDark } = useThemeContext();
-  const { session } = useSession();
-  const { profile, refetch } = useProfile();
+  const { session, isLoading: sessionLoading } = useSession();
+  const { profile, isLoading: profileLoading, refetch } = useProfile();
+  const restaurantId = useRestaurantId();
+  const { data: restaurant } = useRestaurant(restaurantId);
+
+  // Le numéro vient de la fiche restaurant (multi-restaurant compatible) ;
+  // le fallback centralisé ne sert qu'avant le premier chargement.
+  const restaurantPhone = restaurant?.phone || FALLBACK_RESTAURANT_PHONE;
+  const appVersion = Constants.expoConfig?.version ?? '—';
+
+  // Session ou profil en cours de restauration : un squelette, jamais le
+  // panneau « Connectez-vous » flashé à un utilisateur déjà connecté.
+  if (sessionLoading || (session && profileLoading)) {
+    return (
+      <Screen>
+        <Header title="Profil" large />
+        <View style={{ paddingHorizontal: theme.screenPadding, gap: theme.spacing.base }}>
+          <Skeleton height={92} radius={theme.radius.lg} />
+          <Skeleton height={72} radius={theme.radius.lg} />
+          <Skeleton height={180} radius={theme.radius.lg} />
+        </View>
+      </Screen>
+    );
+  }
 
   if (!session || !profile) {
     return (
@@ -83,8 +114,16 @@ export default function Profile() {
   }
 
   const toggleNotification = async (key: 'notif_orders' | 'notif_promos', value: boolean) => {
-    await updateMyProfile({ [key]: value });
-    void refetch();
+    // Sans try/catch, un échec réseau laissait un rejet non géré et un
+    // interrupteur menteur : l'utilisateur croyait sa préférence enregistrée.
+    try {
+      await updateMyProfile({ [key]: value });
+    } catch (caught) {
+      toast.error(toUserMessage(caught));
+    } finally {
+      // Refetch dans tous les cas : il réaligne l'interrupteur sur le serveur.
+      void refetch();
+    }
   };
 
   const confirmSignOut = () => {
@@ -127,6 +166,26 @@ export default function Profile() {
           </View>
         </Surface>
 
+        {/* --- Fidélité --------------------------------------------------- */}
+        <Spacer size="base" />
+        <Surface
+          padding="base"
+          elevation={1}
+          style={{ flexDirection: 'row', alignItems: 'center' }}
+        >
+          <IconBubble size={44} tone="warning">
+            <Coins size={theme.iconSize.md} color={theme.colors.warning} weight="fill" />
+          </IconBubble>
+          <View style={{ flex: 1, marginLeft: theme.spacing.md }}>
+            <Text variant="h3" tabular>
+              {profile.loyalty_points ?? 0} points fidélité
+            </Text>
+            <Text variant="caption" color="textSecondary">
+              1 $ commandé = 1 point · 20 points = 1 $ offert au checkout
+            </Text>
+          </View>
+        </Surface>
+
         <Spacer size="xl" />
 
         {/* --- Compte ---------------------------------------------------- */}
@@ -136,16 +195,12 @@ export default function Profile() {
         <Spacer size="sm" />
 
         <Surface padding="none" elevation={1} style={{ paddingHorizontal: theme.spacing.base }}>
-          <ListRow
-            title="Mes informations"
-            subtitle="Nom, téléphone, photo"
-            icon={<UserIcon size={theme.iconSize.sm} color={theme.colors.text} />}
-            onPress={() => router.push('/addresses')}
-          />
-          <Divider />
+          {/* L'ancienne ligne « Mes informations » promettait un écran
+              d'édition qui n'existe pas et menait ici aussi : une seule
+              ligne honnête vaut mieux que deux libellés pour la même route. */}
           <ListRow
             title="Mes adresses"
-            subtitle="Domicile, bureau…"
+            subtitle="Domicile, bureau… et adresse par défaut"
             icon={<MapPinLine size={theme.iconSize.sm} color={theme.colors.text} />}
             onPress={() => router.push('/addresses')}
           />
@@ -225,14 +280,14 @@ export default function Profile() {
         <Surface padding="none" elevation={1} style={{ paddingHorizontal: theme.spacing.base }}>
           <ListRow
             title="Appeler le restaurant"
-            subtitle="+243 999 000 111"
+            subtitle={formatPhone(restaurantPhone)}
             icon={<Phone size={theme.iconSize.sm} color={theme.colors.text} />}
-            onPress={() => void Linking.openURL('tel:+243999000111')}
+            onPress={() => void Linking.openURL(`tel:${restaurantPhone}`)}
           />
           <Divider />
           <ListRow
             title="À propos"
-            subtitle="Version 1.0.0"
+            subtitle={`Version ${appVersion}`}
             icon={<Info size={theme.iconSize.sm} color={theme.colors.text} />}
           />
         </Surface>
@@ -252,7 +307,7 @@ export default function Profile() {
         <Spacer size="xl" />
 
         <Text variant="caption" color="textMuted" align="center">
-          Istanbul Fast Food · Kinshasa
+          {restaurant?.name ?? 'Istanbul Fast Food'} · {restaurant?.city ?? 'Kinshasa'}
         </Text>
       </ScreenScroll>
     </Screen>

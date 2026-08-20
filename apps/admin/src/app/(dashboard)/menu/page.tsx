@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
 import { Plus, Trash } from '@phosphor-icons/react';
 import {
@@ -30,6 +30,12 @@ import {
   Toggle,
   inputClass,
 } from '@/components/ui';
+import { Alert } from '@/components/Alert';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { FilterChips } from '@/components/FilterChips';
+import { MoneyInput } from '@/components/MoneyInput';
+import { ImageUpload } from '@/components/ImageUpload';
+import { useToast } from '@/components/Toaster';
 import { useRestaurantId } from '@/hooks/useRestaurantId';
 import { OptionGroupsEditor } from './OptionGroupsEditor';
 
@@ -52,6 +58,7 @@ export default function MenuPage() {
 
   const [editing, setEditing] = useState<Partial<Product> | null>(null);
   const [optionsFor, setOptionsFor] = useState<Product | null>(null);
+  const [deleting, setDeleting] = useState<Product | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
 
   const categoryName = useMemo(() => {
@@ -59,6 +66,17 @@ export default function MenuPage() {
     (categories.data ?? []).forEach((category) => map.set(category.id, category.name));
     return map;
   }, [categories.data]);
+
+  const filterOptions = useMemo(
+    () => [
+      { value: 'ALL', label: 'Toutes' },
+      ...(categories.data ?? []).map((category) => ({
+        value: category.id,
+        label: category.name,
+      })),
+    ],
+    [categories.data],
+  );
 
   const filtered = useMemo(() => {
     const all = products.data ?? [];
@@ -70,6 +88,7 @@ export default function MenuPage() {
   return (
     <div className="space-y-6">
       <SectionTitle
+        as="h1"
         title="Menu"
         description={`${products.data?.length ?? 0} produits`}
         action={
@@ -80,21 +99,12 @@ export default function MenuPage() {
         }
       />
 
-      <div className="flex flex-wrap gap-2">
-        <FilterChip
-          label="Toutes"
-          active={categoryFilter === 'ALL'}
-          onClick={() => setCategoryFilter('ALL')}
-        />
-        {(categories.data ?? []).map((category) => (
-          <FilterChip
-            key={category.id}
-            label={category.name}
-            active={categoryFilter === category.id}
-            onClick={() => setCategoryFilter(category.id)}
-          />
-        ))}
-      </div>
+      <FilterChips
+        options={filterOptions}
+        value={categoryFilter}
+        onChange={setCategoryFilter}
+        label="Filtrer par catégorie"
+      />
 
       <Card padded={false} className="px-5 pb-2 pt-4">
         {products.isLoading ? (
@@ -112,7 +122,7 @@ export default function MenuPage() {
             }
           />
         ) : (
-          <Table>
+          <Table ariaLabel="Liste des produits du menu">
             <thead>
               <tr>
                 <Th>Produit</Th>
@@ -189,19 +199,11 @@ export default function MenuPage() {
                       </Button>
                       <Button
                         size="sm"
-                        variant="ghost"
+                        variant="danger"
                         title="Supprimer"
-                        onClick={() => {
-                          if (
-                            confirm(
-                              `Supprimer « ${product.name} » ? Les commandes passées conservent leur historique.`,
-                            )
-                          ) {
-                            deleteProduct.mutate(product.id);
-                          }
-                        }}
+                        onClick={() => setDeleting(product)}
                       >
-                        <Trash size={16} color="var(--color-danger)" />
+                        <Trash size={16} />
                       </Button>
                     </div>
                   </Td>
@@ -212,10 +214,26 @@ export default function MenuPage() {
         )}
       </Card>
 
+      {/* key : remonte le formulaire quand la cible change — remplace
+          l'ancien hack lastId (setState pendant le rendu). */}
       <ProductModal
+        key={editing?.id ?? 'new'}
         product={editing}
         categories={categories.data ?? []}
         onClose={() => setEditing(null)}
+      />
+
+      <ConfirmDialog
+        open={deleting !== null}
+        title="Supprimer le produit"
+        message={`Supprimer « ${deleting?.name ?? ''} » ? Les commandes passées conservent leur historique.`}
+        confirmLabel="Supprimer"
+        loading={deleteProduct.isPending}
+        onClose={() => setDeleting(null)}
+        onConfirm={() => {
+          if (!deleting) return;
+          deleteProduct.mutate(deleting.id, { onSuccess: () => setDeleting(null) });
+        }}
       />
 
       {optionsFor ? (
@@ -245,15 +263,17 @@ function ProductModal({
 }) {
   const restaurantId = useRestaurantId();
   const saveProduct = useSaveProduct();
+  const toast = useToast();
   const [form, setForm] = useState<Partial<Product>>(product ?? {});
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<{ name?: string; base_price?: string }>({});
+  const alertRef = useRef<HTMLDivElement>(null);
 
-  // Réinitialise le formulaire à chaque ouverture sur un produit différent.
-  const [lastId, setLastId] = useState<string | undefined>(product?.id);
-  if (product && product.id !== lastId) {
-    setLastId(product.id);
-    setForm(product);
-  }
+  // Soumission échouée côté serveur : le focus rejoint l'alerte pour que
+  // l'erreur soit lue immédiatement (l'alerte est en bas de la modale).
+  useEffect(() => {
+    if (error) alertRef.current?.focus();
+  }, [error]);
 
   if (!product) return null;
 
@@ -261,14 +281,11 @@ function ProductModal({
     setForm((current) => ({ ...current, [key]: value }));
 
   const submit = async () => {
-    if (!form.name?.trim()) {
-      setError('Le nom du produit est obligatoire.');
-      return;
-    }
-    if (form.base_price == null || form.base_price < 0) {
-      setError('Indiquez un prix valide.');
-      return;
-    }
+    const errors: { name?: string; base_price?: string } = {};
+    if (!form.name?.trim()) errors.name = 'Le nom du produit est obligatoire.';
+    if (form.base_price == null || form.base_price < 0) errors.base_price = 'Indiquez un prix valide.';
+    setFieldErrors(errors);
+    if (errors.name || errors.base_price) return;
 
     setError(null);
     try {
@@ -276,9 +293,10 @@ function ProductModal({
         ...form,
         id: form.id,
         restaurant_id: restaurantId,
-        name: form.name.trim(),
-        base_price: form.base_price,
+        name: form.name!.trim(),
+        base_price: form.base_price!,
       });
+      toast.success('Produit enregistré');
       onClose();
     } catch (caught) {
       setError(toUserMessage(caught));
@@ -303,7 +321,7 @@ function ProductModal({
       }
     >
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Nom" required>
+        <Field label="Nom" required error={fieldErrors.name}>
           <input
             className={inputClass}
             value={form.name ?? ''}
@@ -338,42 +356,31 @@ function ProductModal({
           </Field>
         </div>
 
-        <Field label="Prix (en $)" required hint="Stocké en centimes en base.">
-          <input
-            className={inputClass}
-            type="number"
-            step="0.01"
-            min="0"
-            value={form.base_price != null ? form.base_price / 100 : ''}
-            onChange={(event) =>
-              set('base_price', Math.round(Number(event.target.value || 0) * 100))
+        <Field label="Prix (en $)" required error={fieldErrors.base_price}>
+          <MoneyInput
+            value={form.base_price}
+            // Champ vidé → undefined : la validation de submit le signalera.
+            onChange={(cents) =>
+              setForm((current) => ({ ...current, base_price: cents ?? undefined }))
             }
           />
         </Field>
 
         <Field label="Prix barré (en $)" hint="Laisser vide s’il n’y a pas de promotion.">
-          <input
-            className={inputClass}
-            type="number"
-            step="0.01"
-            min="0"
-            value={form.compare_at_price != null ? form.compare_at_price / 100 : ''}
-            onChange={(event) =>
-              set(
-                'compare_at_price',
-                event.target.value ? Math.round(Number(event.target.value) * 100) : null,
-              )
-            }
+          <MoneyInput
+            value={form.compare_at_price}
+            onChange={(cents) => set('compare_at_price', cents)}
           />
         </Field>
 
         <div className="sm:col-span-2">
-          <Field label="URL de l’image" hint="Uploadez dans le bucket product-images puis collez l’URL.">
-            <input
-              className={inputClass}
-              value={form.image_url ?? ''}
-              onChange={(event) => set('image_url', event.target.value)}
-              placeholder="https://…/product-images/shawarma.jpg"
+          <Field
+            label="Photo du produit"
+            hint="Compressée et envoyée vers Supabase Storage automatiquement."
+          >
+            <ImageUpload
+              value={form.image_url ?? null}
+              onChange={(url) => set('image_url', url)}
             />
           </Field>
         </div>
@@ -421,39 +428,10 @@ function ProductModal({
       </div>
 
       {error ? (
-        <div
-          role="alert"
-          className="mt-4 rounded-xl px-3.5 py-2.5 text-sm"
-          style={{ background: 'var(--color-danger-soft)', color: 'var(--color-danger)' }}
-        >
+        <Alert ref={alertRef} className="mt-4">
           {error}
-        </div>
+        </Alert>
       ) : null}
     </Modal>
-  );
-}
-
-function FilterChip({
-  label,
-  active,
-  onClick,
-}: {
-  label: string;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      aria-pressed={active}
-      className="rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors"
-      style={{
-        background: active ? 'var(--color-primary)' : 'var(--color-surface)',
-        color: active ? '#fff' : 'var(--color-text-secondary)',
-        borderColor: active ? 'var(--color-primary)' : 'var(--color-border)',
-      }}
-    >
-      {label}
-    </button>
   );
 }

@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { UUID } from '@istanbul/types';
 import {
@@ -10,10 +11,20 @@ import {
   fetchProducts,
   fetchPublicPromotions,
   fetchRestaurant,
+  fetchRestaurants,
   toggleFavorite,
   type ProductFilters,
 } from '../api/catalog';
 import { queryKeys } from '../query/keys';
+
+/** Liste des restaurants — n'affiche un sélecteur que s'il y en a plusieurs. */
+export function useRestaurants() {
+  return useQuery({
+    queryKey: queryKeys.restaurants(),
+    queryFn: fetchRestaurants,
+    staleTime: 10 * 60_000,
+  });
+}
 
 export function useRestaurant(restaurantId: UUID) {
   return useQuery({
@@ -96,9 +107,13 @@ export function useFavoriteIds() {
     queryFn: fetchFavoriteIds,
   });
 
+  // Référence stable : un `new Set()` à chaque rendu casserait toute
+  // mémoïsation en aval (chaque `ProductCard` se re-rendrait en permanence).
+  const ids = useMemo(() => new Set(query.data ?? []), [query.data]);
+
   return {
     ...query,
-    ids: new Set(query.data ?? []),
+    ids,
   };
 }
 

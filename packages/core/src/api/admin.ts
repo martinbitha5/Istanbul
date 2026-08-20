@@ -126,14 +126,23 @@ export async function saveProduct(input: ProductInput & { id?: UUID }): Promise<
   return data as Product;
 }
 
+/**
+ * Rupture de stock.
+ *
+ * Passe par une fonction SQL et non par un `update` direct : la RLS filtre des
+ * lignes, pas des colonnes, et la policy d'écriture sur `products` est
+ * réservée aux rôles OWNER/MANAGER. Or c'est la personne à la caisse — rôle
+ * STAFF — qui constate qu'il n'y a plus de poulet. `fn_set_product_availability`
+ * n'expose qu'une seule colonne : elle ne peut rien faire d'autre.
+ */
 export async function setProductAvailability(
   productId: UUID,
   isAvailable: boolean,
 ): Promise<void> {
-  const { error } = await getSupabase()
-    .from('products')
-    .update({ is_available: isAvailable })
-    .eq('id', productId);
+  const { error } = await getSupabase().rpc('fn_set_product_availability', {
+    p_product_id: productId,
+    p_is_available: isAvailable,
+  });
   if (error) throw error;
 }
 

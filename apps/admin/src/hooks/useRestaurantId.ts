@@ -1,18 +1,21 @@
 'use client';
 
-import { useProfile } from '@istanbul/core';
-
-const FALLBACK_RESTAURANT_ID =
-  process.env.NEXT_PUBLIC_RESTAURANT_ID ?? '00000000-0000-0000-0000-000000000001';
+import { useRestaurantContext } from '@/providers/RestaurantProvider';
 
 /**
- * Restaurant courant.
+ * Établissement courant.
  *
- * Le staff est rattaché à un restaurant via `profiles.restaurant_id`. Un
- * SUPER_ADMIN n'a pas de rattachement : on retombe alors sur le restaurant par
- * défaut, en attendant le sélecteur multi-restaurants du lot 4.
+ * Simple raccourci sur `RestaurantProvider`, conservé parce que la moitié des
+ * pages du dashboard l'appellent. Le provider garantit qu'aucune page n'est
+ * montée avant qu'un établissement soit choisi : la valeur n'est donc jamais
+ * vide ici, et les hooks React Query qui la reçoivent n'ont pas à se garder
+ * contre le cas nul.
+ *
+ * Il n'y a plus de repli sur `NEXT_PUBLIC_RESTAURANT_ID` : un identifiant en
+ * dur était une bombe à retardement en multi-restaurants — sur un compte mal
+ * rattaché, le dashboard affichait sereinement les commandes d'un autre
+ * partenaire.
  */
 export function useRestaurantId(): string {
-  const { profile } = useProfile();
-  return profile?.restaurant_id ?? FALLBACK_RESTAURANT_ID;
+  return useRestaurantContext().restaurantId;
 }

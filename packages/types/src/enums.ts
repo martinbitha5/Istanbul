@@ -14,6 +14,30 @@ export const UserRole = {
 } as const;
 export type UserRole = (typeof UserRole)[keyof typeof UserRole];
 
+/**
+ * Rôle au sein d'UN établissement.
+ *
+ * `UserRole` dit ce qu'une personne est sur la plateforme ; `RestaurantRole`
+ * dit ce qu'elle peut faire chez tel partenaire. Les deux sont nécessaires :
+ * un même compte peut être propriétaire de son restaurant et simple client
+ * chez un autre.
+ */
+export const RestaurantRole = {
+  /** Tout, y compris l'équipe et les paramètres de l'établissement. */
+  OWNER: 'OWNER',
+  /** Exploitation complète (menu, promos, zones, livreurs) sans l'équipe. */
+  MANAGER: 'MANAGER',
+  /** Service au quotidien : commandes et disponibilité des produits. */
+  STAFF: 'STAFF',
+} as const;
+export type RestaurantRole = (typeof RestaurantRole)[keyof typeof RestaurantRole];
+
+/**
+ * Rôle effectif dans le sélecteur d'établissement : `PLATFORM` désigne un
+ * ADMIN de la plateforme qui n'est membre d'aucune équipe mais voit tout.
+ */
+export type EffectiveRestaurantRole = RestaurantRole | 'PLATFORM';
+
 export const FulfillmentType = {
   DELIVERY: 'DELIVERY',
   PICKUP: 'PICKUP',

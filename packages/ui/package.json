@@ -22,10 +22,13 @@
     "react-native": "*",
     "react-native-reanimated": "*",
     "react-native-safe-area-context": "*",
-    "react-native-svg": "*"
+    "react-native-svg": "*",
+    "react-native-webview": "*",
+    "react-native-worklets": "*"
   },
   "devDependencies": {
     "@types/react": "~19.1.0",
+    "react-native-webview": "13.15.0",
     "typescript": "~5.9.2"
   }
 }

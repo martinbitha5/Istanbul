@@ -1,4 +1,4 @@
-import { FlatList, StyleSheet, View } from 'react-native';
+import { FlatList, View } from 'react-native';
 import { router } from 'expo-router';
 import { ClockCounterClockwise } from 'phosphor-react-native';
 import {
@@ -20,6 +20,7 @@ import {
   Text,
   useTheme,
 } from '@istanbul/ui';
+import { Row } from '@/components/Row';
 
 export default function History() {
   const theme = useTheme();
@@ -53,12 +54,12 @@ export default function History() {
           renderItem={({ item }) => (
             <Pressable onPress={() => router.push(`/delivery/${item.id}`)}>
               <Surface padding="base" elevation={1}>
-                <View style={styles.rowBetween}>
+                <Row>
                   <Text variant="labelStrong" tabular color="textSecondary">
                     {item.order.order_number}
                   </Text>
                   <Badge label="Livrée" tone="success" size="sm" dot />
-                </View>
+                </Row>
 
                 <Text variant="body" numberOfLines={1} style={{ marginTop: theme.spacing.sm }}>
                   {item.order.contact_name}
@@ -69,14 +70,16 @@ export default function History() {
 
                 <Divider spacing="md" />
 
-                <View style={styles.rowBetween}>
+                <Row>
                   <Text variant="caption" color="textMuted">
                     {formatDateTime(item.delivered_at)}
                   </Text>
+                  {/* `success` reste le bon token : son contraste a été
+                      corrigé côté tokens, pas de couleur locale ici. */}
                   <Text variant="priceSmall" tabular color="success">
                     +{formatMoney(item.payout_amount, item.order.currency)}
                   </Text>
-                </View>
+                </Row>
               </Surface>
             </Pressable>
           )}
@@ -85,7 +88,11 @@ export default function History() {
               title="Aucune livraison terminée"
               description="Vos courses livrées apparaîtront ici avec vos gains."
               icon={
-                <ClockCounterClockwise size={32} color={theme.colors.textMuted} weight="duotone" />
+                <ClockCounterClockwise
+                  size={theme.iconSize.xl}
+                  color={theme.colors.textMuted}
+                  weight="duotone"
+                />
               }
             />
           }
@@ -95,6 +102,3 @@ export default function History() {
   );
 }
 
-const styles = StyleSheet.create({
-  rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-});

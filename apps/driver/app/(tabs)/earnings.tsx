@@ -5,6 +5,7 @@ import {
   Divider,
   ErrorState,
   Header,
+  Price,
   Screen,
   ScreenScroll,
   Skeleton,
@@ -13,6 +14,7 @@ import {
   Text,
   useTheme,
 } from '@istanbul/ui';
+import { Row } from '@/components/Row';
 
 /**
  * Revenus.
@@ -20,6 +22,11 @@ import {
  * Les montants viennent de `deliveries.payout_amount`, figé au moment de
  * l'assignation. Changer la grille tarifaire demain ne réécrit pas ce que le
  * livreur a gagné hier.
+ *
+ * NOTE(devise) : `DriverEarnings` n'expose pas la devise — les montants sont
+ * agrégés côté client sans elle. `formatMoney` retombe donc sur sa devise
+ * par défaut ici ; exposer `currency` dans l'agrégat serait la vraie
+ * correction (changement côté packages/core).
  */
 export default function Earnings() {
   const theme = useTheme();
@@ -55,19 +62,25 @@ export default function Earnings() {
       <Header title="Mes revenus" large />
 
       <ScreenScroll>
-        {/* --- Aujourd'hui ---------------------------------------------- */}
+        {/* --- Aujourd'hui ----------------------------------------------
+            `textOnPrimary` est un encre foncé en mode sombre : c'est voulu,
+            le fond `primary` y est plus clair — ne jamais forcer du blanc. */}
         <Surface padding="lg" elevation={2} style={{ backgroundColor: theme.colors.primary }}>
-          <Text variant="label" style={{ color: 'rgba(255,255,255,0.85)' }}>
+          <Text variant="label" color="textOnPrimary" style={{ opacity: 0.85 }}>
             Aujourd’hui
           </Text>
-          <Text
-            variant="brand"
-            tabular
-            style={{ color: '#FFFFFF', marginTop: theme.spacing.xs, fontSize: 40 }}
+          <Price
+            variant="priceLarge"
+            color="textOnPrimary"
+            style={{ marginTop: theme.spacing.xs }}
           >
             {formatMoney(data.today)}
-          </Text>
-          <Text variant="body" style={{ color: 'rgba(255,255,255,0.85)', marginTop: 2 }}>
+          </Price>
+          <Text
+            variant="body"
+            color="textOnPrimary"
+            style={{ opacity: 0.85, marginTop: theme.spacing.xxs }}
+          >
             {data.deliveriesToday} livraison{data.deliveriesToday > 1 ? 's' : ''} effectuée
             {data.deliveriesToday > 1 ? 's' : ''}
           </Text>
@@ -86,42 +99,42 @@ export default function Earnings() {
 
         {/* --- Cumul ----------------------------------------------------- */}
         <Surface padding="base" elevation={1}>
-          <View style={styles.rowBetween}>
+          <Row>
             <View style={styles.iconRow}>
               <TrendUp size={theme.iconSize.sm} color={theme.colors.success} weight="bold" />
-              <Text variant="body" color="textSecondary" style={{ marginLeft: 8 }}>
+              <Text variant="body" color="textSecondary" style={{ marginLeft: theme.spacing.sm }}>
                 Total depuis le début
               </Text>
             </View>
             <Text variant="priceSmall" tabular>
               {formatMoney(data.total)}
             </Text>
-          </View>
+          </Row>
 
           <Divider spacing="md" />
 
-          <View style={styles.rowBetween}>
+          <Row>
             <View style={styles.iconRow}>
               <Motorcycle size={theme.iconSize.sm} color={theme.colors.primary} weight="fill" />
-              <Text variant="body" color="textSecondary" style={{ marginLeft: 8 }}>
+              <Text variant="body" color="textSecondary" style={{ marginLeft: theme.spacing.sm }}>
                 Livraisons effectuées
               </Text>
             </View>
             <Text variant="bodyStrong" tabular>
               {data.deliveriesTotal}
             </Text>
-          </View>
+          </Row>
 
           <Divider spacing="md" />
 
-          <View style={styles.rowBetween}>
+          <Row>
             <Text variant="body" color="textSecondary">
               Gain moyen par course
             </Text>
             <Text variant="bodyStrong" tabular>
               {formatMoney(averagePerDelivery)}
             </Text>
-          </View>
+          </Row>
         </Surface>
 
         <Spacer size="lg" />
@@ -151,6 +164,5 @@ function StatCard({ label, value }: { label: string; value: string }) {
 
 const styles = StyleSheet.create({
   statRow: { flexDirection: 'row' },
-  rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   iconRow: { flexDirection: 'row', alignItems: 'center' },
 });

@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { getCurrentProfile } from '@/lib/supabase/server';
 import { Shell } from '@/components/Shell';
+import { RestaurantProvider } from '@/providers/RestaurantProvider';
 
 /**
  * Garde d'accès du dashboard.
@@ -31,5 +32,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
     );
   }
 
-  return <Shell>{children}</Shell>;
+  // Le provider tranche *quel* établissement on administre avant que la
+  // moindre page ne se monte : sans lui, chaque écran partirait interroger
+  // Supabase avec un identifiant vide.
+  return (
+    <RestaurantProvider>
+      <Shell>{children}</Shell>
+    </RestaurantProvider>
+  );
 }

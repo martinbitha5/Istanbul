@@ -2,6 +2,7 @@ import React, { useCallback } from 'react';
 import {
   Pressable as RNPressable,
   type PressableProps as RNPressableProps,
+  type StyleProp,
   type ViewStyle,
 } from 'react-native';
 import Animated, {
@@ -16,7 +17,8 @@ import { useTheme } from '../theme/ThemeProvider';
 const AnimatedPressable = Animated.createAnimatedComponent(RNPressable);
 
 export interface PressableProps extends Omit<RNPressableProps, 'style'> {
-  style?: ViewStyle | ViewStyle[];
+  /** StyleProp : accepte les tableaux avec conditions (`cond && style`). */
+  style?: StyleProp<ViewStyle>;
   /** Désactive l'échelle de pression (barres pleine largeur, lignes de liste). */
   noScale?: boolean;
   /** Opacité au lieu de l'échelle — pour les éléments déjà animés par ailleurs. */

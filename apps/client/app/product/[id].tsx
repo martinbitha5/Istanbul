@@ -2,12 +2,14 @@ import { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Image } from 'expo-image';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { Check, Fire, Heart, X } from 'phosphor-react-native';
 import {
   defaultSelection,
   formatMoney,
   productPriceWithOptions,
+  selectProductQuantity,
   toggleOption,
   useCartStore,
   useFavoriteIds,
@@ -32,8 +34,12 @@ import {
   Spacer,
   Text,
   useTheme,
+  useToast,
 } from '@istanbul/ui';
-import { config } from '@/lib/config';
+import { useRestaurantId } from '@/store/restaurant';
+
+/** Diamètre des boutons ronds du hero (fermer, favori). */
+const CIRCLE_BUTTON_SIZE = 40;
 
 /**
  * Fiche produit.
@@ -44,14 +50,20 @@ import { config } from '@/lib/config';
  */
 export default function ProductDetail() {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
+  const toast = useToast();
   const { id } = useLocalSearchParams<{ id: string }>();
 
   const { data: product, isLoading, isError, refetch } = useProduct(id ?? null);
-  const { data: restaurant } = useRestaurant(config.restaurantId);
+  const restaurantId = useRestaurantId();
+  const { data: restaurant } = useRestaurant(restaurantId);
   const { profile } = useProfile();
   const { ids: favoriteIds } = useFavoriteIds();
   const toggleFavorite = useToggleFavorite();
   const addLine = useCartStore((state) => state.addLine);
+  // Quantité déjà au panier, tous variants confondus : sans elle, le client
+  // rajoute un plat en croyant que le premier ajout n'a pas été pris.
+  const inCartQuantity = useCartStore(selectProductQuantity(id ?? ''));
 
   const [selected, setSelected] = useState<string[]>([]);
   const [quantity, setQuantity] = useState(1);
@@ -96,6 +108,9 @@ export default function ProductDetail() {
 
     addLine(product, selected, quantity, note.trim() || null);
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    // La fiche se ferme aussitôt : sans toast, rien ne confirme que l'ajout
+    // a bien eu lieu — l'haptique seule est invisible et non accessible.
+    toast.success(quantity > 1 ? `${quantity} × ${product.name} ajoutés au panier` : `${product.name} ajouté au panier`);
     router.back();
   };
 
@@ -114,10 +129,22 @@ export default function ProductDetail() {
             accessibilityLabel={product.name}
           />
 
-          <View style={[styles.heroActions, { paddingTop: theme.spacing['3xl'] }]}>
+          {/* paddingTop calé sur l'inset réel : la valeur fixe passait sous
+              la barre de statut des téléphones à encoche. */}
+          <View
+            style={[
+              styles.heroActions,
+              {
+                paddingTop: insets.top + theme.spacing.sm,
+                paddingHorizontal: theme.screenPadding,
+              },
+            ]}
+          >
             <Pressable
               onPress={() => router.back()}
               accessibilityLabel="Fermer"
+              // Boutons de 40 : le hitSlop remonte la cible au plancher de 44.
+              hitSlop={(theme.hitTarget - CIRCLE_BUTTON_SIZE) / 2}
               style={[styles.circleButton, { backgroundColor: theme.colors.surface }]}
             >
               <X size={theme.iconSize.sm} color={theme.colors.text} weight="bold" />
@@ -127,6 +154,7 @@ export default function ProductDetail() {
               <Pressable
                 onPress={() => toggleFavorite.mutate({ productId: product.id, isFavorite })}
                 accessibilityLabel={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+                hitSlop={(theme.hitTarget - CIRCLE_BUTTON_SIZE) / 2}
                 style={[styles.circleButton, { backgroundColor: theme.colors.surface }]}
               >
                 <Heart
@@ -186,6 +214,17 @@ export default function ProductDetail() {
             Prêt en {product.prep_minutes} min
             {product.calories ? ` · ${product.calories} kcal` : ''}
           </Text>
+
+          {inCartQuantity > 0 ? (
+            <View style={{ marginTop: theme.spacing.sm, alignSelf: 'flex-start' }}>
+              <Badge
+                label={`Déjà ${inCartQuantity} au panier`}
+                tone="info"
+                size="sm"
+                dot
+              />
+            </View>
+          ) : null}
 
           {/* --- Groupes d'options -------------------------------------- */}
           {product.option_groups.map((group) => (
@@ -306,7 +345,9 @@ function OptionGroup({
                 >
                   {isSelected ? (
                     isSingle ? (
-                      <View style={styles.radioDot} />
+                      <View
+                        style={[styles.radioDot, { backgroundColor: theme.colors.textOnPrimary }]}
+                      />
                     ) : (
                       <Check size={12} color={theme.colors.textOnPrimary} weight="bold" />
                     )
@@ -339,6 +380,8 @@ function OptionGroup({
 
 function ProductSkeleton() {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
+
   return (
     <Screen edges={['left', 'right']}>
       <Skeleton height={300} radius={0} />
@@ -347,6 +390,24 @@ function ProductSkeleton() {
         <Skeleton width="90%" height={16} />
         <Skeleton width="35%" height={24} />
         <Skeleton width="100%" height={120} radius={theme.radius.lg} />
+      </View>
+
+      {/* La croix reste disponible pendant le chargement : sur un réseau
+          lent, l'utilisateur ne doit jamais être prisonnier de la modale. */}
+      <View
+        style={[
+          styles.heroActions,
+          { paddingTop: insets.top + theme.spacing.sm, paddingHorizontal: theme.screenPadding },
+        ]}
+      >
+        <Pressable
+          onPress={() => router.back()}
+          accessibilityLabel="Fermer"
+          hitSlop={(theme.hitTarget - CIRCLE_BUTTON_SIZE) / 2}
+          style={[styles.circleButton, { backgroundColor: theme.colors.surface }]}
+        >
+          <X size={theme.iconSize.sm} color={theme.colors.text} weight="bold" />
+        </Pressable>
       </View>
     </Screen>
   );
@@ -361,12 +422,11 @@ const styles = StyleSheet.create({
     right: 0,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
   },
   circleButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: CIRCLE_BUTTON_SIZE,
+    height: CIRCLE_BUTTON_SIZE,
+    borderRadius: CIRCLE_BUTTON_SIZE / 2,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -383,7 +443,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  radioDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#FFFFFF' },
+  radioDot: { width: 8, height: 8, borderRadius: 4 },
   checkbox: {
     width: 22,
     height: 22,

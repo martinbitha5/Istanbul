@@ -1,7 +1,8 @@
 import { useMemo } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Alert, StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
 import { Image } from 'expo-image';
+import * as Haptics from 'expo-haptics';
 import Animated, { LinearTransition } from 'react-native-reanimated';
 import { ShoppingBagOpen } from 'phosphor-react-native';
 import {
@@ -19,6 +20,7 @@ import {
   Divider,
   EmptyState,
   Header,
+  InlineAlert,
   QuantityStepper,
   Screen,
   ScreenScroll,
@@ -27,7 +29,8 @@ import {
   Text,
   useTheme,
 } from '@istanbul/ui';
-import { config } from '@/lib/config';
+import { useRestaurantId } from '@/store/restaurant';
+import { BOTTOM_BAR_INSET } from '@/lib/layout';
 
 /**
  * Panier.
@@ -39,7 +42,8 @@ import { config } from '@/lib/config';
  */
 export default function Cart() {
   const theme = useTheme();
-  const { data: restaurant } = useRestaurant(config.restaurantId);
+  const restaurantId = useRestaurantId();
+  const { data: restaurant } = useRestaurant(restaurantId);
 
   const lines = useCartStore((state) => state.lines);
   const setQuantity = useCartStore((state) => state.setQuantity);
@@ -50,6 +54,15 @@ export default function Cart() {
   const currency = restaurant?.currency;
   const minOrder = restaurant?.min_order_amount ?? 0;
   const belowMinimum = subtotal < minOrder;
+
+  // Vider est irréversible et le bouton vit à un pouce du stepper : sans
+  // confirmation, un tap raté effaçait tout le panier en silence.
+  const confirmClear = () => {
+    Alert.alert('Vider le panier ?', 'Tous les articles seront retirés.', [
+      { text: 'Annuler', style: 'cancel' },
+      { text: 'Vider', style: 'destructive', onPress: clear },
+    ]);
+  };
 
   if (lines.length === 0) {
     return (
@@ -74,7 +87,7 @@ export default function Cart() {
         onBack={() => router.back()}
       />
 
-      <ScreenScroll bottomInset={120}>
+      <ScreenScroll bottomInset={BOTTOM_BAR_INSET}>
         <Surface padding="base" elevation={1}>
           {lines.map((line, index) => (
             <Animated.View key={line.key} layout={LinearTransition.duration(theme.duration.base)}>
@@ -82,8 +95,16 @@ export default function Cart() {
               <CartLineRow
                 line={line}
                 currency={currency}
-                onChangeQuantity={(quantity) => setQuantity(line.key, quantity)}
-                onRemove={() => removeLine(line.key)}
+                onChangeQuantity={(quantity) => {
+                  // Retour tactile discret : le stepper est l'élément le plus
+                  // manipulé du panier, la confirmation doit se sentir.
+                  void Haptics.selectionAsync();
+                  setQuantity(line.key, quantity);
+                }}
+                onRemove={() => {
+                  void Haptics.selectionAsync();
+                  removeLine(line.key);
+                }}
               />
             </Animated.View>
           ))}
@@ -105,16 +126,11 @@ export default function Cart() {
         </Text>
 
         {belowMinimum ? (
-          <Surface
-            padding="md"
-            elevation={0}
-            style={{ backgroundColor: theme.colors.warningSoft, marginTop: theme.spacing.base }}
-          >
-            <Text variant="label" style={{ color: theme.colors.warning }}>
-              Commande minimum de {formatMoney(minOrder, currency)}. Ajoutez encore{' '}
-              {formatMoney(minOrder - subtotal, currency)}.
-            </Text>
-          </Surface>
+          <InlineAlert
+            tone="warning"
+            message={`Commande minimum de ${formatMoney(minOrder, currency)}. Ajoutez encore ${formatMoney(minOrder - subtotal, currency)}.`}
+            style={{ marginTop: theme.spacing.base }}
+          />
         ) : null}
 
         <Spacer size="xl" />
@@ -122,7 +138,7 @@ export default function Cart() {
         <Button
           label="Vider le panier"
           variant="ghost"
-          onPress={clear}
+          onPress={confirmClear}
           style={{ alignSelf: 'center' }}
         />
       </ScreenScroll>

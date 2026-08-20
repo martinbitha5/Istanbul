@@ -43,7 +43,8 @@
         }
       ],
       ["expo-notifications", { "color": "#E5431C" }],
-      ["expo-splash-screen", { "backgroundColor": "#100D0B" }]
+      ["expo-splash-screen", { "backgroundColor": "#100D0B" }],
+      "@sentry/react-native"
     ],
     "experiments": { "typedRoutes": true },
     "extra": {

@@ -115,26 +115,9 @@ export async function updateMyProfile(patch: Partial<Profile>): Promise<Profile>
   return data as Profile;
 }
 
-/**
- * Enregistre un token Expo Push. Un utilisateur peut avoir plusieurs appareils,
- * d'où le tableau plutôt qu'une colonne unique.
- */
-export async function registerPushToken(token: string): Promise<void> {
-  const profile = await fetchMyProfile();
-  if (!profile) return;
-  if (profile.push_tokens.includes(token)) return;
-
-  await updateMyProfile({ push_tokens: [...profile.push_tokens, token] });
-}
-
-export async function unregisterPushToken(token: string): Promise<void> {
-  const profile = await fetchMyProfile();
-  if (!profile) return;
-
-  await updateMyProfile({
-    push_tokens: profile.push_tokens.filter((existing) => existing !== token),
-  });
-}
+// Les tokens Expo Push sont gérés dans `api/notifications.ts` : l'append/remove
+// passe par une RPC serveur, un update direct de `profiles.push_tokens` depuis
+// deux appareils écraserait la liste de l'autre.
 
 /** Upload d'avatar. Chemin imposé par la policy Storage : `<uid>/<fichier>`. */
 export async function uploadAvatar(uri: string, fileName: string): Promise<string> {

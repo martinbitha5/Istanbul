@@ -11,6 +11,18 @@ import type { SalesBucket } from '../api/admin';
  */
 export const queryKeys = {
   restaurant: (id: UUID) => ['restaurant', id] as const,
+  restaurants: () => ['restaurants'] as const,
+
+  /** Périmètre du dashboard : les établissements que je peux administrer. */
+  myRestaurants: () => ['my-restaurants'] as const,
+  /** Tous les partenaires — administration de la plateforme uniquement. */
+  allRestaurants: () => ['admin', 'restaurants'] as const,
+  restaurantMembers: (restaurantId: UUID) => ['admin', 'members', restaurantId] as const,
+  restaurantBilling: (restaurantId: UUID) => ['admin', 'billing', restaurantId] as const,
+  allBilling: () => ['admin', 'billing', 'all'] as const,
+  platformRevenue: (period: string) => ['admin', 'platform-revenue', period] as const,
+  openingHours: (restaurantId: UUID) => ['opening-hours', restaurantId] as const,
+
   categories: (restaurantId: UUID) => ['categories', restaurantId] as const,
 
   products: (restaurantId: UUID, filters: ProductFilters = {}) =>
@@ -41,6 +53,7 @@ export const queryKeys = {
   delivery: (id: UUID) => ['delivery', id] as const,
   driverEarnings: (driverId: UUID) => ['driver-earnings', driverId] as const,
   driverLocation: (deliveryId: UUID) => ['driver-location', deliveryId] as const,
+  driverTrail: (deliveryId: UUID) => ['driver-trail', deliveryId] as const,
 
   dashboardStats: (restaurantId: UUID, from?: string) =>
     ['dashboard-stats', restaurantId, from ?? 'today'] as const,
@@ -58,4 +71,7 @@ export const queryKeys = {
   adminZones: (restaurantId: UUID) => ['admin', 'zones', restaurantId] as const,
 
   notifications: () => ['notifications'] as const,
+
+  orderReview: (orderId: UUID) => ['order-review', orderId] as const,
+  loyaltyTransactions: () => ['loyalty-transactions'] as const,
 } as const;

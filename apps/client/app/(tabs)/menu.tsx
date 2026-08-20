@@ -1,12 +1,9 @@
-import { useMemo, useState } from 'react';
-import { FlatList, StyleSheet, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { FlatList, StyleSheet, View, type ListRenderItem } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import {
-  cartItemCount,
-  cartSubtotal,
   formatMoney,
-  useCartStore,
   useCategories,
   useFavoriteIds,
   useProducts,
@@ -16,7 +13,6 @@ import {
 } from '@istanbul/core';
 import type { Product } from '@istanbul/types';
 import {
-  CartBar,
   CategoryChips,
   EmptyState,
   ErrorState,
@@ -29,7 +25,9 @@ import {
   Spacer,
   useTheme,
 } from '@istanbul/ui';
-import { config } from '@/lib/config';
+import { useRestaurantId } from '@/store/restaurant';
+import { TabCartBar, useCartItemCount } from '@/components/TabCartBar';
+import { useCartBarListPadding } from '@/lib/layout';
 
 /**
  * Menu.
@@ -41,22 +39,31 @@ import { config } from '@/lib/config';
  */
 export default function Menu() {
   const theme = useTheme();
-  const params = useLocalSearchParams<{ category?: string }>();
+  const params = useLocalSearchParams<{ category?: string; focus?: string }>();
 
   const [categoryId, setCategoryId] = useState<string | null>(params.category || null);
   const [search, setSearch] = useState('');
 
-  const { data: restaurant } = useRestaurant(config.restaurantId);
-  const { data: categories } = useCategories(config.restaurantId);
+  // L'onglet reste monté : sans cette synchronisation, taper une catégorie
+  // depuis l'accueil ne changeait le filtre qu'à la toute première ouverture.
+  useEffect(() => {
+    if (params.category !== undefined) {
+      setCategoryId(params.category || null);
+    }
+  }, [params.category]);
+
+  const restaurantId = useRestaurantId();
+  const { data: restaurant } = useRestaurant(restaurantId);
+  const { data: categories } = useCategories(restaurantId);
   const { profile } = useProfile();
 
-  const productsQuery = useProducts(config.restaurantId, { categoryId, limit: 200 });
+  const productsQuery = useProducts(restaurantId, { categoryId, limit: 200 });
   const { ids: favoriteIds } = useFavoriteIds();
   const toggleFavorite = useToggleFavorite();
+  const toggleFavoriteMutate = toggleFavorite.mutate;
 
-  const lines = useCartStore((state) => state.lines);
-  const itemCount = cartItemCount(lines);
-  const subtotal = cartSubtotal(lines);
+  const itemCount = useCartItemCount();
+  const listBottomPadding = useCartBarListPadding(itemCount > 0);
 
   const products = useMemo(() => {
     const all = productsQuery.data ?? [];
@@ -71,28 +78,48 @@ export default function Menu() {
     );
   }, [productsQuery.data, search]);
 
-  const renderItem = ({ item, index }: { item: Product; index: number }) => (
-    <Animated.View
-      entering={FadeInDown.delay(Math.min(index, 8) * 40).duration(theme.duration.base)}
-      style={styles.gridItem}
-    >
-      <ProductCard
-        product={item}
-        layout="grid"
-        onPress={() => router.push(`/product/${item.id}`)}
-        onToggleFavorite={
-          profile
-            ? () =>
-                toggleFavorite.mutate({
-                  productId: item.id,
-                  isFavorite: favoriteIds.has(item.id),
-                })
-            : undefined
+  // La cascade d'entrée ne joue qu'au premier affichage : appliquée dans le
+  // renderItem, elle se rejouait à chaque recyclage de cellule pendant le
+  // défilement — un scintillement permanent sur les longues listes.
+  const hasAnimatedRef = useRef(false);
+  useEffect(() => {
+    if (!productsQuery.isLoading && products.length > 0) {
+      hasAnimatedRef.current = true;
+    }
+  }, [productsQuery.isLoading, products.length]);
+
+  const currency = restaurant?.currency;
+  const isSignedIn = Boolean(profile);
+
+  const renderItem = useCallback<ListRenderItem<Product>>(
+    ({ item, index }) => (
+      <Animated.View
+        entering={
+          hasAnimatedRef.current
+            ? undefined
+            : FadeInDown.delay(theme.stagger.delayFor(index)).duration(theme.duration.base)
         }
-        isFavorite={favoriteIds.has(item.id)}
-        formatPrice={(cents) => formatMoney(cents, restaurant?.currency)}
-      />
-    </Animated.View>
+        style={styles.gridItem}
+      >
+        <ProductCard
+          product={item}
+          layout="grid"
+          onPress={() => router.push(`/product/${item.id}`)}
+          onToggleFavorite={
+            isSignedIn
+              ? () =>
+                  toggleFavoriteMutate({
+                    productId: item.id,
+                    isFavorite: favoriteIds.has(item.id),
+                  })
+              : undefined
+          }
+          isFavorite={favoriteIds.has(item.id)}
+          formatPrice={(cents) => formatMoney(cents, currency)}
+        />
+      </Animated.View>
+    ),
+    [theme, isSignedIn, toggleFavoriteMutate, favoriteIds, currency],
   );
 
   return (
@@ -100,7 +127,7 @@ export default function Menu() {
       <Header title="Notre menu" large />
 
       <View style={{ paddingHorizontal: theme.screenPadding }}>
-        <SearchBar value={search} onChangeText={setSearch} />
+        <SearchBar value={search} onChangeText={setSearch} autoFocus={params.focus === '1'} />
       </View>
 
       <Spacer size="base" />
@@ -130,7 +157,7 @@ export default function Menu() {
           columnWrapperStyle={{ gap: theme.spacing.md }}
           contentContainerStyle={{
             paddingHorizontal: theme.screenPadding,
-            paddingBottom: itemCount > 0 ? 110 : theme.spacing.xl,
+            paddingBottom: listBottomPadding,
             gap: theme.spacing.md,
           }}
           renderItem={renderItem}
@@ -154,13 +181,7 @@ export default function Menu() {
         />
       )}
 
-      <CartBar
-        itemCount={itemCount}
-        total={subtotal}
-        onPress={() => router.push('/cart')}
-        formatMoney={(cents) => formatMoney(cents, restaurant?.currency)}
-        bottomOffset={58}
-      />
+      <TabCartBar />
     </Screen>
   );
 }

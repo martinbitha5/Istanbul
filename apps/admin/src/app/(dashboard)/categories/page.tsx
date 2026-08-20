@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ArrowDown, ArrowUp, Plus, Trash } from '@phosphor-icons/react';
 import {
   reorderCategories,
@@ -25,6 +25,9 @@ import {
   Toggle,
   inputClass,
 } from '@/components/ui';
+import { Alert } from '@/components/Alert';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { useToast } from '@/components/Toaster';
 import { useRestaurantId } from '@/hooks/useRestaurantId';
 
 /**
@@ -41,6 +44,7 @@ export default function CategoriesPage() {
   const deleteCategory = useDeleteCategory();
 
   const [editing, setEditing] = useState<Partial<Category> | null>(null);
+  const [deleting, setDeleting] = useState<Category | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const list = categories.data ?? [];
@@ -67,6 +71,7 @@ export default function CategoriesPage() {
   return (
     <div className="space-y-6">
       <SectionTitle
+        as="h1"
         title="Catégories"
         description="L’ordre ci-dessous est celui affiché dans l’application client."
         action={
@@ -77,15 +82,7 @@ export default function CategoriesPage() {
         }
       />
 
-      {error ? (
-        <div
-          role="alert"
-          className="rounded-xl px-4 py-3 text-sm"
-          style={{ background: 'var(--color-danger-soft)', color: 'var(--color-danger)' }}
-        >
-          {error}
-        </div>
-      ) : null}
+      {error ? <Alert>{error}</Alert> : null}
 
       <Card padded={false} className="px-5 pb-2 pt-4">
         {categories.isLoading ? (
@@ -103,7 +100,7 @@ export default function CategoriesPage() {
             }
           />
         ) : (
-          <Table>
+          <Table ariaLabel="Liste des catégories">
             <thead>
               <tr>
                 <Th>Ordre</Th>
@@ -174,19 +171,11 @@ export default function CategoriesPage() {
                       </Button>
                       <Button
                         size="sm"
-                        variant="ghost"
+                        variant="danger"
                         title="Supprimer"
-                        onClick={() => {
-                          if (
-                            confirm(
-                              `Supprimer « ${category.name} » ? Les produits associés perdront leur catégorie.`,
-                            )
-                          ) {
-                            deleteCategory.mutate(category.id);
-                          }
-                        }}
+                        onClick={() => setDeleting(category)}
                       >
-                        <Trash size={16} color="var(--color-danger)" />
+                        <Trash size={16} />
                       </Button>
                     </div>
                   </Td>
@@ -197,7 +186,26 @@ export default function CategoriesPage() {
         )}
       </Card>
 
-      <CategoryModal category={editing} onClose={() => setEditing(null)} />
+      {/* key : remonte le formulaire quand la cible change — remplace
+          l'ancien hack lastId (setState pendant le rendu). */}
+      <CategoryModal
+        key={editing?.id ?? 'new'}
+        category={editing}
+        onClose={() => setEditing(null)}
+      />
+
+      <ConfirmDialog
+        open={deleting !== null}
+        title="Supprimer la catégorie"
+        message={`Supprimer « ${deleting?.name ?? ''} » ? Les produits associés perdront leur catégorie.`}
+        confirmLabel="Supprimer"
+        loading={deleteCategory.isPending}
+        onClose={() => setDeleting(null)}
+        onConfirm={() => {
+          if (!deleting) return;
+          deleteCategory.mutate(deleting.id, { onSuccess: () => setDeleting(null) });
+        }}
+      />
     </div>
   );
 }
@@ -211,23 +219,26 @@ function CategoryModal({
 }) {
   const restaurantId = useRestaurantId();
   const saveCategory = useSaveCategory();
+  const toast = useToast();
   const [form, setForm] = useState<Partial<Category>>(category ?? {});
   const [error, setError] = useState<string | null>(null);
-  const [lastId, setLastId] = useState<string | undefined>(category?.id);
+  const [nameError, setNameError] = useState<string | null>(null);
+  const alertRef = useRef<HTMLDivElement>(null);
 
-  if (category && category.id !== lastId) {
-    setLastId(category.id);
-    setForm(category);
-  }
+  // Soumission échouée : focus sur l'alerte pour lecture immédiate.
+  useEffect(() => {
+    if (error) alertRef.current?.focus();
+  }, [error]);
 
   if (!category) return null;
 
   const submit = async () => {
     if (!form.name?.trim()) {
-      setError('Le nom est obligatoire.');
+      setNameError('Le nom est obligatoire.');
       return;
     }
 
+    setNameError(null);
     setError(null);
     try {
       await saveCategory.mutateAsync({
@@ -236,6 +247,7 @@ function CategoryModal({
         restaurant_id: restaurantId,
         name: form.name.trim(),
       });
+      toast.success('Catégorie enregistrée');
       onClose();
     } catch (caught) {
       setError(toUserMessage(caught));
@@ -259,7 +271,7 @@ function CategoryModal({
       }
     >
       <div className="space-y-4">
-        <Field label="Nom" required>
+        <Field label="Nom" required error={nameError ?? undefined}>
           <input
             className={inputClass}
             value={form.name ?? ''}
@@ -292,15 +304,7 @@ function CategoryModal({
           />
         </Field>
 
-        {error ? (
-          <div
-            role="alert"
-            className="rounded-xl px-3.5 py-2.5 text-sm"
-            style={{ background: 'var(--color-danger-soft)', color: 'var(--color-danger)' }}
-          >
-            {error}
-          </div>
-        ) : null}
+        {error ? <Alert ref={alertRef}>{error}</Alert> : null}
       </div>
     </Modal>
   );

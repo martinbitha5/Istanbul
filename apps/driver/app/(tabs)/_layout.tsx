@@ -7,6 +7,8 @@ export default function DriverTabs() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
 
+  // Le bandeau hors ligne vit désormais dans le layout racine : il couvre
+  // aussi l'écran de course, hors de cette pile d'onglets.
   return (
     <Tabs
       screenOptions={{
@@ -21,7 +23,7 @@ export default function DriverTabs() {
           paddingTop: 6,
           paddingBottom: Math.max(insets.bottom, 8),
         },
-        tabBarLabelStyle: { ...theme.text.overline, textTransform: 'none', marginTop: 2 },
+        tabBarLabelStyle: { ...theme.text.overline, textTransform: 'none', marginTop: theme.spacing.xxs },
       }}
     >
       <Tabs.Screen

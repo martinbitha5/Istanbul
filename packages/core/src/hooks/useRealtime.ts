@@ -31,6 +31,21 @@ function useChannel(factory: () => RealtimeChannel | null, deps: unknown[]): voi
   }, deps);
 }
 
+/**
+ * Nom de canal unique par instance de hook.
+ *
+ * `supabase.channel(topic)` renvoie le canal EXISTANT si le topic est déjà
+ * pris — et rattacher un callback après `subscribe()` lève une exception.
+ * Deux écrans qui suivent la même commande (suivi + carte plein écran)
+ * partageraient sinon le même topic et feraient tomber le second. Le nom du
+ * canal est purement local : seul le filtre `postgres_changes` compte.
+ */
+let channelSeq = 0;
+function uniqueChannel(base: string): string {
+  channelSeq += 1;
+  return `${base}:#${channelSeq}`;
+}
+
 /** Suivi d'une commande côté client : statut + timeline + livraison. */
 export function useOrderRealtime(orderId: UUID | null): void {
   const queryClient = useQueryClient();
@@ -44,7 +59,7 @@ export function useOrderRealtime(orderId: UUID | null): void {
     };
 
     return getSupabase()
-      .channel(`order:${orderId}`)
+      .channel(uniqueChannel(`order:${orderId}`))
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'orders', filter: `id=eq.${orderId}` },
@@ -93,7 +108,7 @@ export function useOrderQueueRealtime(
     };
 
     return getSupabase()
-      .channel(`orders:restaurant:${restaurantId}`)
+      .channel(uniqueChannel(`orders:restaurant:${restaurantId}`))
       .on(
         'postgres_changes',
         {
@@ -136,7 +151,7 @@ export function useDriverRealtime(driverId: UUID | null, onOffer?: () => void): 
     };
 
     return getSupabase()
-      .channel(`driver:${driverId}`)
+      .channel(uniqueChannel(`driver:${driverId}`))
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'deliveries' },
@@ -172,7 +187,7 @@ export function useDriverLocationRealtime(deliveryId: UUID | null): void {
     if (!deliveryId) return null;
 
     return getSupabase()
-      .channel(`location:${deliveryId}`)
+      .channel(uniqueChannel(`location:${deliveryId}`))
       .on(
         'postgres_changes',
         {
@@ -183,6 +198,14 @@ export function useDriverLocationRealtime(deliveryId: UUID | null): void {
         },
         (payload) => {
           queryClient.setQueryData(queryKeys.driverLocation(deliveryId), payload.new);
+
+          // La trace s'allonge d'un point : append en cache, sans refetch.
+          const point = payload.new as { latitude: number; longitude: number; recorded_at: string };
+          queryClient.setQueryData(
+            queryKeys.driverTrail(deliveryId),
+            (previous: unknown) =>
+              Array.isArray(previous) ? [...previous, point] : previous,
+          );
         },
       )
       .subscribe();
@@ -197,7 +220,7 @@ export function useNotificationsRealtime(profileId: UUID | null): void {
     if (!profileId) return null;
 
     return getSupabase()
-      .channel(`notifications:${profileId}`)
+      .channel(uniqueChannel(`notifications:${profileId}`))
       .on(
         'postgres_changes',
         {

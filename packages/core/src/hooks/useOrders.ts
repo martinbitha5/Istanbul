@@ -73,9 +73,16 @@ export function usePlaceOrder() {
 
   return useMutation({
     mutationFn: (input: PlaceOrderInput) => placeOrder(input),
+    // L'échec est affiché inline par le checkout (InlineAlert près du CTA) :
+    // exclu du toast global pour éviter le double message.
+    meta: { silent: true },
     onSuccess: (order) => {
       clearCart();
-      queryClient.setQueryData(queryKeys.order(order.id), order);
+      // Surtout ne PAS semer queryKeys.order(id) avec ce résultat : c'est la
+      // ligne `orders` brute, sans items/delivery/payment. L'écran de suivi
+      // la prendrait pour une commande complète (items undefined → crash).
+      // Il fait son propre fetch hydraté ; on préchauffe seulement les listes.
+      void queryClient.invalidateQueries({ queryKey: queryKeys.order(order.id) });
       void queryClient.invalidateQueries({ queryKey: queryKeys.myOrders() });
       void queryClient.invalidateQueries({ queryKey: queryKeys.activeOrder() });
     },
@@ -99,6 +106,8 @@ export function useCancelOrder() {
 /** Validation d'un code promo au checkout. */
 export function useEvaluatePromotion() {
   return useMutation({
+    // Un code invalide est un cas nominal géré inline par le champ promo.
+    meta: { silent: true },
     mutationFn: ({
       restaurantId,
       code,

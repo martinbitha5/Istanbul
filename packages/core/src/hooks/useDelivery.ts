@@ -9,6 +9,7 @@ import {
   fetchCompletedDeliveries,
   fetchDelivery,
   fetchDriverEarnings,
+  fetchDriverTrail,
   fetchLatestDriverLocation,
   fetchMyDriverProfile,
   pushDriverLocation,
@@ -90,12 +91,33 @@ export function useClaimDelivery() {
 }
 
 export function useAdvanceDelivery() {
+  const queryClient = useQueryClient();
   const invalidate = useInvalidateDeliveries();
 
   return useMutation({
     mutationFn: ({ deliveryId, to }: { deliveryId: UUID; to: DeliveryStatus }) =>
       advanceDeliveryStatus(deliveryId, to),
-    onSuccess: invalidate,
+
+    // Optimiste : le livreur est à moto sur un réseau à 1-3 s de latence.
+    // Le statut bascule immédiatement à l'écran, et revient en cas de refus
+    // serveur (la machine à états SQL reste l'autorité).
+    onMutate: async ({ deliveryId, to }) => {
+      const key = queryKeys.delivery(deliveryId);
+      await queryClient.cancelQueries({ queryKey: key });
+      const previous = queryClient.getQueryData(key);
+      queryClient.setQueryData(key, (old: unknown) =>
+        old ? { ...(old as object), status: to } : old,
+      );
+      return { previous, key };
+    },
+
+    onError: (_error, _variables, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(context.key, context.previous);
+      }
+    },
+
+    onSettled: invalidate,
   });
 }
 
@@ -160,6 +182,8 @@ export function usePushLocation() {
   return useMutation({
     mutationFn: pushDriverLocation,
     retry: false,
+    // `silent` : exclut aussi cette mutation du filet d'erreur global.
+    meta: { silent: true },
     onError: () => {
       /* silencieux par conception */
     },
@@ -173,5 +197,17 @@ export function useDriverLocation(deliveryId: UUID | null, enabled = true) {
     queryFn: () => fetchLatestDriverLocation(deliveryId!),
     enabled: enabled && !!deliveryId,
     refetchInterval: 15_000,
+  });
+}
+
+/** Trace GPS complète de la course — l'itinéraire réellement parcouru. */
+export function useDriverTrail(deliveryId: UUID | null, enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.driverTrail(deliveryId ?? ''),
+    queryFn: () => fetchDriverTrail(deliveryId!),
+    enabled: enabled && !!deliveryId,
+    // Le realtime pousse déjà chaque nouveau point ; ce refetch n'est qu'un
+    // filet si le canal tombe.
+    refetchInterval: 30_000,
   });
 }

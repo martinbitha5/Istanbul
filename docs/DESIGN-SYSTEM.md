@@ -20,9 +20,9 @@ L'écran doit donner faim en une seconde. Cela impose trois règles non négocia
 | 50 | `#FFF3EF` | fond de badge, surface teintée |
 | 100 | `#FFE1D6` | fond de puce sélectionnée |
 | 300 | `#FF9877` | illustrations, dégradés |
-| **500** | **`#E5431C`** | **couleur de marque, boutons primaires** |
-| 600 | `#C4320F` | état pressé |
-| 700 | `#9E260B` | texte sur fond clair braise |
+| 500 | `#E5431C` | illustrations, dégradés, marque éditoriale |
+| **600** | **`#C4320F`** | **boutons primaires (blanc dessus = 5.5:1 — le 500 ne tenait que 4.08:1)** |
+| 700 | `#9E260B` | état pressé, texte sur fond clair braise |
 
 ### Safran — accent (promotions, notes, badges)
 
@@ -44,16 +44,24 @@ de nourriture donne un rendu clinique.
 
 | Rôle | Clair | Sombre |
 |------|-------|--------|
-| success | `#2F8F49` | `#4FBF6C` |
-| warning | `#D08700` | `#F0B429` |
-| danger | `#D32F2F` | `#F26B6B` |
-| info | `#1B7F9E` | `#4FB6D4` |
+| success | `#24713A` | `#8ED49E` |
+| warning | `#B27714` | `#F4C95D` |
+| danger | `#D32F2F` | `#EE9A9A` |
+| info | `#14657E` | `#79C8DE` |
+
+Chaque ton possède un fond doux `*Soft` **et** un premier plan dédié `on*Soft`
+(`onSuccessSoft`, `onWarningSoft`, `onDangerSoft`, `onInfoSoft`) calibré pour tenir
+4.5:1 sur ce fond. **Un texte sur fond doux utilise toujours `on*Soft`, jamais le ton
+de base** — c'est la règle qui a corrigé tous les badges de statut.
 
 ### Mode sombre
 
 Le mode sombre n'inverse pas les valeurs : il repose sur des surfaces **encre 950/900/800**
-et remonte la braise à `#FF6A45` pour conserver 4.5:1 sur fond sombre. Chaque token a une
-valeur propre par thème — aucune couleur n'est calculée à la volée.
+et remonte la braise à `#F76B45` (ember 400). Sur cette braise claire, le blanc ne tient
+que 2.9:1 : **`textOnPrimary` devient encre 950 en sombre** — les CTA sombres portent du
+texte foncé, comme les boutons orange d'iOS. Chaque token a une valeur propre par thème —
+aucune couleur n'est calculée à la volée. Les ombres prennent la couleur `shadow` du thème
+(brun chaud en clair, noir en sombre).
 
 ## 3. Typographie
 
@@ -116,6 +124,10 @@ translation et ne garde que l'opacité.
 | `OrderTimeline` | 5 nœuds, l'état courant pulse, les états passés sont pleins, les futurs en contour |
 | `QuantityStepper` | zone tactile 44×44 par bouton, `hitSlop` si l'icône est plus petite |
 | `PriceBreakdown` | chiffres tabulaires, total en Sora 700, réduction en vert avec signe `−` |
+| `Toast` (`ToastProvider` + `useToast`) | un seul toast à la fois, en haut sous la safe area, auto-dismiss 3.5 s (5 s pour les erreurs), `accessibilityLiveRegion` — branché en filet global sur `createQueryClient({ onMutationError })` : aucune mutation n'échoue en silence |
+| `InlineAlert` | bandeau contextuel `info/warning/danger/success`, texte en `on*Soft`, action optionnelle — remplace tous les bandeaux faits main |
+| `IconBubble` | icône dans un rond de couleur douce, diamètre paramétrable — le motif n'est plus réécrit à la main |
+| `OfflineBanner` | persistant, animé, `safeAreaTop` quand il est rendu en haut de fenêtre, bouton « Réessayer » réellement pressable |
 
 ## 8. États obligatoires
 
@@ -138,3 +150,61 @@ autorisés uniquement dans du contenu rédactionnel (« Bonjour Martin 👋 »).
 - Contraste texte principal ≥ 4.5:1, secondaire ≥ 3:1, **vérifié dans les deux thèmes**
 - Support du Dynamic Type sans troncature des prix ni des CTA
 - L'information n'est jamais portée par la couleur seule (statut = icône + texte)
+
+## 11. Le dashboard admin est un outil, pas une vitrine
+
+Les sections 1 à 10 décrivent le système commun aux trois applications. Le
+dashboard s'en écarte sur un seul axe — la **densité** — et c'est délibéré : les
+apps client et livreur sont tenues à bout de bras, le dashboard est ouvert huit
+heures par jour sur un écran, souvent avec dix commandes visibles à la fois.
+
+| Axe | Apps mobiles | Dashboard |
+|-----|--------------|-----------|
+| Densité | aérée (16 → 64 px) | dense (8 → 32 px), tableaux à survol de ligne |
+| Mouvement | transitions d'écran, gestes | micro-interactions 150 ms, rien d'autre |
+| Typographie | hiérarchie forte | corps 14 px, chiffres tabulaires partout |
+| Cible tactile | 44 pt strict | 44 pt maintenu (le gérant consulte au téléphone) |
+
+Ce qui **ne change pas** : les tokens de couleur, les six états obligatoires
+(§8), le jeu d'icônes (§9) et le plancher d'accessibilité (§10). Le dashboard
+n'a pas de palette à lui.
+
+### Chiffres tabulaires
+
+Tout nombre qui change en place — KPI, montant de tableau, compteur, heure —
+porte la classe `.tabular`. Sans elle, passer de `9` à `10` décale la colonne
+entière, et un tableau de commandes qui se rafraîchit toutes les secondes
+devient illisible.
+
+### Règles propres au multi-établissements
+
+- **Le contexte avant le contenu.** Le sélecteur d'établissement est en haut de
+  la sidebar, au-dessus de la navigation — pas dans le pied de page à côté du
+  profil, où il passerait pour un réglage de compte. En mobile, le nom de
+  l'établissement remplace la marque dans l'en-tête.
+- **Le sélecteur disparaît à un seul établissement.** Un menu déroulant à une
+  entrée est un faux affordance.
+- **La navigation se filtre par rôle.** Une entrée invisible n'est pas une
+  sécurité (la RLS s'en charge) : elle évite d'ouvrir une page qui n'afficherait
+  que des refus.
+- **Deux rythmes d'écriture.** Ce qu'on touche en plein service (ouvert /
+  ferme / rupture de stock) s'enregistre au clic. Ce qui a des conséquences
+  tarifaires passe par un brouillon et une barre « modifications non
+  enregistrées ».
+
+## 12. Outillage
+
+Le skill **`ui-ux-pro-max`** est versionné dans le dépôt
+(`.claude/skills/ui-ux-pro-max/`) : chaque personne qui ouvre le projet dispose
+de la même base — 67 styles, 161 palettes, 57 appariements typographiques, 99
+règles UX, et une checklist d'accessibilité.
+
+```bash
+python .claude/skills/ui-ux-pro-max/scripts/search.py "admin dashboard multi-restaurant" --design-system --density 8
+```
+
+Ses recommandations de palette sont **écartées au profit des tokens du §2** :
+les couleurs d'Istanbul ont été validées au contraste dans les deux thèmes
+(`packages/tokens/src/contrast.test.ts`, 24 assertions), ce qu'une palette
+générique ne garantit pas. On lui emprunte le système de densité, les règles
+d'interaction et la checklist de livraison, pas les couleurs.

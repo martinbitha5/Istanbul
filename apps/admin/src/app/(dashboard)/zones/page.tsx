@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, Trash, Warning } from '@phosphor-icons/react';
 import {
   formatMoney,
@@ -27,6 +27,10 @@ import {
   Toggle,
   inputClass,
 } from '@/components/ui';
+import { Alert } from '@/components/Alert';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { MoneyInput } from '@/components/MoneyInput';
+import { useToast } from '@/components/Toaster';
 import { useRestaurantId } from '@/hooks/useRestaurantId';
 
 /**
@@ -45,6 +49,7 @@ export default function ZonesPage() {
   const deleteZone = useDeleteZone();
 
   const [editing, setEditing] = useState<Partial<DeliveryZone> | null>(null);
+  const [deleting, setDeleting] = useState<DeliveryZone | null>(null);
 
   const list = useMemo(
     () => [...(zones.data ?? [])].sort((a, b) => a.min_distance_km - b.min_distance_km),
@@ -60,11 +65,17 @@ export default function ZonesPage() {
       const previous = active[index - 1]!;
       const current = active[index]!;
 
-      if (current.min_distance_km > previous.max_distance_km) {
+      // Number() obligatoire : les colonnes numeric arrivent en string via
+      // PostgREST, et '10' > '9.5' est faux en comparaison lexicale — d'où
+      // des faux positifs/négatifs dans la détection de trous.
+      const previousMax = Number(previous.max_distance_km);
+      const currentMin = Number(current.min_distance_km);
+
+      if (currentMin > previousMax) {
         problems.push(
           `Trou de couverture entre ${previous.max_distance_km} km et ${current.min_distance_km} km.`,
         );
-      } else if (current.min_distance_km < previous.max_distance_km) {
+      } else if (currentMin < previousMax) {
         problems.push(
           `Recouvrement entre « ${previous.name} » et « ${current.name} » : la première l’emporte.`,
         );
@@ -81,6 +92,7 @@ export default function ZonesPage() {
   return (
     <div className="space-y-6">
       <SectionTitle
+        as="h1"
         title="Zones de livraison"
         description={
           restaurant
@@ -107,20 +119,19 @@ export default function ZonesPage() {
       />
 
       {issues.length > 0 ? (
-        <div
-          className="flex gap-3 rounded-xl px-4 py-3 text-sm"
-          style={{ background: 'var(--color-warning-soft)', color: 'var(--color-warning)' }}
-        >
-          <Warning size={20} weight="fill" className="shrink-0" />
-          <div>
-            <p className="font-semibold">Vérifiez vos tranches</p>
-            <ul className="mt-1 list-disc pl-4">
-              {issues.map((issue) => (
-                <li key={issue}>{issue}</li>
-              ))}
-            </ul>
+        <Alert tone="warning">
+          <div className="flex gap-3">
+            <Warning size={20} weight="fill" className="shrink-0" />
+            <div>
+              <p className="font-semibold">Vérifiez vos tranches</p>
+              <ul className="mt-1 list-disc pl-4">
+                {issues.map((issue) => (
+                  <li key={issue}>{issue}</li>
+                ))}
+              </ul>
+            </div>
           </div>
-        </div>
+        </Alert>
       ) : null}
 
       <Card padded={false} className="px-5 pb-2 pt-4">
@@ -134,7 +145,7 @@ export default function ZonesPage() {
             description="Sans zone active, aucune livraison n’est possible. Créez au moins une tranche."
           />
         ) : (
-          <Table>
+          <Table ariaLabel="Liste des zones de livraison">
             <thead>
               <tr>
                 <Th>Zone</Th>
@@ -197,15 +208,11 @@ export default function ZonesPage() {
                       </Button>
                       <Button
                         size="sm"
-                        variant="ghost"
+                        variant="danger"
                         title="Supprimer"
-                        onClick={() => {
-                          if (confirm(`Supprimer la zone « ${zone.name} » ?`)) {
-                            deleteZone.mutate(zone.id);
-                          }
-                        }}
+                        onClick={() => setDeleting(zone)}
                       >
-                        <Trash size={16} color="var(--color-danger)" />
+                        <Trash size={16} />
                       </Button>
                     </div>
                   </Td>
@@ -227,7 +234,22 @@ export default function ZonesPage() {
         </div>
       </Card>
 
-      <ZoneModal zone={editing} onClose={() => setEditing(null)} />
+      {/* key : remonte le formulaire quand la cible change — remplace
+          l'ancien hack lastId (setState pendant le rendu). */}
+      <ZoneModal key={editing?.id ?? 'new'} zone={editing} onClose={() => setEditing(null)} />
+
+      <ConfirmDialog
+        open={deleting !== null}
+        title="Supprimer la zone"
+        message={`Supprimer la zone « ${deleting?.name ?? ''} » ? Les adresses dans cette tranche deviendront hors zone.`}
+        confirmLabel="Supprimer"
+        loading={deleteZone.isPending}
+        onClose={() => setDeleting(null)}
+        onConfirm={() => {
+          if (!deleting) return;
+          deleteZone.mutate(deleting.id, { onSuccess: () => setDeleting(null) });
+        }}
+      />
     </div>
   );
 }
@@ -241,14 +263,16 @@ function ZoneModal({
 }) {
   const restaurantId = useRestaurantId();
   const saveZone = useSaveZone();
+  const toast = useToast();
   const [form, setForm] = useState<Partial<DeliveryZone>>(zone ?? {});
   const [error, setError] = useState<string | null>(null);
-  const [lastId, setLastId] = useState<string | undefined>(zone?.id);
+  const [fieldErrors, setFieldErrors] = useState<{ name?: string; max?: string }>({});
+  const alertRef = useRef<HTMLDivElement>(null);
 
-  if (zone && zone.id !== lastId) {
-    setLastId(zone.id);
-    setForm(zone);
-  }
+  // Soumission échouée : focus sur l'alerte pour lecture immédiate.
+  useEffect(() => {
+    if (error) alertRef.current?.focus();
+  }, [error]);
 
   if (!zone) return null;
 
@@ -256,14 +280,13 @@ function ZoneModal({
     const min = Number(form.min_distance_km ?? 0);
     const max = Number(form.max_distance_km ?? 0);
 
-    if (!form.name?.trim()) {
-      setError('Donnez un nom à la zone.');
-      return;
-    }
+    const errors: { name?: string; max?: string } = {};
+    if (!form.name?.trim()) errors.name = 'Donnez un nom à la zone.';
     if (max <= min) {
-      setError('La distance maximale doit être supérieure à la distance minimale.');
-      return;
+      errors.max = 'La distance maximale doit être supérieure à la distance minimale.';
     }
+    setFieldErrors(errors);
+    if (errors.name || errors.max) return;
 
     setError(null);
     try {
@@ -271,10 +294,11 @@ function ZoneModal({
         ...form,
         id: form.id,
         restaurant_id: restaurantId,
-        name: form.name.trim(),
+        name: form.name!.trim(),
         min_distance_km: min,
         max_distance_km: max,
       });
+      toast.success('Zone enregistrée');
       onClose();
     } catch (caught) {
       setError(toUserMessage(caught));
@@ -299,7 +323,7 @@ function ZoneModal({
     >
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="sm:col-span-2">
-          <Field label="Nom de la zone" required>
+          <Field label="Nom de la zone" required error={fieldErrors.name}>
             <input
               className={inputClass}
               value={form.name ?? ''}
@@ -322,7 +346,7 @@ function ZoneModal({
           />
         </Field>
 
-        <Field label="Distance maximale (km)" required>
+        <Field label="Distance maximale (km)" required error={fieldErrors.max}>
           <input
             className={inputClass}
             type="number"
@@ -336,15 +360,9 @@ function ZoneModal({
         </Field>
 
         <Field label="Frais de livraison ($)" required>
-          <input
-            className={inputClass}
-            type="number"
-            step="0.01"
-            min="0"
-            value={form.fee_amount != null ? form.fee_amount / 100 : ''}
-            onChange={(event) =>
-              setForm({ ...form, fee_amount: Math.round(Number(event.target.value || 0) * 100) })
-            }
+          <MoneyInput
+            value={form.fee_amount}
+            onChange={(cents) => setForm({ ...form, fee_amount: cents ?? 0 })}
           />
         </Field>
 
@@ -363,33 +381,18 @@ function ZoneModal({
             label="Livraison offerte à partir de ($)"
             hint="Laisser vide pour toujours facturer la livraison."
           >
-            <input
-              className={inputClass}
-              type="number"
-              step="0.01"
-              min="0"
-              value={form.free_above != null ? form.free_above / 100 : ''}
-              onChange={(event) =>
-                setForm({
-                  ...form,
-                  free_above: event.target.value
-                    ? Math.round(Number(event.target.value) * 100)
-                    : null,
-                })
-              }
+            <MoneyInput
+              value={form.free_above}
+              onChange={(cents) => setForm({ ...form, free_above: cents })}
             />
           </Field>
         </div>
       </div>
 
       {error ? (
-        <div
-          role="alert"
-          className="mt-4 rounded-xl px-3.5 py-2.5 text-sm"
-          style={{ background: 'var(--color-danger-soft)', color: 'var(--color-danger)' }}
-        >
+        <Alert ref={alertRef} className="mt-4">
           {error}
-        </div>
+        </Alert>
       ) : null}
     </Modal>
   );

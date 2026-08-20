@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, Switch, View } from 'react-native';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import {
   CaretRight,
+  Coins,
   Money,
   Motorcycle,
   Note,
@@ -15,6 +16,7 @@ import {
   computeTotals,
   formatEtaRange,
   formatMoney,
+  loyaltyDiscount,
   toPlaceOrderItems,
   toUserMessage,
   useAddresses,
@@ -33,18 +35,23 @@ import {
   Button,
   Divider,
   Header,
+  InlineAlert,
   Input,
   ListRow,
+  OfflineBanner,
   Pressable,
   PriceBreakdown,
   Screen,
   ScreenScroll,
+  Skeleton,
   Spacer,
   Surface,
   Text,
   useTheme,
 } from '@istanbul/ui';
-import { config } from '@/lib/config';
+import { useRestaurantId } from '@/store/restaurant';
+import { useIsOffline } from '@/providers/AppProviders';
+import { BOTTOM_BAR_INSET } from '@/lib/layout';
 
 /**
  * Checkout.
@@ -55,10 +62,12 @@ import { config } from '@/lib/config';
  */
 export default function Checkout() {
   const theme = useTheme();
-  const { session } = useSession();
+  const offline = useIsOffline();
+  const { session, isLoading: sessionLoading } = useSession();
   const { profile } = useProfile();
 
-  const { data: restaurant } = useRestaurant(config.restaurantId);
+  const restaurantId = useRestaurantId();
+  const { data: restaurant } = useRestaurant(restaurantId);
   const { data: addresses } = useAddresses();
 
   const lines = useCartStore((state) => state.lines);
@@ -73,10 +82,14 @@ export default function Checkout() {
 
   const [contactName, setContactName] = useState('');
   const [contactPhone, setContactPhone] = useState('');
+  // Replié par défaut : la majorité des commandes n'a pas de code, inutile
+  // d'imposer un champ de formulaire de plus à tout le monde.
+  const [showPromo, setShowPromo] = useState(false);
   const [promoInput, setPromoInput] = useState('');
   const [promotion, setPromotion] = useState<PromotionEvaluation | null>(null);
   const [promoError, setPromoError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  const [redeemPoints, setRedeemPoints] = useState(false);
 
   const subtotal = useMemo(() => cartSubtotal(lines), [lines]);
 
@@ -104,7 +117,7 @@ export default function Checkout() {
   const isDelivery = fulfillment === 'DELIVERY';
 
   const quoteQuery = useDeliveryQuote(
-    config.restaurantId,
+    restaurantId,
     address?.latitude ?? null,
     address?.longitude ?? null,
     subtotal,
@@ -128,6 +141,11 @@ export default function Checkout() {
   const currency = restaurant?.currency;
   const outOfRange = isDelivery && quoteQuery.data && !quoteQuery.data.in_range;
 
+  // --- Fidélité : aperçu local, le serveur plafonne et fait autorité --------
+  const loyaltyPoints = profile?.loyalty_points ?? 0;
+  const loyaltyValue = redeemPoints ? loyaltyDiscount(loyaltyPoints, totals.total) : 0;
+  const totalDue = totals.total - loyaltyValue;
+
   const applyPromo = async () => {
     const code = promoInput.trim();
     if (!code) return;
@@ -135,7 +153,7 @@ export default function Checkout() {
     setPromoError(null);
     try {
       const result = await evaluatePromo.mutateAsync({
-        restaurantId: config.restaurantId,
+        restaurantId: restaurantId,
         code,
         subtotal,
         deliveryFee: totals.deliveryFee,
@@ -177,7 +195,7 @@ export default function Checkout() {
 
     try {
       const order = await placeOrder.mutateAsync({
-        restaurantId: config.restaurantId,
+        restaurantId: restaurantId,
         fulfillment,
         items: toPlaceOrderItems(lines),
         contactName: contactName.trim(),
@@ -187,9 +205,13 @@ export default function Checkout() {
         customerNote,
         promoCode: promotion ? promoInput.trim() : null,
         paymentProvider: 'CASH',
+        redeemPoints: redeemPoints ? loyaltyPoints : 0,
       });
 
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      // Sans dismissAll, le retour depuis le suivi retombait sur la modale du
+      // panier — vidé entre-temps par la commande.
+      router.dismissAll();
       router.replace(`/order/${order.id}`);
     } catch (error) {
       // Le serveur a le dernier mot : produit en rupture, promo expirée,
@@ -203,7 +225,10 @@ export default function Checkout() {
     <Screen edges={['top', 'left', 'right']}>
       <Header title="Finaliser la commande" onBack={() => router.back()} />
 
-      <ScreenScroll bottomInset={130}>
+      {/* Écran critique : perdre le réseau ici doit se voir immédiatement. */}
+      <OfflineBanner visible={offline} />
+
+      <ScreenScroll bottomInset={BOTTOM_BAR_INSET}>
         {/* --- Mode ---------------------------------------------------- */}
         <Text variant="h3">Comment souhaitez-vous être servi ?</Text>
         <Spacer size="md" />
@@ -254,7 +279,13 @@ export default function Checkout() {
 
             <Surface padding="base" elevation={1}>
               {address ? (
-                <Pressable onPress={() => router.push('/addresses')} noScale>
+                <Pressable
+                  onPress={() => router.push('/addresses')}
+                  noScale
+                  accessibilityLabel={`Adresse de livraison : ${address.label}, ${address.street}${
+                    address.commune ? `, ${address.commune}` : ''
+                  }. Changer d’adresse`}
+                >
                   <View style={styles.rowBetween}>
                     <View style={{ flex: 1 }}>
                       <Text variant="bodyStrong">{address.label}</Text>
@@ -280,7 +311,17 @@ export default function Checkout() {
                 />
               )}
 
-              {quoteQuery.data?.in_range ? (
+              {address && quoteQuery.isLoading ? (
+                // Devis en cours : un squelette sur la ligne des frais évite
+                // le saut de prix quand la réponse arrive.
+                <>
+                  <Divider spacing="md" />
+                  <View style={styles.rowBetween}>
+                    <Skeleton width="45%" height={14} />
+                    <Skeleton width={72} height={14} />
+                  </View>
+                </>
+              ) : quoteQuery.data?.in_range ? (
                 <>
                   <Divider spacing="md" />
                   <View style={styles.rowBetween}>
@@ -300,11 +341,12 @@ export default function Checkout() {
               {outOfRange ? (
                 <>
                   <Divider spacing="md" />
-                  <Badge label="Adresse hors zone de livraison" tone="danger" size="sm" />
-                  <Text variant="caption" color="textMuted" style={{ marginTop: theme.spacing.xs }}>
-                    Nous ne livrons pas encore à {quoteQuery.data?.distance_km} km. Choisissez le
-                    retrait sur place ou une autre adresse.
-                  </Text>
+                  <InlineAlert
+                    tone="warning"
+                    message={`Nous ne livrons pas encore à ${quoteQuery.data?.distance_km} km. Choisissez le retrait sur place ou une autre adresse.`}
+                    actionLabel="Passer au retrait"
+                    onAction={() => setFulfillment('PICKUP')}
+                  />
                 </>
               ) : null}
             </Surface>
@@ -358,58 +400,102 @@ export default function Checkout() {
 
         <Spacer size="xl" />
 
-        {/* --- Code promo ----------------------------------------------- */}
-        <Text variant="h3">Code promo</Text>
-        <Spacer size="md" />
+        {/* --- Code promo -------------------------------------------------
+            Replié derrière un lien discret : le champ ne s'impose qu'à ceux
+            qui ont réellement un code. */}
+        {showPromo || promotion?.is_valid ? (
+          <>
+            <Text variant="h3">Code promo</Text>
+            <Spacer size="md" />
 
-        <View style={styles.promoRow}>
-          <Input
-            label="Code"
-            placeholder="BIENVENUE"
-            value={promoInput}
-            onChangeText={(value) => setPromoInput(value.toUpperCase())}
-            error={promoError}
-            autoCapitalize="characters"
-            autoCorrect={false}
-            containerStyle={{ flex: 1 }}
-            icon={<Tag size={theme.iconSize.sm} color={theme.colors.textMuted} />}
-          />
-          <Button
-            label="Appliquer"
-            variant="secondary"
-            onPress={applyPromo}
-            loading={evaluatePromo.isPending}
-            style={{ marginLeft: theme.spacing.sm, marginTop: 24 }}
-          />
-        </View>
+            <View style={styles.promoRow}>
+              <Input
+                label="Code"
+                placeholder="BIENVENUE"
+                value={promoInput}
+                onChangeText={(value) => setPromoInput(value.toUpperCase())}
+                error={promoError}
+                autoCapitalize="characters"
+                autoCorrect={false}
+                autoFocus={!promotion}
+                containerStyle={{ flex: 1 }}
+                icon={<Tag size={theme.iconSize.sm} color={theme.colors.textMuted} />}
+              />
+              <Button
+                label="Appliquer"
+                variant="secondary"
+                onPress={applyPromo}
+                loading={evaluatePromo.isPending}
+                style={{ marginLeft: theme.spacing.sm, marginTop: 24 }}
+              />
+            </View>
 
-        {promotion?.is_valid ? (
-          <View style={{ marginTop: theme.spacing.sm }}>
-            <Badge label={`${promotion.title} appliqué`} tone="success" dot size="sm" />
-          </View>
-        ) : null}
+            {promotion?.is_valid ? (
+              <View style={{ marginTop: theme.spacing.sm }}>
+                <Badge label={`${promotion.title} appliqué`} tone="success" dot size="sm" />
+              </View>
+            ) : null}
+          </>
+        ) : (
+          <Pressable
+            onPress={() => setShowPromo(true)}
+            noScale
+            hitSlop={theme.spacing.sm}
+            accessibilityLabel="J’ai un code promo"
+            style={{ alignSelf: 'flex-start' }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Tag size={theme.iconSize.sm} color={theme.colors.primary} />
+              <Text variant="labelStrong" color="primary" style={{ marginLeft: theme.spacing.sm }}>
+                J’ai un code promo
+              </Text>
+            </View>
+          </Pressable>
+        )}
 
         <Spacer size="xl" />
 
-        {/* --- Paiement -------------------------------------------------- */}
+        {/* --- Paiement ---------------------------------------------------
+            Un seul moyen réel aujourd'hui : une ligne informative suffit,
+            pas un faux choix avec des options grisées. */}
         <Text variant="h3">Paiement</Text>
         <Spacer size="md" />
 
         <Surface padding="none" elevation={1} style={{ paddingHorizontal: theme.spacing.base }}>
           <ListRow
-            title="Paiement à la livraison"
-            subtitle="Espèces, à remettre au livreur"
+            title="Espèces à la livraison"
+            subtitle="À remettre au livreur · d’autres moyens de paiement arrivent"
             icon={<Money size={theme.iconSize.sm} color={theme.colors.primary} weight="fill" />}
-            right={<Badge label="Sélectionné" tone="success" size="sm" />}
-          />
-          <Divider />
-          <ListRow
-            title="Mobile money"
-            subtitle="M-Pesa, Orange Money, Airtel Money — bientôt disponible"
-            icon={<Money size={theme.iconSize.sm} color={theme.colors.textMuted} />}
-            right={<Badge label="Bientôt" tone="neutral" size="sm" />}
           />
         </Surface>
+
+        {/* --- Fidélité -------------------------------------------------- */}
+        {session && loyaltyPoints > 0 ? (
+          <>
+            <Spacer size="xl" />
+            <Surface padding="base" elevation={1}>
+              <View style={styles.loyaltyRow}>
+                <Coins size={theme.iconSize.md} color={theme.colors.warning} weight="fill" />
+                <View style={{ flex: 1, marginHorizontal: theme.spacing.md }}>
+                  <Text variant="bodyStrong">Utiliser mes {loyaltyPoints} points</Text>
+                  <Text variant="caption" color="textSecondary" style={{ marginTop: 2 }}>
+                    {redeemPoints
+                      ? `−${formatMoney(loyaltyValue, currency)} sur cette commande`
+                      : `Jusqu'à −${formatMoney(loyaltyDiscount(loyaltyPoints, totals.total), currency)} sur cette commande`}
+                  </Text>
+                </View>
+                {/* Même style que les Switch du profil : pas de thumbColor
+                    en dur, on laisse la plateforme faire. */}
+                <Switch
+                  value={redeemPoints}
+                  onValueChange={setRedeemPoints}
+                  trackColor={{ true: theme.colors.primary, false: theme.colors.border }}
+                  accessibilityLabel="Utiliser mes points fidélité"
+                />
+              </View>
+            </Surface>
+          </>
+        ) : null}
 
         <Spacer size="xl" />
 
@@ -431,38 +517,42 @@ export default function Checkout() {
             subtotal={totals.subtotal}
             deliveryFee={isDelivery ? totals.deliveryFee : 0}
             serviceFee={totals.serviceFee}
-            discount={totals.discount}
-            total={totals.total}
+            discount={totals.discount + loyaltyValue}
+            total={totalDue}
             currency={currency}
             formatMoney={formatMoney}
-            discountLabel={promotion?.title ?? undefined}
+            discountLabel={
+              promotion?.title ?? (loyaltyValue > 0 ? 'Points fidélité' : undefined)
+            }
             freeDelivery={isDelivery && totals.deliveryFee === 0}
           />
         </Surface>
 
         {formError ? (
-          <Surface
-            padding="md"
-            elevation={0}
-            style={{ backgroundColor: theme.colors.dangerSoft, marginTop: theme.spacing.base }}
-          >
-            <Text variant="label" color="danger" accessibilityLiveRegion="polite">
-              {formError}
-            </Text>
-          </Surface>
+          <InlineAlert
+            tone="danger"
+            message={formError}
+            style={{ marginTop: theme.spacing.base }}
+          />
         ) : null}
       </ScreenScroll>
 
       <BottomBar>
-        <Button
-          label={session ? 'Confirmer la commande' : 'Se connecter et commander'}
-          trailing={formatMoney(totals.total, currency)}
-          onPress={submit}
-          loading={placeOrder.isPending}
-          disabled={Boolean(outOfRange) || lines.length === 0}
-          fullWidth
-          size="lg"
-        />
+        {sessionLoading ? (
+          // Session en cours de restauration : un squelette plutôt qu'un CTA
+          // dont le libellé bascule sous le doigt de l'utilisateur.
+          <Skeleton height={52} radius={theme.radius.lg} />
+        ) : (
+          <Button
+            label={session ? 'Confirmer la commande' : 'Se connecter et commander'}
+            trailing={formatMoney(totalDue, currency)}
+            onPress={submit}
+            loading={placeOrder.isPending}
+            disabled={Boolean(outOfRange) || lines.length === 0}
+            fullWidth
+            size="lg"
+          />
+        )}
       </BottomBar>
     </Screen>
   );
@@ -518,4 +608,5 @@ const styles = StyleSheet.create({
   modeCard: { flex: 1 },
   rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   promoRow: { flexDirection: 'row', alignItems: 'flex-start' },
+  loyaltyRow: { flexDirection: 'row', alignItems: 'center' },
 });

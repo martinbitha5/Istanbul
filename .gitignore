@@ -50,3 +50,11 @@ Thumbs.db
 !.vscode/extensions.json
 !.vscode/settings.json
 .idea/
+
+# Claude Code
+# Le skill ui-ux-pro-max EST versionné (toute l'équipe doit avoir la même
+# base de règles) ; les réglages locaux, non : settings.local.json contient
+# des chemins Windows absolus, des IP de LAN et des PID.
+.claude/settings.local.json
+.claude/skills/**/__pycache__/
+*.pyc

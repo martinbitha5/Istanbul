@@ -6,6 +6,7 @@ import { isValidEmail, requestPasswordReset, toUserMessage } from '@istanbul/cor
 import {
   Button,
   Header,
+  IconBubble,
   Input,
   Screen,
   ScreenScroll,
@@ -45,19 +46,9 @@ export default function ForgotPassword() {
         <Header onBack={() => router.back()} />
         <ScreenScroll>
           <View style={{ alignItems: 'center', paddingTop: theme.spacing['4xl'] }}>
-            <View
-              style={{
-                width: 88,
-                height: 88,
-                borderRadius: 44,
-                backgroundColor: theme.colors.successSoft,
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginBottom: theme.spacing.xl,
-              }}
-            >
+            <IconBubble size={88} tone="success" style={{ marginBottom: theme.spacing.xl }}>
               <CheckCircle size={44} color={theme.colors.success} weight="duotone" />
-            </View>
+            </IconBubble>
 
             <Text variant="h1" align="center">
               Vérifiez votre boîte mail

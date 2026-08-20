@@ -5,7 +5,7 @@ import { router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { ForkKnife, MapPinLine, Timer } from 'phosphor-react-native';
-import { Button, Pressable, Screen, Text, useTheme } from '@istanbul/ui';
+import { Button, IconBubble, Pressable, Screen, Text, useTheme } from '@istanbul/ui';
 import { STORAGE_KEYS } from '@/lib/config';
 
 const { width } = Dimensions.get('window');
@@ -81,12 +81,11 @@ export default function Onboarding() {
             <View key={slide.title} style={[styles.slide, { width, padding: theme.spacing['2xl'] }]}>
               <Animated.View
                 entering={FadeIn.delay(slideIndex === 0 ? 200 : 0)}
-                style={[
-                  styles.iconCircle,
-                  { backgroundColor: theme.colors.primarySoft, marginBottom: theme.spacing['3xl'] },
-                ]}
+                style={{ marginBottom: theme.spacing['3xl'] }}
               >
-                <Icon size={56} color={theme.colors.primary} weight="duotone" />
+                <IconBubble size={128} tone="primary">
+                  <Icon size={56} color={theme.colors.primary} weight="duotone" />
+                </IconBubble>
               </Animated.View>
 
               <Text variant="display" align="center">
@@ -131,7 +130,6 @@ export default function Onboarding() {
 const styles = StyleSheet.create({
   skipRow: { alignItems: 'flex-end', paddingVertical: 8 },
   slide: { alignItems: 'center', justifyContent: 'center' },
-  iconCircle: { width: 128, height: 128, borderRadius: 64, alignItems: 'center', justifyContent: 'center' },
   footer: { alignItems: 'center' },
   dots: { flexDirection: 'row', alignItems: 'center' },
 });

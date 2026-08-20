@@ -1,7 +1,8 @@
-import { useCallback } from 'react';
-import { FlatList, StyleSheet, Switch, View } from 'react-native';
+import { useCallback, useRef, useState } from 'react';
+import { StyleSheet, Switch, View } from 'react-native';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import Animated, { FadeInDown, LinearTransition } from 'react-native-reanimated';
 import { MapPin, Package, Timer } from 'phosphor-react-native';
 import {
   deliveryStatusLabel,
@@ -27,11 +28,14 @@ import {
   ListSkeleton,
   Pressable,
   Screen,
+  SectionHeader,
   Spacer,
   Surface,
   Text,
   useTheme,
+  useToast,
 } from '@istanbul/ui';
+import { Row } from '@/components/Row';
 import { useLocationTracking } from '@/hooks/useLocationTracking';
 
 /**
@@ -42,14 +46,23 @@ import { useLocationTracking } from '@/hooks/useLocationTracking';
  */
 export default function DriverHome() {
   const theme = useTheme();
+  const toast = useToast();
 
   const { data: driver, isLoading: driverLoading } = useDriverProfile();
   const driverId = driver?.id ?? null;
 
   const active = useActiveDeliveries(driverId);
   const available = useAvailableDeliveries(driver?.availability === 'AVAILABLE');
-  const { data: earnings } = useDriverEarnings(driverId);
+  const earnings = useDriverEarnings(driverId);
   const claimDelivery = useClaimDelivery();
+
+  // Une seule carte à la fois montre son spinner : `isPending` global
+  // mettait TOUTES les cartes en chargement dès qu'on en acceptait une.
+  const [claimingId, setClaimingId] = useState<string | null>(null);
+
+  // Mémorise les courses déjà affichées : l'animation d'entrée ne doit jouer
+  // qu'à l'apparition réelle d'une carte, pas à chaque recyclage de la liste.
+  const seenIds = useRef(new Set<string>());
 
   useDriverRealtime(driverId, () => {
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -61,7 +74,8 @@ export default function DriverHome() {
   useLocationTracking(currentDelivery?.id ?? null, Boolean(currentDelivery));
 
   // Mutation optimiste : l'interrupteur bascule immédiatement, sans attendre
-  // l'aller-retour réseau — et se remet en place tout seul en cas d'échec.
+  // l'aller-retour réseau — et se remet en place tout seul en cas d'échec
+  // (le toast global affiche alors l'erreur, le rollback n'est plus muet).
   const setAvailability = useSetAvailability();
 
   const toggleOnline = useCallback(
@@ -71,6 +85,27 @@ export default function DriverHome() {
       setAvailability.mutate({ driverId, availability: online ? 'AVAILABLE' : 'OFFLINE' });
     },
     [driverId, setAvailability],
+  );
+
+  const acceptDelivery = useCallback(
+    (deliveryId: string) => {
+      if (!driverId || claimingId) return;
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      setClaimingId(deliveryId);
+      claimDelivery.mutate(
+        { deliveryId, driverId },
+        {
+          // Navigation directe : la carte migre de « disponibles » vers
+          // « en cours », le livreur n'a plus à la chercher des yeux.
+          onSuccess: () => {
+            toast.success('Course acceptée');
+            router.push(`/delivery/${deliveryId}`);
+          },
+          onSettled: () => setClaimingId(null),
+        },
+      );
+    },
+    [driverId, claimingId, claimDelivery, toast],
   );
 
   if (driverLoading) {
@@ -93,27 +128,40 @@ export default function DriverHome() {
         large
         right={
           <View style={styles.onlineToggle}>
+            {/* « Disponible », pas « En ligne » : le bandeau réseau utilise
+                déjà « hors ligne », deux sens différents pour les mêmes mots
+                rendaient l'écran ambigu. */}
             <Text variant="label" color={isOnline ? 'success' : 'textMuted'}>
-              {isOnline ? 'En ligne' : 'Hors ligne'}
+              {isOnline ? 'Disponible' : 'Indisponible'}
             </Text>
             <Switch
               value={isOnline}
               onValueChange={(value) => void toggleOnline(value)}
               trackColor={{ true: theme.colors.success, false: theme.colors.border }}
               accessibilityLabel="Disponibilité"
-              style={{ marginLeft: 8 }}
+              accessibilityValue={{ text: isOnline ? 'Disponible' : 'Indisponible' }}
+              accessibilityHint={
+                isOnline
+                  ? 'Vous ne recevrez plus de nouvelles courses'
+                  : 'Vous recevrez de nouvelles courses'
+              }
+              style={{ marginLeft: theme.spacing.sm }}
             />
           </View>
         }
       />
 
-      <FlatList<DeliveryWithOrder>
+      <Animated.FlatList<DeliveryWithOrder>
         data={isOnline ? (available.data ?? []) : []}
         keyExtractor={(item) => item.id}
+        // Une nouvelle course qui surgit d'un coup décale la liste et fait
+        // taper le livreur sur la mauvaise ligne : la transition adoucit ça.
+        itemLayoutAnimation={LinearTransition.duration(theme.duration.base)}
         refreshing={available.isRefetching}
         onRefresh={() => {
           void available.refetch();
           void active.refetch();
+          void earnings.refetch();
         }}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{
@@ -125,13 +173,18 @@ export default function DriverHome() {
           <View>
             {/* --- Revenus du jour --------------------------------------- */}
             <Surface padding="base" elevation={1}>
-              <View style={styles.rowBetween}>
+              <Row>
                 <View>
                   <Text variant="caption" color="textMuted">
                     Gains aujourd’hui
                   </Text>
-                  <Text variant="display" tabular color="primary" style={{ marginTop: 2 }}>
-                    {formatMoney(earnings?.today ?? 0)}
+                  <Text
+                    variant="display"
+                    tabular
+                    color="primary"
+                    style={{ marginTop: theme.spacing.xxs }}
+                  >
+                    {formatMoney(earnings.data?.today ?? 0)}
                   </Text>
                 </View>
 
@@ -140,31 +193,33 @@ export default function DriverHome() {
                     Livraisons
                   </Text>
                   <Text variant="h1" tabular>
-                    {earnings?.deliveriesToday ?? 0}
+                    {earnings.data?.deliveriesToday ?? 0}
                   </Text>
                 </View>
-              </View>
+              </Row>
             </Surface>
 
             {/* --- Course en cours --------------------------------------- */}
             {currentDelivery ? (
               <>
                 <Spacer size="xl" />
-                <Text variant="h2">Course en cours</Text>
-                <Spacer size="md" />
+                <SectionHeader title="Course en cours" />
                 <ActiveDeliveryCard delivery={currentDelivery} />
               </>
             ) : null}
 
             {/* --- Titre section disponible ------------------------------ */}
             <Spacer size="xl" />
-            <Text variant="h2">Courses disponibles</Text>
-            <Spacer size="md" />
+            <SectionHeader title="Courses disponibles" />
 
             {!isOnline ? (
-              <Surface padding="base" elevation={0} style={{ backgroundColor: theme.colors.surfaceSunken }}>
+              <Surface
+                padding="base"
+                elevation={0}
+                style={{ backgroundColor: theme.colors.surfaceSunken }}
+              >
                 <Text variant="body" color="textSecondary" align="center">
-                  Vous êtes hors ligne. Activez votre disponibilité pour recevoir des courses.
+                  Vous êtes indisponible. Activez votre disponibilité pour recevoir des courses.
                 </Text>
               </Surface>
             ) : null}
@@ -179,23 +234,34 @@ export default function DriverHome() {
             ) : (
               <EmptyState
                 title="Aucune course pour le moment"
-                description="Restez en ligne : vous serez notifié dès qu’une commande est prête."
-                icon={<Package size={32} color={theme.colors.textMuted} weight="duotone" />}
+                description="Restez disponible : vous serez notifié dès qu’une commande est prête."
+                icon={
+                  <Package size={theme.iconSize.xl} color={theme.colors.textMuted} weight="duotone" />
+                }
               />
             )
           ) : null
         }
-        renderItem={({ item }) => (
-          <AvailableDeliveryCard
-            delivery={item}
-            onAccept={() => {
-              if (!driverId) return;
-              void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-              claimDelivery.mutate({ deliveryId: item.id, driverId });
-            }}
-            loading={claimDelivery.isPending}
-          />
-        )}
+        renderItem={({ item, index }) => {
+          const isNew = !seenIds.current.has(item.id);
+          if (isNew) seenIds.current.add(item.id);
+          return (
+            <Animated.View
+              entering={
+                isNew
+                  ? FadeInDown.duration(theme.duration.base).delay(theme.stagger.delayFor(index))
+                  : undefined
+              }
+            >
+              <AvailableDeliveryCard
+                delivery={item}
+                onAccept={() => acceptDelivery(item.id)}
+                loading={claimingId === item.id}
+                disabled={claimingId !== null && claimingId !== item.id}
+              />
+            </Animated.View>
+          );
+        }}
       />
     </Screen>
   );
@@ -207,8 +273,12 @@ function ActiveDeliveryCard({ delivery }: { delivery: DeliveryWithOrder }) {
 
   return (
     <Pressable onPress={() => router.push(`/delivery/${delivery.id}`)}>
-      <Surface padding="base" elevation={2} style={{ borderLeftWidth: 4, borderLeftColor: theme.colors.primary }}>
-        <View style={styles.rowBetween}>
+      <Surface
+        padding="base"
+        elevation={2}
+        style={{ borderLeftWidth: 4, borderLeftColor: theme.colors.primary }}
+      >
+        <Row>
           <Text variant="labelStrong" tabular color="textSecondary">
             {order.order_number}
           </Text>
@@ -218,15 +288,20 @@ function ActiveDeliveryCard({ delivery }: { delivery: DeliveryWithOrder }) {
             size="sm"
             dot
           />
-        </View>
+        </Row>
 
         <Text variant="h3" style={{ marginTop: theme.spacing.sm }}>
           {order.contact_name}
         </Text>
 
         <View style={[styles.metaRow, { marginTop: theme.spacing.xs }]}>
-          <MapPin size={14} color={theme.colors.textMuted} />
-          <Text variant="bodySmall" color="textSecondary" numberOfLines={1} style={{ marginLeft: 4, flex: 1 }}>
+          <MapPin size={theme.iconSize.xs} color={theme.colors.textMuted} />
+          <Text
+            variant="bodySmall"
+            color="textSecondary"
+            numberOfLines={1}
+            style={{ marginLeft: theme.spacing.xs, flex: 1 }}
+          >
             {order.delivery_address}
             {order.delivery_commune ? `, ${order.delivery_commune}` : ''}
           </Text>
@@ -234,7 +309,7 @@ function ActiveDeliveryCard({ delivery }: { delivery: DeliveryWithOrder }) {
 
         <Divider spacing="md" />
 
-        <View style={styles.rowBetween}>
+        <Row>
           <View>
             <Text variant="caption" color="textMuted">
               À encaisser
@@ -245,7 +320,7 @@ function ActiveDeliveryCard({ delivery }: { delivery: DeliveryWithOrder }) {
           </View>
 
           <Button label="Continuer" size="sm" onPress={() => router.push(`/delivery/${delivery.id}`)} />
-        </View>
+        </Row>
       </Surface>
     </Pressable>
   );
@@ -255,43 +330,45 @@ function AvailableDeliveryCard({
   delivery,
   onAccept,
   loading,
+  disabled,
 }: {
   delivery: DeliveryWithOrder;
   onAccept: () => void;
   loading: boolean;
+  disabled: boolean;
 }) {
   const theme = useTheme();
   const order = delivery.order;
 
   return (
     <Surface padding="base" elevation={1}>
-      <View style={styles.rowBetween}>
+      <Row>
         <Text variant="labelStrong" tabular color="textSecondary">
           {order.order_number}
         </Text>
         <View style={styles.metaRow}>
-          <Timer size={13} color={theme.colors.textMuted} />
-          <Text variant="caption" color="textMuted" style={{ marginLeft: 3 }}>
+          <Timer size={theme.iconSize.xs} color={theme.colors.textMuted} />
+          <Text variant="caption" color="textMuted" style={{ marginLeft: theme.spacing.xs }}>
             {formatRelative(delivery.offered_at)}
           </Text>
         </View>
-      </View>
+      </Row>
 
       <View style={[styles.metaRow, { marginTop: theme.spacing.sm }]}>
-        <MapPin size={16} color={theme.colors.primary} weight="fill" />
-        <Text variant="bodyStrong" numberOfLines={2} style={{ marginLeft: 6, flex: 1 }}>
+        <MapPin size={theme.iconSize.xs} color={theme.colors.primary} weight="fill" />
+        <Text variant="bodyStrong" numberOfLines={2} style={{ marginLeft: theme.spacing.sm, flex: 1 }}>
           {order.delivery_commune ?? order.delivery_address}
         </Text>
       </View>
 
-      <Text variant="caption" color="textSecondary" style={{ marginTop: 2 }}>
+      <Text variant="caption" color="textSecondary" style={{ marginTop: theme.spacing.xxs }}>
         {order.items.length} article{order.items.length > 1 ? 's' : ''}
         {delivery.distance_km ? ` · ${delivery.distance_km} km` : ''}
       </Text>
 
       <Divider spacing="md" />
 
-      <View style={styles.rowBetween}>
+      <Row>
         <View>
           <Text variant="caption" color="textMuted">
             Votre gain
@@ -301,14 +378,13 @@ function AvailableDeliveryCard({
           </Text>
         </View>
 
-        <Button label="Accepter" onPress={onAccept} loading={loading} size="sm" />
-      </View>
+        <Button label="Accepter" onPress={onAccept} loading={loading} disabled={disabled} size="sm" />
+      </Row>
     </Surface>
   );
 }
 
 const styles = StyleSheet.create({
-  rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   metaRow: { flexDirection: 'row', alignItems: 'center' },
   onlineToggle: { flexDirection: 'row', alignItems: 'center' },
 });

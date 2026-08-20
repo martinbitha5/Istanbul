@@ -5,7 +5,9 @@
  * PostgreSQL (via pg_net) ou directement depuis le dashboard.
  *
  * Déploiement :
- *   supabase functions deploy notify --no-verify-jwt
+ *   supabase functions deploy notify
+ * (verify_jwt actif : les triggers pg_net envoient la clé anon en
+ *  Authorization, lue depuis app_config.edge_notify_key.)
  *
  * Elle utilise la clé service_role : elle doit lire les tokens de n'importe
  * quel profil et écrire dans `notifications`, ce que la RLS interdit à un

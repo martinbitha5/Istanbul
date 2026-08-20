@@ -54,6 +54,37 @@ const initialState = {
   deliveryNotes: null as string | null,
 };
 
+/**
+ * Stockage injectable. Par défaut : mémoire (tests, SSR) ;
+ * `configureCartStorage` est appelé au boot de l'app mobile avec AsyncStorage.
+ *
+ * DOIT être déclaré AVANT le store : zustand évalue `createJSONStorage` dès la
+ * création du store, et une référence en zone morte temporelle y laisserait un
+ * storage `undefined` (crash au premier ajout au panier). Le store ne capture
+ * d'ailleurs qu'un délégué : le swap vers AsyncStorage reste effectif même
+ * après cette capture.
+ */
+interface KeyValueStorage {
+  getItem: (key: string) => string | null | Promise<string | null>;
+  setItem: (key: string, value: string) => void | Promise<void>;
+  removeItem: (key: string) => void | Promise<void>;
+}
+
+const memoryStore = new Map<string, string>();
+
+let cartStorage: KeyValueStorage = {
+  getItem: (key) => memoryStore.get(key) ?? null,
+  setItem: (key, value) => void memoryStore.set(key, value),
+  removeItem: (key) => void memoryStore.delete(key),
+};
+
+/** Délégué stable : chaque appel relit `cartStorage` au moment de l'opération. */
+const delegatingStorage: KeyValueStorage = {
+  getItem: (key) => cartStorage.getItem(key),
+  setItem: (key, value) => cartStorage.setItem(key, value),
+  removeItem: (key) => cartStorage.removeItem(key),
+};
+
 export const useCartStore = create<CartState>()(
   persist(
     (set) => ({
@@ -145,7 +176,7 @@ export const useCartStore = create<CartState>()(
       name: 'istanbul.cart',
       version: 1,
       // Le stockage est injecté au démarrage par l'app (AsyncStorage en RN).
-      storage: createJSONStorage(() => cartStorage),
+      storage: createJSONStorage(() => delegatingStorage),
       partialize: (state) => ({
         lines: state.lines,
         fulfillment: state.fulfillment,
@@ -155,24 +186,6 @@ export const useCartStore = create<CartState>()(
     },
   ),
 );
-
-/**
- * Stockage injectable. Par défaut : mémoire (utile pour les tests et le SSR).
- * `configureCartStorage` est appelé au boot de l'app mobile avec AsyncStorage.
- */
-interface KeyValueStorage {
-  getItem: (key: string) => string | null | Promise<string | null>;
-  setItem: (key: string, value: string) => void | Promise<void>;
-  removeItem: (key: string) => void | Promise<void>;
-}
-
-const memoryStore = new Map<string, string>();
-
-let cartStorage: KeyValueStorage = {
-  getItem: (key) => memoryStore.get(key) ?? null,
-  setItem: (key, value) => void memoryStore.set(key, value),
-  removeItem: (key) => void memoryStore.delete(key),
-};
 
 export function configureCartStorage(storage: KeyValueStorage): void {
   cartStorage = storage;

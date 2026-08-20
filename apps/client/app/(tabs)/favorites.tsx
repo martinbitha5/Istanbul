@@ -1,19 +1,17 @@
-import { FlatList, View } from 'react-native';
+import { useCallback } from 'react';
+import { FlatList, View, type ListRenderItem } from 'react-native';
 import { router } from 'expo-router';
 import { Heart } from 'phosphor-react-native';
 import {
-  cartItemCount,
-  cartSubtotal,
   formatMoney,
-  useCartStore,
   useFavoriteIds,
   useFavorites,
   useRestaurant,
   useSession,
   useToggleFavorite,
 } from '@istanbul/core';
+import type { Product } from '@istanbul/types';
 import {
-  CartBar,
   EmptyState,
   ErrorState,
   Header,
@@ -22,33 +20,53 @@ import {
   Screen,
   useTheme,
 } from '@istanbul/ui';
-import { config } from '@/lib/config';
+import { useRestaurantId } from '@/store/restaurant';
+import { AuthGate } from '@/components/AuthGate';
+import { TabCartBar, useCartItemCount } from '@/components/TabCartBar';
+import { useCartBarListPadding } from '@/lib/layout';
 
 export default function Favorites() {
   const theme = useTheme();
-  const { session } = useSession();
+  const { session, isLoading: sessionLoading } = useSession();
 
   const { data: favorites, isLoading, isError, refetch, isRefetching } = useFavorites();
   const { ids: favoriteIds } = useFavoriteIds();
   const toggleFavorite = useToggleFavorite();
-  const { data: restaurant } = useRestaurant(config.restaurantId);
+  const toggleFavoriteMutate = toggleFavorite.mutate;
+  const restaurantId = useRestaurantId();
+  const { data: restaurant } = useRestaurant(restaurantId);
 
-  const lines = useCartStore((state) => state.lines);
-  const itemCount = cartItemCount(lines);
-  const subtotal = cartSubtotal(lines);
+  const itemCount = useCartItemCount();
+  const listBottomPadding = useCartBarListPadding(itemCount > 0);
 
-  if (!session) {
+  const currency = restaurant?.currency;
+
+  const renderItem = useCallback<ListRenderItem<Product>>(
+    ({ item }) => (
+      <ProductCard
+        product={item}
+        layout="row"
+        onPress={() => router.push(`/product/${item.id}`)}
+        onToggleFavorite={() =>
+          toggleFavoriteMutate({
+            productId: item.id,
+            isFavorite: favoriteIds.has(item.id),
+          })
+        }
+        isFavorite
+        formatPrice={(cents) => formatMoney(cents, currency)}
+      />
+    ),
+    [toggleFavoriteMutate, favoriteIds, currency],
+  );
+
+  if (sessionLoading || !session) {
     return (
-      <Screen>
-        <Header title="Favoris" large />
-        <EmptyState
-          title="Connectez-vous"
-          description="Enregistrez vos plats préférés pour les retrouver en un tap."
-          actionLabel="Se connecter"
-          onAction={() => router.push('/(auth)/sign-in')}
-          icon={<Heart size={32} color={theme.colors.textMuted} weight="duotone" />}
-        />
-      </Screen>
+      <AuthGate
+        title="Favoris"
+        description="Enregistrez vos plats préférés pour les retrouver en un tap."
+        icon={<Heart size={theme.iconSize.xl} color={theme.colors.textMuted} weight="duotone" />}
+      />
     );
   }
 
@@ -71,43 +89,23 @@ export default function Favorites() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{
             paddingHorizontal: theme.screenPadding,
-            paddingBottom: itemCount > 0 ? 110 : theme.spacing.xl,
+            paddingBottom: listBottomPadding,
             gap: theme.spacing.md,
           }}
-          renderItem={({ item }) => (
-            <ProductCard
-              product={item}
-              layout="row"
-              onPress={() => router.push(`/product/${item.id}`)}
-              onToggleFavorite={() =>
-                toggleFavorite.mutate({
-                  productId: item.id,
-                  isFavorite: favoriteIds.has(item.id),
-                })
-              }
-              isFavorite
-              formatPrice={(cents) => formatMoney(cents, restaurant?.currency)}
-            />
-          )}
+          renderItem={renderItem}
           ListEmptyComponent={
             <EmptyState
               title="Aucun favori"
               description="Touchez le cœur sur un plat pour le retrouver ici."
               actionLabel="Découvrir le menu"
               onAction={() => router.push('/(tabs)/menu')}
-              icon={<Heart size={32} color={theme.colors.textMuted} weight="duotone" />}
+              icon={<Heart size={theme.iconSize.xl} color={theme.colors.textMuted} weight="duotone" />}
             />
           }
         />
       )}
 
-      <CartBar
-        itemCount={itemCount}
-        total={subtotal}
-        onPress={() => router.push('/cart')}
-        formatMoney={(cents) => formatMoney(cents, restaurant?.currency)}
-        bottomOffset={58}
-      />
+      <TabCartBar />
     </Screen>
   );
 }

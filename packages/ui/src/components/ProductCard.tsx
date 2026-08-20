@@ -59,21 +59,18 @@ export function ProductCard({
         accessibilityLabel={product.name}
       />
 
-      {/* Badges en surimpression — au maximum un par coin. */}
-      {product.is_popular && !unavailable ? (
-        <View style={[styles.topLeft, { margin: theme.spacing.sm }]}>
-          <Badge
-            label="Populaire"
-            tone="warning"
-            size="sm"
-            icon={<Fire size={11} color={theme.colors.warning} weight="fill" />}
-          />
-        </View>
-      ) : null}
-
-      {hasDiscount && !unavailable ? (
-        <View style={[styles.topLeft, { margin: theme.spacing.sm }]}>
-          <Badge label="Promo" tone="danger" size="sm" />
+      {/* Badges en surimpression — empilés dans le même coin, jamais superposés. */}
+      {!unavailable && (hasDiscount || product.is_popular) ? (
+        <View style={[styles.topLeft, { margin: theme.spacing.sm, gap: theme.spacing.xs }]}>
+          {hasDiscount ? <Badge label="Promo" tone="danger" size="sm" /> : null}
+          {product.is_popular ? (
+            <Badge
+              label="Populaire"
+              tone="warning"
+              size="sm"
+              icon={<Fire size={12} color={theme.colors.onWarningSoft} weight="fill" />}
+            />
+          ) : null}
         </View>
       ) : null}
 

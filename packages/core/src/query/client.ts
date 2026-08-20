@@ -1,5 +1,15 @@
-import { QueryClient } from '@tanstack/react-query';
+import { MutationCache, QueryClient } from '@tanstack/react-query';
 import { toUserMessage } from '../supabase/client';
+
+export interface CreateQueryClientOptions {
+  /**
+   * Appelé pour toute mutation qui échoue, avec un message déjà traduit.
+   * C'est le filet global : brancher un toast ici garantit qu'aucune
+   * mutation n'échoue en silence. Une mutation volontairement muette
+   * (télémétrie, position GPS) se déclare avec `meta: { silent: true }`.
+   */
+  onMutationError?: (message: string, error: unknown) => void;
+}
 
 /**
  * Configuration React Query.
@@ -8,8 +18,14 @@ import { toUserMessage } from '../supabase/client';
  * fréquentes. Les valeurs par défaut sont donc plus tolérantes que celles de
  * la bibliothèque, et on ne refetch pas au moindre retour au premier plan.
  */
-export function createQueryClient(): QueryClient {
+export function createQueryClient(options: CreateQueryClientOptions = {}): QueryClient {
   return new QueryClient({
+    mutationCache: new MutationCache({
+      onError: (error, _variables, _context, mutation) => {
+        if (mutation.meta?.silent) return;
+        options.onMutationError?.(toUserMessage(error), error);
+      },
+    }),
     defaultOptions: {
       queries: {
         staleTime: 60_000,

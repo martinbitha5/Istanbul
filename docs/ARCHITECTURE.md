@@ -53,6 +53,7 @@ auth.users ──1:1── profiles ──┬──< addresses
 restaurants ──┬──< categories ──< products ──┬──< product_option_groups ──< product_options
               ├──< delivery_zones            └──< product_images
               ├──< promotions ──< promotion_products
+              ├──< restaurant_members >──── profiles
               └──< opening_hours
 ```
 
@@ -168,9 +169,100 @@ Au lancement, seul `CASH` (paiement à la livraison) est actif. Ajouter M-Pesa c
 créer une Edge Function `payments/mpesa` qui écrit dans cette table — aucune migration
 de schéma, aucun changement dans l'application client hormis l'affichage du moyen.
 
-## 9. Ce qui reste hors périmètre v1
+## 9. Multi-restaurants — cloisonnement
 
-- Multi-restaurants réel (le schéma le supporte, l'UI est mono-restaurant)
-- Calcul d'itinéraire optimisé (on utilise la distance à vol d'oiseau × facteur 1.35)
+Le schéma portait un `restaurant_id` partout depuis le début, mais l'autorisation
+ne le lisait pas : `fn_is_staff()` répondait « oui » quel que soit le restaurant
+visé. Le staff du partenaire A pouvait donc modifier le menu de B, lire son
+chiffre d'affaires et faire avancer ses commandes. La **migration 21** referme
+cela.
+
+### `restaurant_members` — l'appartenance porte les droits
+
+```
+restaurant_members (restaurant_id, profile_id) → role : OWNER | MANAGER | STAFF
+```
+
+`profiles.restaurant_id` est conservé : c'est le rattachement principal, celui
+que lit l'app livreur et que contrôle la contrainte
+`profiles_staff_needs_restaurant`. Les deux modèles sont tenus synchronisés par
+`trg_restaurant_members_sync` — supprimer l'un aurait cassé l'existant pour un
+gain nul. **La source de vérité des droits, c'est la table d'appartenance.**
+
+### Quatre prédicats, quatre niveaux
+
+| Prédicat | Rôles | Couvre |
+|----------|-------|--------|
+| `fn_can_view_restaurant` | tout membre + plateforme | tableau de bord, commandes, clients |
+| `fn_can_serve_restaurant` | tout membre + plateforme | statuts de commande, assignation livreur, rupture de stock |
+| `fn_can_manage_restaurant` | OWNER, MANAGER + plateforme | menu, prix, promotions, zones, agrément des livreurs |
+| `fn_can_admin_restaurant` | OWNER + plateforme | équipe, identité et paramètres de l'établissement |
+
+`view` et `serve` couvrent aujourd'hui le même ensemble. Ils restent distincts
+parce qu'ils répondent à des questions différentes : un futur rôle en lecture
+seule (comptable, franchiseur) les séparera sans réécrire une policy.
+
+Tous sont `SECURITY DEFINER` et `STABLE` — même motif qu'en section 7 : ils
+lisent `restaurant_members` sans redéclencher la RLS de cette table.
+
+### Ce que la RLS ne pouvait pas faire
+
+La RLS filtre des lignes, jamais des colonnes. Deux cas s'en accommodent mal et
+passent donc par une fonction dont la **signature est la restriction** :
+
+- `fn_set_product_availability(product_id, is_available)` — la personne à la
+  caisse (rôle STAFF) doit pouvoir signaler une rupture de stock sans avoir
+  accès aux prix. Une policy ne sait pas exprimer « cette colonne oui, celle-là
+  non ».
+- `fn_order_confirmation_code(order_id)` — même principe, déjà en place depuis
+  la migration 09 ; la migration 21 corrige seulement son périmètre
+  (`fn_is_staff()` l'ouvrait au staff de *tous* les partenaires).
+
+### Les fonctions métier ont un garde-fou
+
+`fn_advance_order_status` n'en avait **aucun** : n'importe quel compte connecté
+pouvait faire avancer n'importe quelle commande. Elle vérifie désormais que
+l'appelant est le restaurant qui prépare, le livreur qui porte, ou le client qui
+annule avant la cuisine. `fn_assign_driver` exige en plus que le livreur
+appartienne au restaurant de la commande. `fn_dashboard_stats`, `fn_sales_series`
+et `fn_top_products` refusent un restaurant hors périmètre.
+
+`auth.uid() is null` reste autorisé partout : c'est le contexte serveur
+(pg_cron du mode démo, `service_role`, Edge Functions), déjà de confiance.
+
+### Place de marché
+
+`restaurants.is_published` rend l'établissement visible ou non dans l'app client
+— un partenaire en cours d'onboarding monte sa carte avant d'ouvrir boutique.
+`fn_create_restaurant` le crée fermé et non publié, avec ses horaires et sa
+grille de livraison par défaut.
+
+La commission négociée vit dans une table **séparée**, `restaurant_billing`, et
+ce n'est pas cosmétique : `restaurants` est en lecture publique (c'est la
+vitrine, l'app client doit l'afficher avant connexion), donc une colonne
+`commission_bps` y aurait publié le taux de chaque partenaire à ses concurrents
+et à quiconque détient la clé anon. Le motif « revoke select (colonne) » de la
+section 4 aurait marché, mais aurait cassé tous les `select *` sur `restaurants`
+dans les trois applications. Le propriétaire lit son taux, seule la plateforme
+l'écrit — et c'est là que vivront les futurs champs de reversement.
+
+`fn_platform_revenue(from, to)` (migration 23) agrège la commission due par
+partenaire. Elle **calcule** au lieu de **stocker** : écrire le montant sur chaque
+`orders` aurait été plus rapide à lire, mais aurait figé le taux, et une
+renégociation rétroactive aurait alors imposé une migration de données. L'assiette
+est le sous-total des commandes livrées — ni la livraison (elle va au livreur) ni
+les frais de service. L'arrondi se fait une fois sur le total de la période, pas
+commande par commande : arrondir 400 fois creuse un écart visible sur la facture.
+
+Les tests `supabase/tests/multi_tenant.test.sql` (21 assertions) couvrent chaque
+brèche listée ci-dessus.
+
+## 10. Ce qui reste hors périmètre v1
+
+- Calcul d'itinéraire optimisé côté serveur (l'app utilise OSRM, la tarification
+  reste sur la distance à vol d'oiseau × 1.35)
 - Chat client ↔ livreur (téléphone uniquement)
-- Programme de fidélité
+- Un même compte membre de plusieurs établissements avec des rôles différents :
+  le schéma le permet, le sélecteur du dashboard l'affiche, mais aucun écran
+  n'agrège les chiffres de plusieurs partenaires
+- Reversement automatique de la commission (elle est stockée, pas facturée)

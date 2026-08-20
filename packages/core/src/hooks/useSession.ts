@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useSyncExternalStore } from 'react';
 import type { Session } from '@supabase/supabase-js';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import type { Profile, UserRole } from '@istanbul/types';
 import { getSupabase } from '../supabase/client';
 import { fetchMyProfile } from '../api/auth';
@@ -13,6 +13,63 @@ export interface SessionState {
 }
 
 /**
+ * Store de session partagé.
+ *
+ * Un seul abonnement `onAuthStateChange` pour toute l'application : chaque
+ * appel de `useSession` lit le même instantané. L'ancienne version créait un
+ * état local + un abonnement PAR hook monté ; comme `getSession()` est
+ * asynchrone, chaque nouvel écran repartait de `session: null` et affichait un
+ * flash « Connectez-vous » à l'utilisateur pourtant connecté.
+ */
+let snapshot: SessionState = { session: null, isLoading: true };
+const listeners = new Set<() => void>();
+const boundClients = new Set<QueryClient>();
+let started = false;
+
+function setSnapshot(next: SessionState) {
+  snapshot = next;
+  listeners.forEach((listener) => listener());
+}
+
+function ensureStarted() {
+  if (started) return;
+  started = true;
+
+  const supabase = getSupabase();
+
+  void supabase.auth.getSession().then(({ data }) => {
+    // Ne pas écraser un état déjà poussé par `onAuthStateChange`.
+    if (snapshot.isLoading) {
+      setSnapshot({ session: data.session, isLoading: false });
+    }
+  });
+
+  supabase.auth.onAuthStateChange((event, nextSession) => {
+    setSnapshot({ session: nextSession, isLoading: false });
+
+    if (event === 'SIGNED_OUT') {
+      // Purge totale : rien de l'utilisateur précédent ne doit survivre.
+      boundClients.forEach((client) => client.clear());
+    } else if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
+      boundClients.forEach((client) =>
+        client.invalidateQueries({ queryKey: queryKeys.profile() }),
+      );
+    }
+  });
+}
+
+function subscribe(listener: () => void): () => void {
+  ensureStarted();
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
+const getSnapshot = () => snapshot;
+// Côté serveur (SSR du dashboard), la session n'est jamais connue du client JS.
+const getServerSnapshot = (): SessionState => serverSnapshot;
+const serverSnapshot: SessionState = { session: null, isLoading: true };
+
+/**
  * Session Supabase.
  *
  * `isLoading` compte : sans lui, l'app affiche l'écran de connexion pendant
@@ -20,40 +77,18 @@ export interface SessionState {
  * connecté. C'est le bug le plus visible d'une app mobile mal câblée.
  */
 export function useSession(): SessionState {
-  const [session, setSession] = useState<Session | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const state = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
   const queryClient = useQueryClient();
 
+  // Enregistre le QueryClient pour les effets d'auth (purge à la déconnexion).
   useEffect(() => {
-    const supabase = getSupabase();
-    let mounted = true;
-
-    supabase.auth.getSession().then(({ data }) => {
-      if (!mounted) return;
-      setSession(data.session);
-      setIsLoading(false);
-    });
-
-    const { data: subscription } = supabase.auth.onAuthStateChange((event, nextSession) => {
-      if (!mounted) return;
-      setSession(nextSession);
-      setIsLoading(false);
-
-      if (event === 'SIGNED_OUT') {
-        // Purge totale : rien de l'utilisateur précédent ne doit survivre.
-        queryClient.clear();
-      } else if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
-        void queryClient.invalidateQueries({ queryKey: queryKeys.profile() });
-      }
-    });
-
+    boundClients.add(queryClient);
     return () => {
-      mounted = false;
-      subscription.subscription.unsubscribe();
+      boundClients.delete(queryClient);
     };
   }, [queryClient]);
 
-  return { session, isLoading };
+  return state;
 }
 
 export function useProfile() {

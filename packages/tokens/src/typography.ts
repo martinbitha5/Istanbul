@@ -101,6 +101,9 @@ export const textStyles = {
 } as const;
 
 /** À appliquer sur tout texte numérique susceptible de changer en place. */
-export const tabularNums = { fontVariant: ['tabular-nums'] as const };
+// Pas de `as const` : react-native attend un FontVariant[] mutable.
+export const tabularNums: { fontVariant: 'tabular-nums'[] } = {
+  fontVariant: ['tabular-nums'],
+};
 
 export type TextStyleToken = keyof typeof textStyles;

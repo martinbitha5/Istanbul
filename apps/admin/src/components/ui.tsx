@@ -1,6 +1,17 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import {
+  cloneElement,
+  isValidElement,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type ReactElement,
+  type ReactNode,
+} from 'react';
+import { createPortal } from 'react-dom';
+import { X } from '@phosphor-icons/react';
 import type { StatusTone } from '@istanbul/types';
 
 /**
@@ -38,20 +49,23 @@ export function SectionTitle({
   title,
   description,
   action,
+  as: Heading = 'h2',
 }: {
   title: string;
   description?: string;
   action?: ReactNode;
+  /** `h1` pour le titre principal de la page : chaque page doit en avoir un. */
+  as?: 'h1' | 'h2';
 }) {
   return (
     <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
       <div>
-        <h2
+        <Heading
           className="text-xl font-semibold tracking-tight"
           style={{ fontFamily: 'var(--font-sora)' }}
         >
           {title}
-        </h2>
+        </Heading>
         {description ? (
           <p className="mt-1 text-sm text-[var(--color-text-secondary)]">{description}</p>
         ) : null}
@@ -63,12 +77,14 @@ export function SectionTitle({
 
 // ---------------------------------------------------------------------------
 
+// Texte sur fond soft : les tokens on-*-soft garantissent 4.5:1, là où la
+// couleur pleine ne tenait pas le contraste sur le pastel.
 const TONES: Record<StatusTone, { bg: string; fg: string }> = {
   neutral: { bg: 'var(--color-surface-sunken)', fg: 'var(--color-text-secondary)' },
-  info: { bg: 'var(--color-info-soft)', fg: 'var(--color-info)' },
-  warning: { bg: 'var(--color-warning-soft)', fg: 'var(--color-warning)' },
-  success: { bg: 'var(--color-success-soft)', fg: 'var(--color-success)' },
-  danger: { bg: 'var(--color-danger-soft)', fg: 'var(--color-danger)' },
+  info: { bg: 'var(--color-info-soft)', fg: 'var(--color-on-info-soft)' },
+  warning: { bg: 'var(--color-warning-soft)', fg: 'var(--color-on-warning-soft)' },
+  success: { bg: 'var(--color-success-soft)', fg: 'var(--color-on-success-soft)' },
+  danger: { bg: 'var(--color-danger-soft)', fg: 'var(--color-on-danger-soft)' },
 };
 
 export function Badge({
@@ -120,10 +136,10 @@ export function Button({
   title?: string;
 }) {
   const styles: Record<ButtonVariant, string> = {
-    primary: 'text-white',
+    primary: '',
     secondary: 'border',
     ghost: '',
-    danger: 'text-white',
+    danger: '',
   };
 
   const backgrounds: Record<ButtonVariant, string> = {
@@ -133,11 +149,13 @@ export function Button({
     danger: 'var(--color-danger)',
   };
 
+  // text-on-primary et non blanc en dur : en sombre c'est de l'encre
+  // (le blanc sur orange clair ne tenait pas le contraste).
   const colors: Record<ButtonVariant, string> = {
-    primary: '#fff',
+    primary: 'var(--color-text-on-primary)',
     secondary: 'var(--color-text)',
     ghost: 'var(--color-primary)',
-    danger: '#fff',
+    danger: 'var(--color-text-on-primary)',
   };
 
   const inactive = disabled || loading;
@@ -149,7 +167,7 @@ export function Button({
       disabled={inactive}
       title={title}
       aria-busy={loading}
-      className={`inline-flex items-center justify-center gap-2 rounded-full font-semibold transition-[opacity,transform] duration-150 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45 ${
+      className={`inline-flex cursor-pointer items-center justify-center gap-2 rounded-full font-semibold transition-[opacity,transform] duration-150 hover:opacity-90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:opacity-45 ${
         size === 'sm' ? 'h-9 px-3.5 text-sm' : 'h-11 px-5 text-sm'
       } ${styles[variant]} ${className}`}
       style={{
@@ -174,6 +192,14 @@ function Spinner() {
 
 // ---------------------------------------------------------------------------
 
+/**
+ * Champ de formulaire avec libellé, hint et erreur accessibles.
+ *
+ * Le hint et l'erreur sont sortis du `<label>` (un lecteur d'écran lisait
+ * tout le bloc comme libellé) : `htmlFor` + `useId` relient le libellé au
+ * champ, et le champ enfant reçoit `aria-invalid` / `aria-describedby` par
+ * clonage quand c'est un élément unique.
+ */
 export function Field({
   label,
   children,
@@ -187,36 +213,95 @@ export function Field({
   error?: string;
   required?: boolean;
 }) {
+  const id = useId();
+  const messageId = error ? `${id}-error` : hint ? `${id}-hint` : undefined;
+
+  // Injecte id + attributs ARIA sur le champ s'il est un élément React unique
+  // (input, select, textarea, MoneyInput…). Un enfant composite reste intact.
+  const child = isValidElement(children)
+    ? cloneElement(children as ReactElement<Record<string, unknown>>, {
+        id,
+        'aria-invalid': error ? true : undefined,
+        'aria-describedby': messageId,
+      })
+    : children;
+
   return (
-    <label className="block">
-      <span className="mb-1.5 block text-sm font-medium text-[var(--color-text-secondary)]">
+    <div>
+      <label
+        htmlFor={id}
+        className="mb-1.5 block text-sm font-medium text-[var(--color-text-secondary)]"
+      >
         {label}
-        {required ? <span className="text-[var(--color-danger)]"> *</span> : null}
-      </span>
-      {children}
+        {required ? (
+          <span className="text-[var(--color-danger)]" aria-hidden>
+            {' '}
+            *
+          </span>
+        ) : null}
+      </label>
+      {child}
       {error ? (
-        <span role="alert" className="mt-1 block text-xs text-[var(--color-danger)]">
+        <p id={messageId} role="alert" className="mt-1 text-xs text-[var(--color-danger)]">
           {error}
-        </span>
+        </p>
       ) : hint ? (
-        <span className="mt-1 block text-xs text-[var(--color-text-muted)]">{hint}</span>
+        <p id={messageId} className="mt-1 text-xs text-[var(--color-text-muted)]">
+          {hint}
+        </p>
       ) : null}
-    </label>
+    </div>
   );
 }
 
 export const inputClass =
-  'w-full rounded-xl border bg-[var(--color-surface)] px-3.5 py-2.5 text-sm outline-none transition-colors ' +
-  'border-[var(--color-border)] focus:border-[var(--color-primary)]';
+  // `min-h-11` : 44 px, la cible tactile minimale — et sur iOS un champ de
+  // moins de 16 px de texte déclenche un zoom automatique, d'où `text-base`
+  // sous 640 px.
+  'w-full min-h-11 rounded-xl border bg-[var(--color-surface)] px-3.5 py-2.5 text-base sm:text-sm ' +
+  'outline-none transition-colors duration-150 border-[var(--color-border)] ' +
+  'hover:border-[var(--color-border-strong)] focus:border-[var(--color-primary)] ' +
+  'disabled:cursor-not-allowed disabled:bg-[var(--color-disabled)] disabled:text-[var(--color-disabled-text)] ' +
+  'read-only:bg-[var(--color-surface-sunken)] ' +
+  'aria-[invalid=true]:border-[var(--color-danger)]';
 
 // ---------------------------------------------------------------------------
 
-export function Table({ children }: { children: ReactNode }) {
+export function Table({
+  children,
+  responsive = false,
+  ariaLabel,
+}: {
+  children: ReactNode;
+  /**
+   * Sous 768 px, chaque ligne devient une carte de paires libellé/valeur
+   * (les libellés viennent de la prop `label` des <Td>). À réserver aux
+   * écrans consultés en mobilité (commandes, livreurs).
+   */
+  responsive?: boolean;
+  /** Nom de la zone défilante pour la navigation clavier. */
+  ariaLabel?: string;
+}) {
   return (
     // Le débordement horizontal reste dans le conteneur : la page elle-même
-    // ne défile jamais latéralement.
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[720px] border-collapse text-sm">{children}</table>
+    // ne défile jamais latéralement. tabIndex + role region rendent la zone
+    // défilante atteignable et nommée au clavier.
+    <div
+      className="overflow-x-auto"
+      tabIndex={0}
+      role="region"
+      aria-label={ariaLabel ?? 'Tableau'}
+    >
+      {/* Survol de ligne : sur un tableau dense de dix colonnes, l'œil perd
+          la ligne entre le nom et le montant. Le fond `sunken` la retient
+          sans ajouter de bordure ni décaler quoi que ce soit. */}
+      <table
+        className={`w-full border-collapse text-sm [&_tbody_tr]:transition-colors [&_tbody_tr]:duration-150 [&_tbody_tr:hover]:bg-[var(--color-surface-sunken)] ${
+          responsive ? 'rt-cards md:min-w-[720px]' : 'min-w-[720px]'
+        }`}
+      >
+        {children}
+      </table>
     </div>
   );
 }
@@ -234,17 +319,121 @@ export function Th({ children, align = 'left' }: { children: ReactNode; align?: 
   );
 }
 
+/**
+ * En-tête de colonne triable.
+ *
+ * `aria-sort` porte l'information pour les lecteurs d'écran ; la flèche la
+ * porte pour les autres. Aucune des deux n'est facultative : sans `aria-sort`
+ * un tableau trié est indiscernable d'un tableau qui ne l'est pas, et sans
+ * flèche rien n'indique qu'on peut cliquer.
+ *
+ * Le tri est purement local — les listes du dashboard sont déjà chargées en
+ * entier. Un tri serveur rajouterait un aller-retour réseau là où il n'y a
+ * que quelques centaines de lignes.
+ */
+export function SortableTh<K extends string>({
+  children,
+  sortKey,
+  state,
+  onSort,
+  align = 'left',
+}: {
+  children: ReactNode;
+  sortKey: K;
+  state: SortState<K>;
+  onSort: (key: K) => void;
+  align?: 'left' | 'right';
+}) {
+  const active = state.key === sortKey;
+  const direction = active ? state.direction : null;
+
+  return (
+    <th
+      scope="col"
+      aria-sort={active ? (direction === 'asc' ? 'ascending' : 'descending') : 'none'}
+      className={`border-b border-[var(--color-border)] pb-2.5 pt-1 text-xs font-semibold uppercase tracking-wide ${
+        align === 'right' ? 'text-right' : 'text-left'
+      }`}
+      style={{ color: active ? 'var(--color-text)' : 'var(--color-text-muted)' }}
+    >
+      <button
+        type="button"
+        onClick={() => onSort(sortKey)}
+        className={`inline-flex cursor-pointer items-center gap-1 uppercase tracking-wide transition-colors duration-150 hover:text-[var(--color-text)] ${
+          align === 'right' ? 'flex-row-reverse' : ''
+        }`}
+      >
+        {children}
+        <span aria-hidden className="text-[10px] leading-none">
+          {active ? (direction === 'asc' ? '▲' : '▼') : '↕'}
+        </span>
+      </button>
+    </th>
+  );
+}
+
+export interface SortState<K extends string> {
+  key: K;
+  direction: 'asc' | 'desc';
+}
+
+/**
+ * État de tri d'un tableau.
+ *
+ * Recliquer sur la colonne active inverse le sens ; changer de colonne
+ * repart en descendant — sur un dashboard, la question est presque toujours
+ * « qui est en haut ? », pas « qui est en bas ? ».
+ */
+export function useSort<Row, K extends string>(
+  initial: SortState<K>,
+  /** Extrait la valeur comparable d'une ligne pour la colonne demandée. */
+  pick: (row: Row, key: K) => string | number | null | undefined,
+) {
+  const [state, setState] = useState<SortState<K>>(initial);
+
+  const onSort = (key: K) =>
+    setState((current) =>
+      current.key === key
+        ? { key, direction: current.direction === 'asc' ? 'desc' : 'asc' }
+        : { key, direction: 'desc' },
+    );
+
+  const sort = (rows: Row[]): Row[] =>
+    [...rows].sort((a, b) => {
+      const left = pick(a, state.key);
+      const right = pick(b, state.key);
+      const sign = state.direction === 'asc' ? 1 : -1;
+
+      // Les valeurs absentes tombent toujours en bas, quel que soit le sens :
+      // remonter les « — » en tête d'un tri décroissant n'aide personne.
+      if (left == null && right == null) return 0;
+      if (left == null) return 1;
+      if (right == null) return -1;
+
+      if (typeof left === 'number' && typeof right === 'number') {
+        return (left - right) * sign;
+      }
+      return String(left).localeCompare(String(right), 'fr') * sign;
+    });
+
+  return { state, onSort, sort };
+}
+
 export function Td({
   children,
   align = 'left',
   className = '',
+  label,
 }: {
   children: ReactNode;
   align?: 'left' | 'right';
   className?: string;
+  /** Libellé affiché en mode carte (Table `responsive`) sous 768 px. */
+  label?: string;
 }) {
   return (
     <td
+      data-label={label}
       className={`border-b border-[var(--color-divider)] py-3 ${
         align === 'right' ? 'text-right' : 'text-left'
       } ${className}`}
@@ -316,6 +505,20 @@ export function TableSkeleton({ rows = 5 }: { rows?: number }) {
 
 // ---------------------------------------------------------------------------
 
+const FOCUSABLE_SELECTOR =
+  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+/**
+ * Modale accessible.
+ *
+ * - Échap ferme, Tab cycle à l'intérieur (piège de focus) ;
+ * - focus initial sur le panneau, restitué à l'élément déclencheur à la
+ *   fermeture ;
+ * - `aria-labelledby` pointe le h2 ; un seul bouton nommé « Fermer » (le
+ *   voile ferme au clic mais reste invisible pour les lecteurs d'écran) ;
+ * - scroll du body verrouillé, rendu dans un portal vers document.body pour
+ *   échapper aux contextes d'empilement des pages.
+ */
 export function Modal({
   open,
   onClose,
@@ -331,39 +534,97 @@ export function Modal({
   footer?: ReactNode;
   wide?: boolean;
 }) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  const titleId = useId();
+
+  // Focus initial + restitution + verrouillage du scroll du body.
+  useEffect(() => {
+    if (!open) return;
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    panelRef.current?.focus();
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      previouslyFocused?.focus?.();
+    };
+  }, [open]);
+
   if (!open) return null;
 
-  return (
+  const handleKeyDown = (event: React.KeyboardEvent) => {
+    if (event.key === 'Escape') {
+      event.stopPropagation();
+      onClose();
+      return;
+    }
+
+    // Piège de focus : Tab cycle entre les éléments focusables du panneau.
+    if (event.key === 'Tab' && panelRef.current) {
+      const focusables = Array.from(
+        panelRef.current.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR),
+      ).filter((element) => element.offsetParent !== null || element === document.activeElement);
+      if (focusables.length === 0) {
+        event.preventDefault();
+        return;
+      }
+      const first = focusables[0]!;
+      const last = focusables[focusables.length - 1]!;
+      const activeElement = document.activeElement;
+
+      if (event.shiftKey && (activeElement === first || activeElement === panelRef.current)) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+  };
+
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-6"
       role="dialog"
       aria-modal="true"
-      aria-label={title}
+      aria-labelledby={titleId}
+      onKeyDown={handleKeyDown}
     >
-      {/* Le voile assombrit assez pour isoler le contenu, et ferme au clic. */}
-      <button
-        aria-label="Fermer"
+      {/* Le voile ferme au clic mais n'est pas un bouton nommé : le seul
+          « Fermer » annoncé est celui du panneau. */}
+      <div
+        aria-hidden
         onClick={onClose}
-        className="absolute inset-0 cursor-default"
+        className="absolute inset-0"
         style={{ background: 'var(--color-overlay)' }}
       />
 
       <div
-        className={`relative max-h-[90vh] w-full overflow-y-auto rounded-t-3xl bg-[var(--color-surface)] p-6 sm:rounded-3xl ${
+        ref={panelRef}
+        tabIndex={-1}
+        className={`relative max-h-[90vh] w-full overflow-y-auto rounded-t-3xl bg-[var(--color-surface)] p-6 outline-none sm:rounded-3xl ${
           wide ? 'sm:max-w-3xl' : 'sm:max-w-lg'
         }`}
         style={{ boxShadow: 'var(--shadow-3)' }}
       >
         <div className="mb-5 flex items-start justify-between gap-4">
-          <h2 className="text-lg font-semibold" style={{ fontFamily: 'var(--font-sora)' }}>
+          <h2
+            id={titleId}
+            className="text-lg font-semibold"
+            style={{ fontFamily: 'var(--font-sora)' }}
+          >
             {title}
           </h2>
+          {/* Icône vectorielle et non le caractère « ✕ » : le glyphe dépend
+              de la police installée et se rendait différemment d'un poste à
+              l'autre, sans jamais s'aligner sur le titre. */}
           <button
             onClick={onClose}
             aria-label="Fermer"
-            className="rounded-full p-1.5 text-[var(--color-text-muted)] hover:bg-[var(--color-surface-sunken)]"
+            className="-m-1.5 cursor-pointer rounded-full p-3 text-[var(--color-text-muted)] transition-colors duration-150 hover:bg-[var(--color-surface-sunken)]"
           >
-            ✕
+            <X size={18} aria-hidden />
           </button>
         </div>
 
@@ -371,7 +632,8 @@ export function Modal({
 
         {footer ? <div className="mt-6 flex justify-end gap-3">{footer}</div> : null}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -381,24 +643,44 @@ export function Toggle({
   checked,
   onChange,
   label,
+  disabled = false,
 }: {
   checked: boolean;
   onChange: (value: boolean) => void;
   label: string;
+  disabled?: boolean;
 }) {
   return (
+    // La zone tactile fait 44 px (p-2 autour du rail de 24 px) sans que le
+    // rail lui-même grossisse : sur un téléphone, l'interrupteur d'un
+    // formulaire à dix lignes est la cible qu'on rate le plus souvent.
     <button
+      type="button"
       role="switch"
       aria-checked={checked}
       aria-label={label}
+      disabled={disabled}
       onClick={() => onChange(!checked)}
-      className="relative h-6 w-11 shrink-0 rounded-full transition-colors duration-150"
-      style={{ background: checked ? 'var(--color-primary)' : 'var(--color-border-strong)' }}
+      className="-m-2 shrink-0 cursor-pointer rounded-full p-2 disabled:cursor-not-allowed disabled:opacity-45"
     >
       <span
-        className="absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform duration-150"
-        style={{ transform: checked ? 'translateX(22px)' : 'translateX(2px)' }}
-      />
+        aria-hidden
+        className="relative block h-6 w-11 rounded-full transition-colors duration-150"
+        style={{
+          background: checked ? 'var(--color-primary)' : 'var(--color-border-strong)',
+        }}
+      >
+        {/* Pastille en `surface` et non en blanc dur : sur le rail orange
+            clair du thème sombre, un blanc pur écrasait le contraste. */}
+        <span
+          className="absolute top-0.5 h-5 w-5 rounded-full transition-transform duration-150"
+          style={{
+            background: 'var(--color-surface)',
+            transform: checked ? 'translateX(22px)' : 'translateX(2px)',
+            boxShadow: 'var(--shadow-1)',
+          }}
+        />
+      </span>
     </button>
   );
 }

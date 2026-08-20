@@ -9,12 +9,20 @@ type ColorToken =
   | 'textMuted'
   | 'textInverse'
   | 'textOnPrimary'
+  | 'textOnAccent'
+  | 'textOnScrim'
   | 'primary'
   | 'accent'
   | 'success'
   | 'warning'
   | 'danger'
-  | 'info';
+  | 'info'
+  | 'onSuccessSoft'
+  | 'onWarningSoft'
+  | 'onDangerSoft'
+  | 'onInfoSoft'
+  | 'onPrimarySoft'
+  | 'onAccentSoft';
 
 export interface TextProps extends RNTextProps {
   variant?: TextStyleToken;

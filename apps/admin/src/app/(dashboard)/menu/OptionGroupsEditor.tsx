@@ -21,6 +21,8 @@ import {
   Toggle,
   inputClass,
 } from '@/components/ui';
+import { Alert } from '@/components/Alert';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 
 /**
  * Éditeur de groupes d'options.
@@ -34,6 +36,7 @@ export function OptionGroupsEditor({ productId }: { productId: string }) {
   const saveGroup = useSaveOptionGroup();
   const deleteGroup = useDeleteOptionGroup();
   const [error, setError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<ProductOptionGroup | null>(null);
 
   const addGroup = async () => {
     setError(null);
@@ -56,15 +59,7 @@ export function OptionGroupsEditor({ productId }: { productId: string }) {
 
   return (
     <div className="space-y-5">
-      {error ? (
-        <div
-          role="alert"
-          className="rounded-xl px-3.5 py-2.5 text-sm"
-          style={{ background: 'var(--color-danger-soft)', color: 'var(--color-danger)' }}
-        >
-          {error}
-        </div>
-      ) : null}
+      {error ? <Alert>{error}</Alert> : null}
 
       {(groups.data?.length ?? 0) === 0 ? (
         <EmptyState
@@ -75,15 +70,7 @@ export function OptionGroupsEditor({ productId }: { productId: string }) {
       ) : (
         <>
           {groups.data!.map((group) => (
-            <GroupCard
-              key={group.id}
-              group={group}
-              onDelete={() => {
-                if (confirm(`Supprimer le groupe « ${group.name} » et toutes ses options ?`)) {
-                  deleteGroup.mutate(group.id);
-                }
-              }}
-            />
+            <GroupCard key={group.id} group={group} onDelete={() => setDeleting(group)} />
           ))}
 
           <Button variant="secondary" onClick={addGroup} loading={saveGroup.isPending}>
@@ -92,6 +79,19 @@ export function OptionGroupsEditor({ productId }: { productId: string }) {
           </Button>
         </>
       )}
+
+      <ConfirmDialog
+        open={deleting !== null}
+        title="Supprimer le groupe d’options"
+        message={`Supprimer le groupe « ${deleting?.name ?? '' } » et toutes ses options ?`}
+        confirmLabel="Supprimer"
+        loading={deleteGroup.isPending}
+        onClose={() => setDeleting(null)}
+        onConfirm={() => {
+          if (!deleting) return;
+          deleteGroup.mutate(deleting.id, { onSuccess: () => setDeleting(null) });
+        }}
+      />
     </div>
   );
 }
@@ -211,11 +211,11 @@ function GroupCard({ group, onDelete }: { group: ProductOptionGroup; onDelete: (
 
             <Button
               size="sm"
-              variant="ghost"
+              variant="danger"
               title="Supprimer l’option"
               onClick={() => deleteOption.mutate(option.id)}
             >
-              <Trash size={15} color="var(--color-danger)" />
+              <Trash size={15} />
             </Button>
           </div>
         ))}

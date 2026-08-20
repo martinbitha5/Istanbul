@@ -41,25 +41,52 @@ suivie sur la carte par le client, et clôturée par le code à 4 chiffres.
 
 ## Lot 3 — Fiabilisation
 
-- [x] Edge Function `notify` (envoi Expo Push + purge des tokens morts)
-- [ ] Triggers `pg_net` qui appellent `notify` sur les transitions de statut
-- [ ] Enregistrement des tokens Expo au démarrage des apps mobiles
-- [ ] Mode hors-ligne : cache React Query persistant, file d'attente d'actions
-- [ ] Carte temps réel Mapbox (position livreur, ETA)
-- [ ] Upload d'images produit vers Supabase Storage avec compression
-- [ ] Tests : moteur de prix, machine à états, policies RLS (pgTAP)
-- [ ] Sentry + journalisation structurée
+- [x] Edge Function `notify` (envoi Expo Push + purge des tokens morts) — déployée, JWT vérifié
+- [x] Triggers `pg_net` qui appellent `notify` sur les transitions de statut (migration 13 + `app_config`)
+- [x] Enregistrement des tokens Expo au démarrage des apps mobiles (`usePushNotifications` + `fn_register_push_token`)
+- [x] Mode hors-ligne : cache React Query persistant (AsyncStorage), reprise des mutations, bandeau hors-ligne
+- [x] Carte temps réel (position livreur, ETA) — Leaflet/OSM en WebView : zéro clé API, compatible Expo Go
+- [x] Upload d'images produit vers Supabase Storage avec compression WebP côté navigateur
+- [x] Tests : moteur de prix + machines à états (33 tests vitest), policies RLS (pgTAP, 19 assertions)
+- [x] Sentry + journalisation structurée (`log` + sink ; actifs seulement si DSN fourni)
+
+**Bonus — mode démo (migration 15) :** un tick pg_cron (10 s) joue le restaurant
+et un livreur fantôme : toute commande passée est acceptée, préparée, assignée,
+le GPS avance sur la carte jusqu'à l'adresse, puis la commande est livrée
+(~4 min de bout en bout). Couper : `update app_config set value='' where key='demo_mode';`
+
+**Au passage :** les tests RLS ont révélé que `confirmation_code` était redevenu
+lisible par tout utilisateur connecté (un `grant` de table entière avait annulé le
+`revoke` par colonne de la migration 09). Corrigé par la migration 14 —
+revoke table + re-grant colonne par colonne.
 
 ## Lot 4 — Croissance
 
 - [ ] Paiements mobile money (M-Pesa, Orange Money, Airtel Money)
-- [ ] Notation de la commande et du livreur
-- [ ] Programme de fidélité
-- [ ] Assignation automatique du livreur le plus proche
-- [ ] Multi-restaurants (le schéma est déjà prêt)
-- [ ] Optimisation d'itinéraire (Mapbox Directions)
+- [x] Notation de la commande et du livreur (écran post-livraison, moyenne livreur par trigger)
+- [x] Programme de fidélité (1 pt/$ livré, 1 pt = 5 ¢ au checkout — taux dans app_config)
+- [x] Assignation automatique du livreur le plus proche (trigger READY, toggle app_config.auto_assign)
+- [x] Multi-restaurants côté client (sélecteur auto-visible dès 2 restaurants, panier vidé au changement)
+- [x] **Multi-restaurants réel côté dashboard (migration 21)** — `restaurant_members`
+      (OWNER/MANAGER/STAFF), toutes les policies re-scopées par établissement,
+      garde-fous ajoutés aux fonctions SECURITY DEFINER, sélecteur
+      d'établissement, pages Équipe / Établissement / Partenaires,
+      commission et publication par partenaire. 21 assertions pgTAP dédiées.
+- [x] Revenus de la plateforme par partenaire (`fn_platform_revenue`, migration 23) —
+      commission due sur le sous-total des commandes livrées, par mois / trimestre / année.
+- [x] Mise en route guidée du partenaire (bannière de progression sur le dashboard
+      d'un établissement non publié, publication en un geste une fois les 4 étapes faites).
+- [x] Optimisation d'itinéraire (OSRM : itinéraire sur les cartes client ET livreur, distance/ETA vivants)
 
 ---
+
+**Au passage :** l'écriture des tests de cloisonnement a mis au jour trois trous
+qui n'étaient pas du multi-restaurants mais de la sécurité tout court —
+`fn_advance_order_status` sans aucun contrôle d'appelant (tout compte connecté
+pouvait faire avancer toute commande), `fn_dashboard_stats` / `fn_sales_series` /
+`fn_top_products` servant le chiffre d'affaires de n'importe quel restaurant, et
+`profiles_read_staff` ouvrant l'annuaire complet de la plateforme au premier
+membre du staff venu.
 
 ## Dette assumée à ce stade
 
@@ -69,3 +96,6 @@ suivie sur la carte par le client, et clôturée par le code à 4 chiffres.
 | Assignation manuelle du livreur | le gérant connaît ses livreurs | > 5 livreurs simultanés |
 | Pas de chat client ↔ livreur | le téléphone suffit et coûte moins cher | retours terrain |
 | Images non redimensionnées côté serveur | Storage + `expo-image` gèrent le cache | > 100 produits |
+| Commission calculée à la volée, jamais figée | une renégociation doit se répercuter sur l'historique tant qu'aucune facture n'est émise | émission de la première facture |
+| Pas de reversement automatisé | la plateforme facture hors application | premier reversement mensuel |
+| Ajout d'un membre par e-mail d'un compte existant | créer le compte exigerait `service_role` côté navigateur | invitations Supabase Auth via Edge Function |

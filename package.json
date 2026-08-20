@@ -14,6 +14,8 @@
     "build": "turbo run build",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "test:db": "supabase test db",
     "clean": "turbo run clean && rimraf node_modules",
     "db:start": "supabase start",
     "db:reset": "supabase db reset",

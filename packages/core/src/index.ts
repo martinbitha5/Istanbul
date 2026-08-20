@@ -18,10 +18,16 @@ export * from './api/catalog';
 export * from './api/orders';
 export * from './api/delivery';
 export * from './api/admin';
+export * from './api/restaurants';
+export * from './api/notifications';
+export * from './api/reviews';
+export * from './api/loyalty';
 
 // Logique métier
 export * from './pricing';
 export * from './format';
+export * from './geo';
+export * from './log';
 
 // État local
 export * from './store/cart';
@@ -36,4 +42,6 @@ export * from './hooks/useCatalog';
 export * from './hooks/useOrders';
 export * from './hooks/useDelivery';
 export * from './hooks/useAdmin';
+export * from './hooks/useRestaurantAdmin';
 export * from './hooks/useRealtime';
+export * from './hooks/useReviews';

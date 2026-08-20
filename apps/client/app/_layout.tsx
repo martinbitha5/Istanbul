@@ -18,6 +18,10 @@ import {
 } from '@expo-google-fonts/playfair-display-sc';
 import { useTheme } from '@istanbul/ui';
 import { AppProviders } from '@/providers/AppProviders';
+import { usePushNotifications } from '@/hooks/usePushNotifications';
+import { initMonitoring } from '@/lib/monitoring';
+
+initMonitoring();
 
 // Le splash natif reste affiché tant que les polices ne sont pas prêtes :
 // sinon le premier écran apparaît en Helvetica puis saute en Sora.
@@ -60,6 +64,9 @@ export default function RootLayout() {
 function RootNavigator() {
   const theme = useTheme();
 
+  // Token Expo + navigation au tap sur une notification.
+  usePushNotifications();
+
   return (
     <>
       <StatusBar style={theme.scheme === 'dark' ? 'light' : 'dark'} />
@@ -73,6 +80,8 @@ function RootNavigator() {
         <Stack.Screen name="index" options={{ animation: 'fade' }} />
         <Stack.Screen name="onboarding" options={{ animation: 'fade' }} />
         <Stack.Screen name="(auth)" options={{ animation: 'fade' }} />
+        {/* Cible du deep link istanbul://reset-password (email de réinitialisation). */}
+        <Stack.Screen name="reset-password" options={{ animation: 'fade' }} />
         <Stack.Screen name="(tabs)" options={{ animation: 'fade' }} />
 
         {/* Fiche produit : feuille modale, on reste dans le contexte du menu. */}
@@ -82,7 +91,8 @@ function RootNavigator() {
         />
         <Stack.Screen name="cart" options={{ presentation: 'modal' }} />
         <Stack.Screen name="checkout" />
-        <Stack.Screen name="order/[id]" />
+        <Stack.Screen name="order/[id]/index" />
+        <Stack.Screen name="order/[id]/map" options={{ animation: 'fade_from_bottom' }} />
         <Stack.Screen name="addresses" options={{ presentation: 'modal' }} />
       </Stack>
     </>

@@ -19,6 +19,7 @@ import {
   EmptyState,
   ErrorState,
   Header,
+  InlineAlert,
   Input,
   ListSkeleton,
   Pressable,
@@ -28,6 +29,7 @@ import {
   Surface,
   Text,
   useTheme,
+  useToast,
 } from '@istanbul/ui';
 
 const COMMUNES = [
@@ -62,6 +64,7 @@ const COMMUNES = [
  */
 export default function Addresses() {
   const theme = useTheme();
+  const toast = useToast();
   const { data: addresses, isLoading, isError, refetch } = useAddresses();
   const saveAddress = useSaveAddress();
   const deleteAddress = useDeleteAddress();
@@ -124,6 +127,9 @@ export default function Addresses() {
 
       setAddressId(saved.id);
       setEditing(null);
+      // Confirmation explicite : le formulaire disparaît d'un coup, sans
+      // toast l'utilisateur ne sait pas si l'enregistrement a abouti.
+      toast.success('Adresse enregistrée.');
     } catch (caught) {
       setError(toUserMessage(caught));
     }
@@ -171,6 +177,8 @@ export default function Addresses() {
                   onPress={() => setEditing({ ...editing, commune })}
                   accessibilityRole="radio"
                   accessibilityState={{ selected: active }}
+                  // Chips de 36 : le hitSlop remonte la cible au plancher de 44.
+                  hitSlop={(theme.hitTarget - 36) / 2}
                   style={[
                     styles.communeChip,
                     {
@@ -252,15 +260,11 @@ export default function Addresses() {
           </Surface>
 
           {error ? (
-            <Surface
-              padding="md"
-              elevation={0}
-              style={{ backgroundColor: theme.colors.dangerSoft, marginTop: theme.spacing.base }}
-            >
-              <Text variant="label" color="danger">
-                {error}
-              </Text>
-            </Surface>
+            <InlineAlert
+              tone="danger"
+              message={error}
+              style={{ marginTop: theme.spacing.base }}
+            />
           ) : null}
         </ScreenScroll>
 

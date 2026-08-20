@@ -78,6 +78,8 @@ export interface PlaceOrderInput {
   customerNote?: string | null;
   promoCode?: string | null;
   paymentProvider?: PaymentProvider;
+  /** Points fidélité à convertir en réduction (plafonnés côté serveur). */
+  redeemPoints?: number;
 }
 
 /**
@@ -99,6 +101,7 @@ export async function placeOrder(input: PlaceOrderInput): Promise<Order> {
     p_customer_note: input.customerNote ?? null,
     p_promo_code: input.promoCode ?? null,
     p_payment_provider: input.paymentProvider ?? 'CASH',
+    p_redeem_points: input.redeemPoints ?? 0,
   });
 
   if (error) throw error;

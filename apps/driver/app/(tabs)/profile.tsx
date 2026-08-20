@@ -18,18 +18,20 @@ import {
   ListRow,
   Screen,
   ScreenScroll,
+  Skeleton,
   Spacer,
   Surface,
   Text,
   useTheme,
   useThemeContext,
 } from '@istanbul/ui';
+import { RESTAURANT } from '@/lib/restaurant';
 
 export default function DriverProfile() {
   const theme = useTheme();
   const { isDark, setPreference } = useThemeContext();
-  const { profile } = useProfile();
-  const { data: driver } = useDriverProfile();
+  const { profile, isLoading: profileLoading } = useProfile();
+  const { data: driver, isLoading: driverLoading } = useDriverProfile();
 
   const rating =
     driver && driver.rating_count > 0
@@ -45,7 +47,9 @@ export default function DriverProfile() {
         {
           text: 'Se déconnecter',
           style: 'destructive',
-          onPress: () => void signOut().then(() => router.replace('/sign-in')),
+          // Même pattern que `app/index.tsx` : signOut puis retour au
+          // portier, qui redirige vers la connexion.
+          onPress: () => void signOut().then(() => router.replace('/')),
         },
       ],
     );
@@ -65,16 +69,24 @@ export default function DriverProfile() {
             />
 
             <View style={{ flex: 1, marginLeft: theme.spacing.base }}>
-              <Text variant="h2" numberOfLines={1}>
-                {profile?.full_name ?? 'Livreur'}
-              </Text>
+              {/* Skeleton pendant le chargement : afficher « Livreur » comme
+                  si c'était le vrai nom fait douter d'être sur le bon compte. */}
+              {profileLoading ? (
+                <Skeleton width={160} height={22} />
+              ) : (
+                <Text variant="h2" numberOfLines={1}>
+                  {profile?.full_name ?? 'Livreur'}
+                </Text>
+              )}
               {profile?.phone ? (
                 <Text variant="bodySmall" color="textSecondary" tabular>
                   {formatPhone(profile.phone)}
                 </Text>
               ) : null}
 
-              <View style={[styles.badgeRow, { marginTop: theme.spacing.xs }]}>
+              <View
+                style={[styles.badgeRow, { gap: theme.spacing.sm, marginTop: theme.spacing.xs }]}
+              >
                 {driver ? (
                   <Badge
                     label={driverAvailabilityLabel[driver.availability]}
@@ -88,7 +100,7 @@ export default function DriverProfile() {
                     label={rating}
                     tone="warning"
                     size="sm"
-                    icon={<Star size={11} color={theme.colors.warning} weight="fill" />}
+                    icon={<Star size={theme.iconSize.xs} color={theme.colors.warning} weight="fill" />}
                   />
                 ) : null}
               </View>
@@ -104,11 +116,18 @@ export default function DriverProfile() {
         <Spacer size="sm" />
 
         <Surface padding="none" elevation={1} style={{ paddingHorizontal: theme.spacing.base }}>
-          <ListRow
-            title={driver ? vehicleLabel[driver.vehicle] : '—'}
-            subtitle={driver?.plate_number ?? 'Plaque non renseignée'}
-            icon={<IdentificationCard size={theme.iconSize.sm} color={theme.colors.text} />}
-          />
+          {driverLoading ? (
+            <View style={{ paddingVertical: theme.spacing.md, gap: theme.spacing.sm }}>
+              <Skeleton width={140} height={18} />
+              <Skeleton width={100} height={14} />
+            </View>
+          ) : (
+            <ListRow
+              title={driver ? vehicleLabel[driver.vehicle] : '—'}
+              subtitle={driver?.plate_number ?? 'Plaque non renseignée'}
+              icon={<IdentificationCard size={theme.iconSize.sm} color={theme.colors.text} />}
+            />
+          )}
           <Divider />
           <ListRow
             title="Livraisons effectuées"
@@ -149,9 +168,9 @@ export default function DriverProfile() {
         <Surface padding="none" elevation={1} style={{ paddingHorizontal: theme.spacing.base }}>
           <ListRow
             title="Appeler le restaurant"
-            subtitle="+243 999 000 111"
+            subtitle={RESTAURANT.phoneDisplay}
             icon={<Phone size={theme.iconSize.sm} color={theme.colors.text} />}
-            onPress={() => void Linking.openURL('tel:+243999000111')}
+            onPress={() => void Linking.openURL(`tel:${RESTAURANT.phone}`)}
           />
           <Divider />
           <ListRow
@@ -178,5 +197,5 @@ export default function DriverProfile() {
 
 const styles = StyleSheet.create({
   identityRow: { flexDirection: 'row', alignItems: 'center' },
-  badgeRow: { flexDirection: 'row', gap: 6 },
+  badgeRow: { flexDirection: 'row' },
 });

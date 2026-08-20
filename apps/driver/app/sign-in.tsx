@@ -5,6 +5,7 @@ import { Envelope, LockKey, Motorcycle } from 'phosphor-react-native';
 import { isValidEmail, signInWithEmail, toUserMessage } from '@istanbul/core';
 import {
   Button,
+  IconBubble,
   Input,
   Screen,
   ScreenScroll,
@@ -59,18 +60,9 @@ export default function DriverSignIn() {
       >
         <ScreenScroll>
           <View style={{ alignItems: 'center', paddingTop: theme.spacing['4xl'] }}>
-            <View
-              style={{
-                width: 80,
-                height: 80,
-                borderRadius: 40,
-                backgroundColor: theme.colors.primarySoft,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
+            <IconBubble size={80} tone="primary">
               <Motorcycle size={40} color={theme.colors.primary} weight="fill" />
-            </View>
+            </IconBubble>
 
             <Text variant="brandSmall" color="primary" style={{ marginTop: theme.spacing.base }}>
               Istanbul

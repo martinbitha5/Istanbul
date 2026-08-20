@@ -24,12 +24,14 @@ export interface BadgeProps {
 export function Badge({ label, tone = 'neutral', dot = false, icon, size = 'md', style }: BadgeProps) {
   const theme = useTheme();
 
+  // Les premiers plans `on*Soft` sont calibrés pour tenir 4.5:1 sur leur fond
+  // doux — les tons de base (`info`, `warning`…) ne le garantissent pas.
   const tones: Record<StatusTone, { bg: string; fg: string }> = {
     neutral: { bg: theme.colors.surfaceSunken, fg: theme.colors.textSecondary },
-    info: { bg: theme.colors.infoSoft, fg: theme.colors.info },
-    warning: { bg: theme.colors.warningSoft, fg: theme.colors.warning },
-    success: { bg: theme.colors.successSoft, fg: theme.colors.success },
-    danger: { bg: theme.colors.dangerSoft, fg: theme.colors.danger },
+    info: { bg: theme.colors.infoSoft, fg: theme.colors.onInfoSoft },
+    warning: { bg: theme.colors.warningSoft, fg: theme.colors.onWarningSoft },
+    success: { bg: theme.colors.successSoft, fg: theme.colors.onSuccessSoft },
+    danger: { bg: theme.colors.dangerSoft, fg: theme.colors.onDangerSoft },
   };
 
   const { bg, fg } = tones[tone];

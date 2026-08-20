@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Alert, Linking, Platform, StyleSheet, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import { Alert, KeyboardAvoidingView, Linking, Platform, StyleSheet, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { NavigationArrow, Phone, Storefront, User } from 'phosphor-react-native';
@@ -10,11 +10,15 @@ import {
   formatMoney,
   formatPhone,
   nextDeliveryStatus,
+  roadDistanceKm,
+  roughEtaMinutes,
   summarizeOptions,
   toUserMessage,
   useAdvanceDelivery,
   useConfirmDelivery,
   useDelivery,
+  useDriverLocation,
+  useDriverLocationRealtime,
 } from '@istanbul/core';
 import {
   Badge,
@@ -23,6 +27,8 @@ import {
   Divider,
   ErrorState,
   Header,
+  IconBubble,
+  InlineAlert,
   Input,
   Pressable,
   Screen,
@@ -31,11 +37,14 @@ import {
   Spacer,
   Surface,
   Text,
+  TrackingMap,
   useTheme,
+  useToast,
 } from '@istanbul/ui';
+import { Row } from '@/components/Row';
+import { useIsOffline } from '@/hooks/useIsOffline';
 import { useLocationTracking } from '@/hooks/useLocationTracking';
-
-const RESTAURANT_COORDS = { latitude: -4.3735, longitude: 15.2662 };
+import { RESTAURANT } from '@/lib/restaurant';
 
 /**
  * Détail d'une course.
@@ -47,6 +56,8 @@ const RESTAURANT_COORDS = { latitude: -4.3735, longitude: 15.2662 };
  */
 export default function DeliveryDetail() {
   const theme = useTheme();
+  const toast = useToast();
+  const offline = useIsOffline();
   const { id } = useLocalSearchParams<{ id: string }>();
 
   const { data: delivery, isLoading, isError, refetch } = useDelivery(id ?? null);
@@ -55,8 +66,42 @@ export default function DeliveryDetail() {
 
   const [code, setCode] = useState('');
   const [codeError, setCodeError] = useState<string | null>(null);
+  // Le serveur n'expose pas le nombre de tentatives restantes : après un
+  // premier échec on prévient au moins que cinq échecs bloquent la course.
+  const [codeFailed, setCodeFailed] = useState(false);
+  // Hauteur réelle de la barre d'action, mesurée par onLayout : les valeurs
+  // codées en dur (220/110) débordaient dès que la police système grossissait.
+  const [bottomBarHeight, setBottomBarHeight] = useState(0);
 
   useLocationTracking(id ?? null, Boolean(delivery && delivery.status !== 'DELIVERED'));
+
+  // Sa propre trace GPS (remontée par useLocationTracking) alimente la carte :
+  // même source de vérité que ce que voient le client et le dashboard.
+  const { data: myLocation } = useDriverLocation(
+    id ?? null,
+    Boolean(delivery && delivery.status !== 'DELIVERED'),
+  );
+  useDriverLocationRealtime(delivery && delivery.status !== 'DELIVERED' ? (id ?? null) : null);
+
+  // Prochaine étape : le restaurant tant que la commande n'est pas
+  // récupérée, le client ensuite. Recalculé seulement quand la position ou
+  // le statut changent — pas à chaque rendu.
+  const distanceLabel = useMemo(() => {
+    if (!delivery || !myLocation) return null;
+    const order = delivery.order;
+    const pickupPhase = ['ACCEPTED', 'HEADING_TO_RESTAURANT'].includes(delivery.status);
+    const target = pickupPhase
+      ? RESTAURANT.coords
+      : order.delivery_latitude != null && order.delivery_longitude != null
+        ? { latitude: order.delivery_latitude, longitude: order.delivery_longitude }
+        : null;
+    if (!target) return 'Itinéraire en pointillés sur la carte';
+    const km = roadDistanceKm(
+      { latitude: myLocation.latitude, longitude: myLocation.longitude },
+      target,
+    );
+    return `${pickupPhase ? 'Restaurant' : 'Client'} à ~${km.toLocaleString('fr-FR')} km · ${roughEtaMinutes(km)} min`;
+  }, [delivery, myLocation]);
 
   if (isLoading) return <DeliverySkeleton />;
   if (isError || !delivery) {
@@ -86,8 +131,22 @@ export default function DeliveryDetail() {
 
   const handleAdvance = () => {
     if (!next || needsCode) return;
-    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    advance.mutate({ deliveryId: delivery.id, to: next });
+    // Confirmation avant chaque avancement : la machine à états ne revient
+    // jamais en arrière, un tap accidentel serait irréversible.
+    Alert.alert(
+      'Confirmer',
+      `${deliveryNextActionLabel[delivery.status] ?? 'Étape suivante'} — cette action est définitive.`,
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Confirmer',
+          onPress: () => {
+            void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            advance.mutate({ deliveryId: delivery.id, to: next });
+          },
+        },
+      ],
+    );
   };
 
   const handleConfirm = async () => {
@@ -96,15 +155,27 @@ export default function DeliveryDetail() {
       return;
     }
 
+    // Hors réseau, la mutation (`networkMode: 'online'`) resterait en attente
+    // sans jamais se résoudre : spinner éternel devant le client. On prévient
+    // immédiatement au lieu de lancer un `await` qui ne reviendra pas.
+    if (offline) {
+      setCodeError('Vous êtes hors ligne. La validation partira au retour du réseau.');
+      return;
+    }
+
     setCodeError(null);
     try {
       await confirm.mutateAsync({ deliveryId: delivery.id, code: code.trim() });
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      // Le gain de la course avec la confirmation : la seule information que
+      // le livreur attend vraiment à cet instant.
+      toast.success(`Livraison terminée · +${formatMoney(delivery.payout_amount, order.currency)}`);
       router.replace('/(tabs)');
     } catch (error) {
       // Le compteur de tentatives est côté serveur : au bout de cinq échecs la
       // course se bloque et il faut passer par le restaurant.
       setCodeError(toUserMessage(error));
+      setCodeFailed(true);
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     }
   };
@@ -124,181 +195,255 @@ export default function DeliveryDetail() {
         }
       />
 
-      <ScreenScroll bottomInset={needsCode ? 220 : 110}>
-        {/* --- Étape 1 : le restaurant --------------------------------- */}
-        <StepCard
-          active={['ACCEPTED', 'HEADING_TO_RESTAURANT'].includes(delivery.status)}
-          done={['PICKED_UP', 'HEADING_TO_CUSTOMER', 'ARRIVED', 'DELIVERED'].includes(
-            delivery.status,
-          )}
-          icon={<Storefront size={theme.iconSize.md} color={theme.colors.primary} weight="fill" />}
-          title="Istanbul Fast Food"
-          subtitle="Avenue Delvaux n°42, Ngaliema"
-          onNavigate={() =>
-            openNavigation(
-              RESTAURANT_COORDS.latitude,
-              RESTAURANT_COORDS.longitude,
-              'Istanbul Fast Food',
-            )
-          }
-          onCall={() => void Linking.openURL('tel:+243999000111')}
-        />
+      {/* Le champ code a l'autoFocus et la barre d'action est ancrée en bas :
+          sans KeyboardAvoidingView, le clavier masque le bouton de validation. */}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={{ flex: 1 }}
+      >
+        <ScreenScroll bottomInset={bottomBarHeight + theme.spacing.base}>
+          {/* --- Carte de la course ---------------------------------------- */}
+          {!isDone ? (
+            <>
+              <TrackingMap
+                restaurant={RESTAURANT.coords}
+                destination={
+                  order.delivery_latitude != null && order.delivery_longitude != null
+                    ? { latitude: order.delivery_latitude, longitude: order.delivery_longitude }
+                    : null
+                }
+                driver={
+                  myLocation
+                    ? { latitude: myLocation.latitude, longitude: myLocation.longitude }
+                    : null
+                }
+                height={180}
+                showRoute
+              />
+              {distanceLabel ? (
+                <Text
+                  variant="caption"
+                  color="textSecondary"
+                  align="center"
+                  tabular
+                  style={{ marginTop: theme.spacing.sm }}
+                >
+                  {distanceLabel}
+                </Text>
+              ) : null}
+              <Spacer size="md" />
+            </>
+          ) : null}
 
-        <Spacer size="md" />
+          {/* --- Étape 1 : le restaurant --------------------------------- */}
+          <StepCard
+            active={['ACCEPTED', 'HEADING_TO_RESTAURANT'].includes(delivery.status)}
+            done={['PICKED_UP', 'HEADING_TO_CUSTOMER', 'ARRIVED', 'DELIVERED'].includes(
+              delivery.status,
+            )}
+            icon={<Storefront size={theme.iconSize.md} color={theme.colors.primary} weight="fill" />}
+            title={RESTAURANT.name}
+            subtitle={RESTAURANT.address}
+            onNavigate={() =>
+              openNavigation(
+                RESTAURANT.coords.latitude,
+                RESTAURANT.coords.longitude,
+                RESTAURANT.name,
+              )
+            }
+            onCall={() => void Linking.openURL(`tel:${RESTAURANT.phone}`)}
+          />
 
-        {/* --- Étape 2 : le client -------------------------------------- */}
-        <StepCard
-          active={['PICKED_UP', 'HEADING_TO_CUSTOMER', 'ARRIVED'].includes(delivery.status)}
-          done={delivery.status === 'DELIVERED'}
-          icon={<User size={theme.iconSize.md} color={theme.colors.primary} weight="fill" />}
-          title={order.contact_name}
-          subtitle={`${order.delivery_address}${
-            order.delivery_commune ? `, ${order.delivery_commune}` : ''
-          }`}
-          note={order.delivery_notes}
-          onNavigate={
-            order.delivery_latitude && order.delivery_longitude
-              ? () =>
-                  openNavigation(
-                    order.delivery_latitude!,
-                    order.delivery_longitude!,
-                    order.delivery_address ?? '',
-                  )
-              : undefined
-          }
-          onCall={() => void Linking.openURL(`tel:${order.contact_phone}`)}
-          phone={order.contact_phone}
-        />
-
-        {/* --- Contenu de la commande ---------------------------------- */}
-        <Spacer size="lg" />
-        <Surface padding="base" elevation={1}>
-          <Text variant="h3">Contenu de la commande</Text>
           <Spacer size="md" />
 
-          {order.items.map((item, index) => (
-            <View key={item.id}>
-              {index > 0 ? <Divider spacing="sm" /> : null}
-              <View style={styles.itemRow}>
-                <Text variant="bodyStrong" tabular style={{ minWidth: 32 }}>
-                  {item.quantity}×
-                </Text>
-                <View style={{ flex: 1 }}>
-                  <Text variant="body">{item.product_name}</Text>
-                  {item.options.length > 0 ? (
-                    <Text variant="caption" color="textSecondary">
-                      {summarizeOptions(
-                        item.options.map((option) => ({ option_name: option.option_name })),
-                      )}
-                    </Text>
-                  ) : null}
-                  {item.note ? (
-                    <Text variant="caption" color="warning" style={{ marginTop: 2 }}>
-                      ⚠ {item.note}
-                    </Text>
-                  ) : null}
+          {/* --- Étape 2 : le client -------------------------------------- */}
+          <StepCard
+            active={['PICKED_UP', 'HEADING_TO_CUSTOMER', 'ARRIVED'].includes(delivery.status)}
+            done={delivery.status === 'DELIVERED'}
+            icon={<User size={theme.iconSize.md} color={theme.colors.primary} weight="fill" />}
+            title={order.contact_name}
+            subtitle={`${order.delivery_address}${
+              order.delivery_commune ? `, ${order.delivery_commune}` : ''
+            }`}
+            note={order.delivery_notes}
+            onNavigate={
+              order.delivery_latitude && order.delivery_longitude
+                ? () =>
+                    openNavigation(
+                      order.delivery_latitude!,
+                      order.delivery_longitude!,
+                      order.delivery_address ?? '',
+                    )
+                : undefined
+            }
+            // Pas de téléphone → pas de bouton : un `tel:undefined` ouvre un
+            // composeur vide et fait perdre du temps au livreur.
+            onCall={
+              order.contact_phone
+                ? () => void Linking.openURL(`tel:${order.contact_phone}`)
+                : undefined
+            }
+            phone={order.contact_phone}
+          />
+
+          {/* --- Contenu de la commande ---------------------------------- */}
+          <Spacer size="lg" />
+          <Surface padding="base" elevation={1}>
+            <Text variant="h3">Contenu de la commande</Text>
+            <Spacer size="md" />
+
+            {order.items.map((item, index) => (
+              <View key={item.id}>
+                {index > 0 ? <Divider spacing="sm" /> : null}
+                <View style={styles.itemRow}>
+                  <Text variant="bodyStrong" tabular style={{ minWidth: 32 }}>
+                    {item.quantity}×
+                  </Text>
+                  <View style={{ flex: 1 }}>
+                    <Text variant="body">{item.product_name}</Text>
+                    {item.options.length > 0 ? (
+                      <Text variant="caption" color="textSecondary">
+                        {summarizeOptions(
+                          item.options.map((option) => ({ option_name: option.option_name })),
+                        )}
+                      </Text>
+                    ) : null}
+                    {item.note ? (
+                      <InlineAlert
+                        tone="warning"
+                        message={item.note}
+                        style={{ marginTop: theme.spacing.xs }}
+                      />
+                    ) : null}
+                  </View>
                 </View>
               </View>
-            </View>
-          ))}
-        </Surface>
+            ))}
+          </Surface>
 
-        {/* --- Argent ---------------------------------------------------- */}
-        <Spacer size="lg" />
-        <Surface padding="base" elevation={1}>
-          <View style={styles.rowBetween}>
-            <Text variant="body" color="textSecondary">
-              Total de la commande
-            </Text>
-            <Text variant="bodyStrong" tabular>
-              {formatMoney(order.total, order.currency)}
-            </Text>
-          </View>
-
-          <Divider spacing="md" />
-
-          <View style={styles.rowBetween}>
-            <View style={{ flex: 1 }}>
-              <Text variant="bodyStrong" color={delivery.cash_to_collect > 0 ? 'warning' : 'text'}>
-                {delivery.cash_to_collect > 0 ? 'À encaisser en espèces' : 'Déjà payée'}
+          {/* --- Argent ---------------------------------------------------- */}
+          <Spacer size="lg" />
+          <Surface padding="base" elevation={1}>
+            <Row>
+              <Text variant="body" color="textSecondary">
+                Total de la commande
               </Text>
-              <Text variant="caption" color="textMuted">
-                {order.payment?.provider === 'CASH'
-                  ? 'Paiement à la livraison'
-                  : 'Paiement électronique'}
+              <Text variant="bodyStrong" tabular>
+                {formatMoney(order.total, order.currency)}
               </Text>
-            </View>
-            <Text
-              variant="priceLarge"
-              tabular
-              color={delivery.cash_to_collect > 0 ? 'warning' : 'success'}
-            >
-              {formatMoney(delivery.cash_to_collect, order.currency)}
-            </Text>
-          </View>
+            </Row>
 
-          <Divider spacing="md" />
+            <Divider spacing="md" />
 
-          <View style={styles.rowBetween}>
-            <Text variant="body" color="textSecondary">
-              Votre gain
-            </Text>
-            <Text variant="priceSmall" tabular color="success">
-              {formatMoney(delivery.payout_amount, order.currency)}
-            </Text>
-          </View>
-        </Surface>
-
-        {/* --- Saisie du code ------------------------------------------- */}
-        {needsCode ? (
-          <>
-            <Spacer size="lg" />
-            <Surface padding="base" elevation={2}>
-              <Text variant="h3">Code de confirmation</Text>
-              <Text variant="bodySmall" color="textSecondary" style={{ marginTop: 4 }}>
-                Demandez au client le code à 4 chiffres affiché dans son application.
+            <Row>
+              <View style={{ flex: 1 }}>
+                <Text variant="bodyStrong" color={delivery.cash_to_collect > 0 ? 'warning' : 'text'}>
+                  {delivery.cash_to_collect > 0 ? 'À encaisser en espèces' : 'Déjà payée'}
+                </Text>
+                <Text variant="caption" color="textMuted">
+                  {order.payment?.provider === 'CASH'
+                    ? 'Paiement à la livraison'
+                    : 'Paiement électronique'}
+                </Text>
+              </View>
+              <Text
+                variant="priceLarge"
+                tabular
+                color={delivery.cash_to_collect > 0 ? 'warning' : 'success'}
+              >
+                {formatMoney(delivery.cash_to_collect, order.currency)}
               </Text>
+            </Row>
 
-              <Spacer size="base" />
+            <Divider spacing="md" />
 
-              <Input
-                label="Code du client"
-                placeholder="0000"
-                value={code}
-                onChangeText={(value) => setCode(value.replace(/\D/g, '').slice(0, 4))}
-                error={codeError}
-                keyboardType="number-pad"
-                maxLength={4}
-                autoFocus
-              />
-            </Surface>
-          </>
-        ) : null}
-      </ScreenScroll>
+            <Row>
+              <Text variant="body" color="textSecondary">
+                Votre gain
+              </Text>
+              <Text variant="priceSmall" tabular color="success">
+                {formatMoney(delivery.payout_amount, order.currency)}
+              </Text>
+            </Row>
+          </Surface>
 
-      {/* --- Action unique -------------------------------------------- */}
-      {!isDone ? (
-        <BottomBar>
+          {/* --- Saisie du code ------------------------------------------- */}
           {needsCode ? (
-            <Button
-              label="Valider la livraison"
-              onPress={handleConfirm}
-              loading={confirm.isPending}
-              disabled={code.length !== 4}
-              fullWidth
-              size="lg"
-            />
-          ) : next ? (
-            <Button
-              label={deliveryNextActionLabel[delivery.status] ?? 'Étape suivante'}
-              onPress={handleAdvance}
-              loading={advance.isPending}
-              fullWidth
-              size="lg"
-            />
+            <>
+              <Spacer size="lg" />
+              <Surface padding="base" elevation={2}>
+                <Text variant="h3">Code de confirmation</Text>
+                <Text variant="bodySmall" color="textSecondary" style={{ marginTop: theme.spacing.xs }}>
+                  Demandez au client le code à 4 chiffres affiché dans son application.
+                </Text>
+
+                <Spacer size="base" />
+
+                <Input
+                  label="Code du client"
+                  placeholder="0000"
+                  value={code}
+                  onChangeText={(value) => setCode(value.replace(/\D/g, '').slice(0, 4))}
+                  error={codeError}
+                  keyboardType="number-pad"
+                  maxLength={4}
+                  autoFocus
+                />
+
+                {codeFailed ? (
+                  <InlineAlert
+                    tone="warning"
+                    message="Attention : 5 échecs bloquent la course. Vérifiez le code avec le client."
+                    style={{ marginTop: theme.spacing.md }}
+                  />
+                ) : null}
+              </Surface>
+            </>
           ) : null}
-        </BottomBar>
-      ) : null}
+
+          {/* --- Mutation en attente de réseau ---------------------------- */}
+          {advance.isPaused || confirm.isPaused ? (
+            <>
+              <Spacer size="lg" />
+              <InlineAlert
+                tone="warning"
+                message="Pas de réseau pour le moment : votre action partira automatiquement dès que la connexion revient."
+              />
+            </>
+          ) : null}
+        </ScreenScroll>
+
+        {/* --- Action unique -------------------------------------------- */}
+        {!isDone ? (
+          <View onLayout={(event) => setBottomBarHeight(event.nativeEvent.layout.height)}>
+            <BottomBar>
+              {needsCode ? (
+                <Button
+                  label={confirm.isPaused ? 'En attente de réseau…' : 'Valider la livraison'}
+                  onPress={() => void handleConfirm()}
+                  loading={confirm.isPending && !confirm.isPaused}
+                  disabled={code.length !== 4 || confirm.isPaused}
+                  fullWidth
+                  size="lg"
+                />
+              ) : next ? (
+                <Button
+                  label={
+                    advance.isPaused
+                      ? 'En attente de réseau…'
+                      : (deliveryNextActionLabel[delivery.status] ?? 'Étape suivante')
+                  }
+                  onPress={handleAdvance}
+                  loading={advance.isPending && !advance.isPaused}
+                  disabled={advance.isPaused}
+                  fullWidth
+                  size="lg"
+                />
+              ) : null}
+            </BottomBar>
+          </View>
+        ) : null}
+      </KeyboardAvoidingView>
     </Screen>
   );
 }
@@ -337,18 +482,9 @@ function StepCard({
       }
     >
       <View style={styles.stepHeader}>
-        <View
-          style={{
-            width: 44,
-            height: 44,
-            borderRadius: 22,
-            backgroundColor: theme.colors.primarySoft,
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
+        <IconBubble size={theme.hitTarget} tone="primary">
           {icon}
-        </View>
+        </IconBubble>
 
         <View style={{ flex: 1, marginLeft: theme.spacing.md }}>
           <Text variant="h3" numberOfLines={1}>
@@ -358,7 +494,7 @@ function StepCard({
             {subtitle}
           </Text>
           {phone ? (
-            <Text variant="caption" color="textMuted" tabular style={{ marginTop: 2 }}>
+            <Text variant="caption" color="textMuted" tabular style={{ marginTop: theme.spacing.xxs }}>
               {formatPhone(phone)}
             </Text>
           ) : null}
@@ -366,18 +502,7 @@ function StepCard({
       </View>
 
       {note ? (
-        <View
-          style={{
-            backgroundColor: theme.colors.warningSoft,
-            borderRadius: theme.radius.sm,
-            padding: theme.spacing.sm,
-            marginTop: theme.spacing.md,
-          }}
-        >
-          <Text variant="caption" style={{ color: theme.colors.warning }}>
-            {note}
-          </Text>
-        </View>
+        <InlineAlert tone="warning" message={note} style={{ marginTop: theme.spacing.md }} />
       ) : null}
 
       <View style={[styles.stepActions, { marginTop: theme.spacing.md }]}>
@@ -386,7 +511,9 @@ function StepCard({
             label="Itinéraire"
             variant="secondary"
             size="sm"
-            icon={<NavigationArrow size={16} color={theme.colors.text} weight="fill" />}
+            icon={
+              <NavigationArrow size={theme.iconSize.xs} color={theme.colors.text} weight="fill" />
+            }
             onPress={onNavigate}
             style={{ flex: 1 }}
           />
@@ -397,8 +524,13 @@ function StepCard({
             onPress={onCall}
             accessibilityLabel={`Appeler ${title}`}
             style={[
-              styles.callButton,
+              // hitTarget (44 pt) : l'ancien 40×40 était sous le plancher
+              // tactile — critique pour un pouce ganté sur une moto.
               {
+                width: theme.hitTarget,
+                height: theme.hitTarget,
+                alignItems: 'center',
+                justifyContent: 'center',
                 backgroundColor: theme.colors.primary,
                 borderRadius: theme.radius.pill,
                 marginLeft: onNavigate ? theme.spacing.sm : 0,
@@ -428,9 +560,7 @@ function DeliverySkeleton() {
 }
 
 const styles = StyleSheet.create({
-  rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   stepHeader: { flexDirection: 'row', alignItems: 'center' },
   stepActions: { flexDirection: 'row', alignItems: 'center' },
-  callButton: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   itemRow: { flexDirection: 'row', alignItems: 'flex-start', paddingVertical: 4 },
 });

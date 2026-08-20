@@ -6,6 +6,7 @@ import { isValidEmail, isValidPhone, signUpWithEmail, toUserMessage } from '@ist
 import {
   Button,
   Header,
+  InlineAlert,
   Input,
   Pressable,
   Screen,
@@ -139,19 +140,11 @@ export default function SignUp() {
           />
 
           {errors.form ? (
-            <View
-              accessibilityLiveRegion="polite"
-              style={{
-                backgroundColor: theme.colors.dangerSoft,
-                borderRadius: theme.radius.md,
-                padding: theme.spacing.md,
-                marginTop: theme.spacing.base,
-              }}
-            >
-              <Text variant="label" color="danger">
-                {errors.form}
-              </Text>
-            </View>
+            <InlineAlert
+              tone="danger"
+              message={errors.form}
+              style={{ marginTop: theme.spacing.base }}
+            />
           ) : null}
 
           <Spacer size="xl" />

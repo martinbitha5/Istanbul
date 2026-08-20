@@ -57,8 +57,19 @@ export const zIndex = {
 /**
  * Élévation — ombres chaudes basées sur #3A1E12.
  * `elevation` sert Android, les autres champs servent iOS.
+ *
+ * La couleur d'ombre ici est celle du thème clair : `createTheme` la remplace
+ * par `colors.shadow` pour que le mode sombre projette du noir, pas du brun.
  */
-export const elevation = {
+export interface ElevationStyle {
+  shadowColor: string;
+  shadowOpacity: number;
+  shadowRadius: number;
+  shadowOffset: { width: number; height: number };
+  elevation: number;
+}
+
+export const elevation: Record<0 | 1 | 2 | 3, ElevationStyle> = {
   0: {
     shadowColor: 'transparent',
     shadowOpacity: 0,
@@ -87,7 +98,7 @@ export const elevation = {
     shadowOffset: { width: 0, height: 12 },
     elevation: 12,
   },
-} as const;
+};
 
 export type SpacingToken = keyof typeof spacing;
 export type RadiusToken = keyof typeof radius;

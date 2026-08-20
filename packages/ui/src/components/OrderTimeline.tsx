@@ -41,7 +41,11 @@ export function OrderTimeline({ status, timestamps, formatTime, style }: OrderTi
   const cancelled = status === 'CANCELLED';
 
   return (
-    <View style={style} accessibilityRole="progressbar">
+    <View
+      style={style}
+      accessibilityRole="progressbar"
+      accessibilityValue={{ min: 0, max: TRACKING_STEPS.length - 1, now: Math.max(currentIndex, 0) }}
+    >
       {TRACKING_STEPS.map((step, index) => {
         const isDone = !cancelled && index < currentIndex;
         const isCurrent = !cancelled && index === currentIndex;

@@ -16,13 +16,18 @@ import { STORAGE_KEYS } from '@/lib/config';
  * connexion pour quelqu'un qui est déjà connecté.
  */
 export default function Index() {
-  const { session, isLoading } = useSession();
+  // Seul `isLoading` compte ici : connecté ou non, la destination est la même.
+  const { isLoading } = useSession();
   const [onboardingSeen, setOnboardingSeen] = useState<boolean | null>(null);
 
   useEffect(() => {
-    void AsyncStorage.getItem(STORAGE_KEYS.onboardingSeen).then((value) => {
-      setOnboardingSeen(value === 'true');
-    });
+    void AsyncStorage.getItem(STORAGE_KEYS.onboardingSeen)
+      .then((value) => {
+        setOnboardingSeen(value === 'true');
+      })
+      // Stockage en échec : on considère l'onboarding vu plutôt que de rester
+      // bloqué sur le splash pour toujours.
+      .catch(() => setOnboardingSeen(true));
   }, []);
 
   if (isLoading || onboardingSeen === null) {
@@ -33,7 +38,7 @@ export default function Index() {
 
   // Le catalogue est consultable sans compte : on n'exige la connexion qu'au
   // moment du checkout. Une barrière trop tôt fait fuir les nouveaux clients.
-  return <Redirect href={session ? '/(tabs)' : '/(tabs)'} />;
+  return <Redirect href="/(tabs)" />;
 }
 
 function SplashView() {
@@ -42,7 +47,7 @@ function SplashView() {
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.primary }]}>
       <Animated.View entering={FadeIn.duration(theme.duration.slow)} style={styles.center}>
-        <Text variant="brand" style={{ color: '#FFFFFF' }}>
+        <Text variant="brand" style={{ color: theme.colors.textOnPrimary }}>
           Istanbul
         </Text>
         <Animated.View entering={FadeInDown.delay(220).duration(theme.duration.slow)}>
@@ -50,7 +55,11 @@ function SplashView() {
             variant="overline"
             uppercase
             align="center"
-            style={{ color: 'rgba(255,255,255,0.85)', marginTop: theme.spacing.sm }}
+            style={{
+              color: theme.colors.textOnPrimary,
+              opacity: 0.85,
+              marginTop: theme.spacing.sm,
+            }}
           >
             Fast Food
           </Text>
@@ -61,7 +70,11 @@ function SplashView() {
         entering={FadeIn.delay(500).duration(theme.duration.slow)}
         style={[styles.footer, { paddingBottom: theme.spacing['4xl'] }]}
       >
-        <Text variant="caption" align="center" style={{ color: 'rgba(255,255,255,0.7)' }}>
+        <Text
+          variant="caption"
+          align="center"
+          style={{ color: theme.colors.textOnPrimary, opacity: 0.7 }}
+        >
           Le vrai goût d’Istanbul, livré chez vous
         </Text>
       </Animated.View>

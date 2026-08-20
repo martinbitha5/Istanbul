@@ -1,5 +1,5 @@
-import { useMemo } from 'react';
-import { Linking, StyleSheet, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import { Alert, Linking, StyleSheet, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Phone, XCircle } from 'phosphor-react-native';
 import {
@@ -12,11 +12,19 @@ import {
   initials,
   orderStatusCustomerLabel,
   orderStatusTone,
+  roadDistanceKm,
+  roughEtaMinutes,
   summarizeOptions,
+  toUserMessage,
   useCancelOrder,
   useConfirmationCode,
+  useDriverLocation,
+  useDriverLocationRealtime,
   useOrder,
   useOrderRealtime,
+  useOrderReview,
+  useRestaurant,
+  useSubmitReview,
 } from '@istanbul/core';
 import type { OrderDetail, TrackingStep } from '@istanbul/types';
 import {
@@ -27,16 +35,24 @@ import {
   Divider,
   ErrorState,
   Header,
+  Input,
+  OfflineBanner,
   OrderTimeline,
   Pressable,
   Screen,
   ScreenScroll,
   Skeleton,
   Spacer,
+  StarRating,
   Surface,
   Text,
+  TrackingMap,
   useTheme,
+  useToast,
 } from '@istanbul/ui';
+import { useRestaurantId } from '@/store/restaurant';
+import { useIsOffline } from '@/providers/AppProviders';
+import { refillCartFromOrder } from '@/lib/reorder';
 
 /**
  * Suivi de commande.
@@ -47,12 +63,29 @@ import {
  */
 export default function OrderTracking() {
   const theme = useTheme();
+  const toast = useToast();
+  const offline = useIsOffline();
   const { id } = useLocalSearchParams<{ id: string }>();
 
   const { data: order, isLoading, isError, refetch } = useOrder(id ?? null);
   useOrderRealtime(id ?? null);
 
   const cancelOrder = useCancelOrder();
+
+  // --- Carte temps réel ----------------------------------------------------
+  // Active dès qu'un livreur a pris la course, jusqu'à la remise.
+  const delivery = order?.delivery ?? null;
+  const trackingActive = Boolean(
+    order?.fulfillment === 'DELIVERY' &&
+      delivery &&
+      ['ACCEPTED', 'HEADING_TO_RESTAURANT', 'PICKED_UP', 'HEADING_TO_CUSTOMER', 'ARRIVED'].includes(
+        delivery.status,
+      ),
+  );
+  const restaurantId = useRestaurantId();
+  const { data: restaurant } = useRestaurant(restaurantId);
+  const { data: driverLocation } = useDriverLocation(delivery?.id ?? null, trackingActive);
+  useDriverLocationRealtime(trackingActive ? (delivery?.id ?? null) : null);
 
   // Le code n'existe qu'une fois une livraison créée, et n'a plus d'intérêt
   // une fois la commande remise.
@@ -71,6 +104,40 @@ export default function OrderTracking() {
       DELIVERED: order.delivered_at,
     };
   }, [order]);
+
+  // Distance livreur → client : mémoïsée, l'IIFE d'origine recalculait la
+  // distance routière à CHAQUE rendu (donc à chaque tick realtime de l'écran).
+  const driverDistance = useMemo(() => {
+    if (
+      !driverLocation ||
+      order?.delivery_latitude == null ||
+      order?.delivery_longitude == null
+    ) {
+      return null;
+    }
+    const km = roadDistanceKm(
+      { latitude: driverLocation.latitude, longitude: driverLocation.longitude },
+      { latitude: order.delivery_latitude, longitude: order.delivery_longitude },
+    );
+    return { km, etaMinutes: roughEtaMinutes(km) };
+  }, [driverLocation, order?.delivery_latitude, order?.delivery_longitude]);
+
+  const confirmCancel = () => {
+    // L'annulation est définitive : jamais au premier tap.
+    Alert.alert(
+      'Annuler la commande ?',
+      'Cette action est définitive. Vous pourrez repasser commande à tout moment.',
+      [
+        { text: 'Garder ma commande', style: 'cancel' },
+        {
+          text: 'Annuler la commande',
+          style: 'destructive',
+          onPress: () =>
+            cancelOrder.mutate({ orderId: id ?? '', reason: 'Annulée par le client' }),
+        },
+      ],
+    );
+  };
 
   if (isLoading) return <TrackingSkeleton />;
   if (isError || !order) {
@@ -94,9 +161,14 @@ export default function OrderTracking() {
         onBack={() => router.back()}
       />
 
+      {/* Écran temps réel : sans réseau, le suivi est gelé — il faut le dire. */}
+      <OfflineBanner visible={offline} />
+
       <ScreenScroll>
-        {/* --- Statut ---------------------------------------------------- */}
-        <Surface padding="lg" elevation={2}>
+        {/* --- Statut ------------------------------------------------------
+            `accessibilityLiveRegion` : le statut change tout seul en realtime,
+            les lecteurs d'écran doivent annoncer la progression. */}
+        <Surface padding="lg" elevation={2} accessibilityLiveRegion="polite">
           <View style={styles.rowBetween}>
             <Badge
               label={orderStatusCustomerLabel[order.status]}
@@ -130,6 +202,50 @@ export default function OrderTracking() {
 
           <OrderTimeline status={order.status} timestamps={timestamps} formatTime={formatTime} />
         </Surface>
+
+        {/* --- Carte temps réel ------------------------------------------ */}
+        {trackingActive && restaurant ? (
+          <>
+            <Spacer size="lg" />
+            <Surface padding="base" elevation={1}>
+              <TrackingMap
+                restaurant={{ latitude: restaurant.latitude, longitude: restaurant.longitude }}
+                destination={
+                  order.delivery_latitude != null && order.delivery_longitude != null
+                    ? { latitude: order.delivery_latitude, longitude: order.delivery_longitude }
+                    : null
+                }
+                driver={
+                  driverLocation
+                    ? { latitude: driverLocation.latitude, longitude: driverLocation.longitude }
+                    : null
+                }
+                followDriver
+                onPress={() => router.push(`/order/${order.id}/map`)}
+              />
+              {driverDistance ? (
+                <Text
+                  variant="caption"
+                  color="textSecondary"
+                  align="center"
+                  style={{ marginTop: theme.spacing.sm }}
+                  tabular
+                >
+                  {`Livreur à ~${driverDistance.km.toLocaleString('fr-FR')} km · ${driverDistance.etaMinutes} min`}
+                </Text>
+              ) : (
+                <Text
+                  variant="caption"
+                  color="textMuted"
+                  align="center"
+                  style={{ marginTop: theme.spacing.sm }}
+                >
+                  En attente de la position du livreur…
+                </Text>
+              )}
+            </Surface>
+          </>
+        ) : null}
 
         {/* --- Code de confirmation -------------------------------------- */}
         {confirmationCode && !isDelivered && !isCancelled ? (
@@ -197,7 +313,7 @@ export default function OrderTracking() {
           </Text>
           <Text variant="bodyStrong" style={{ marginTop: 2 }}>
             {order.fulfillment === 'PICKUP'
-              ? 'Istanbul Fast Food'
+              ? (restaurant?.name ?? 'Au restaurant')
               : `${order.delivery_address}${order.delivery_commune ? `, ${order.delivery_commune}` : ''}`}
           </Text>
           {order.delivery_notes ? (
@@ -228,9 +344,7 @@ export default function OrderTracking() {
               label="Annuler ma commande"
               variant="ghost"
               icon={<XCircle size={theme.iconSize.sm} color={theme.colors.danger} />}
-              onPress={() =>
-                cancelOrder.mutate({ orderId: order.id, reason: 'Annulée par le client' })
-              }
+              onPress={confirmCancel}
               loading={cancelOrder.isPending}
               style={{ alignSelf: 'center' }}
             />
@@ -242,10 +356,28 @@ export default function OrderTracking() {
 
         {isDelivered ? (
           <>
+            <Spacer size="lg" />
+            <RatingCard orderId={order.id} hasDriver={Boolean(order.delivery)} />
+
             <Spacer size="xl" />
             <Button
               label="Commander à nouveau"
-              onPress={() => router.replace('/(tabs)/menu')}
+              onPress={() => {
+                // Même logique que l'historique : on repart de l'instantané de
+                // la commande, sans refetch, et le panier reste modifiable.
+                const { added, hadOptions } = refillCartFromOrder(order);
+                if (added === 0) {
+                  toast.info('Ces plats ne sont plus au menu. Découvrez la carte du jour.');
+                  router.replace('/(tabs)/menu');
+                  return;
+                }
+                toast.success(
+                  hadOptions
+                    ? 'Panier rempli — vérifiez vos suppléments avant de commander.'
+                    : 'Panier rempli à partir de votre commande.',
+                );
+                router.push('/cart');
+              }}
               fullWidth
               size="lg"
             />
@@ -256,15 +388,120 @@ export default function OrderTracking() {
   );
 }
 
+/**
+ * Notation post-livraison.
+ *
+ * Affichée sur la commande livrée tant qu'elle n'a pas été notée, puis
+ * remplacée par un récapitulatif. Les garde-fous (une note, commande livrée,
+ * propriétaire uniquement) sont côté serveur.
+ */
+function RatingCard({ orderId, hasDriver }: { orderId: string; hasDriver: boolean }) {
+  const theme = useTheme();
+  const toast = useToast();
+  const { data: review, isLoading } = useOrderReview(orderId);
+  const submit = useSubmitReview();
+
+  const [foodRating, setFoodRating] = useState<number | null>(null);
+  const [driverRating, setDriverRating] = useState<number | null>(null);
+  const [comment, setComment] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  if (isLoading) return null;
+
+  if (review) {
+    return (
+      <Surface padding="base" elevation={1}>
+        <Text variant="h3">Merci pour votre note ⭐</Text>
+        <Spacer size="md" />
+        <View style={{ gap: theme.spacing.md }}>
+          {review.food_rating != null ? (
+            <StarRating value={review.food_rating} size={22} label="Votre repas" />
+          ) : null}
+          {review.driver_rating != null ? (
+            <StarRating value={review.driver_rating} size={22} label="Votre livreur" />
+          ) : null}
+        </View>
+        {review.comment ? (
+          <Text variant="bodySmall" color="textSecondary" style={{ marginTop: theme.spacing.md }}>
+            « {review.comment} »
+          </Text>
+        ) : null}
+      </Surface>
+    );
+  }
+
+  const canSubmit = foodRating != null || driverRating != null;
+
+  const handleSubmit = async () => {
+    setError(null);
+    try {
+      await submit.mutateAsync({
+        orderId,
+        foodRating,
+        driverRating: hasDriver ? driverRating : null,
+        comment,
+      });
+      toast.success('Merci, votre note a bien été envoyée !');
+    } catch (caught) {
+      setError(toUserMessage(caught));
+    }
+  };
+
+  return (
+    <Surface padding="base" elevation={2}>
+      <Text variant="h3">Comment c’était ?</Text>
+      <Text variant="bodySmall" color="textSecondary" style={{ marginTop: 2 }}>
+        Votre note aide le restaurant et le livreur à s’améliorer.
+      </Text>
+
+      <Spacer size="base" />
+      <View style={{ gap: theme.spacing.base }}>
+        <StarRating value={foodRating} onChange={setFoodRating} label="Le repas" />
+        {hasDriver ? (
+          <StarRating value={driverRating} onChange={setDriverRating} label="Le livreur" />
+        ) : null}
+      </View>
+
+      <Spacer size="base" />
+      <Input
+        label="Votre commentaire"
+        placeholder="Un mot pour la cuisine ? (facultatif)"
+        value={comment}
+        onChangeText={setComment}
+        multiline
+      />
+
+      {error ? (
+        <Text variant="caption" color="danger" style={{ marginTop: theme.spacing.sm }}>
+          {error}
+        </Text>
+      ) : null}
+
+      <Spacer size="base" />
+      <Button
+        label="Envoyer ma note"
+        onPress={handleSubmit}
+        disabled={!canSubmit}
+        loading={submit.isPending}
+        fullWidth
+      />
+    </Surface>
+  );
+}
+
 function OrderItems({ order }: { order: OrderDetail }) {
   const theme = useTheme();
+
+  // `items` peut manquer si un cache ancien/incomplet a été restauré :
+  // mieux vaut une liste vide le temps du refetch qu'un écran rouge.
+  const items = order.items ?? [];
 
   return (
     <Surface padding="base" elevation={1}>
       <Text variant="h3">Votre commande</Text>
       <Spacer size="md" />
 
-      {order.items.map((item, index) => (
+      {items.map((item, index) => (
         <View key={item.id}>
           {index > 0 ? <Divider spacing="md" /> : null}
           <View style={styles.itemRow}>

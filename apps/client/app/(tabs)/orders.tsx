@@ -9,7 +9,6 @@ import {
   orderStatusCustomerLabel,
   orderStatusTone,
   useMyOrders,
-  useProduct,
   useSession,
 } from '@istanbul/core';
 import type { OrderDetail } from '@istanbul/types';
@@ -28,7 +27,10 @@ import {
   Surface,
   Text,
   useTheme,
+  useToast,
 } from '@istanbul/ui';
+import { AuthGate } from '@/components/AuthGate';
+import { refillCartFromOrder } from '@/lib/reorder';
 
 type Filter = 'active' | 'past';
 
@@ -36,12 +38,12 @@ type Filter = 'active' | 'past';
  * Historique des commandes.
  *
  * « Commander à nouveau » recharge les lignes dans le panier depuis
- * l'instantané de la commande : on ne dépend pas du fait que les produits
- * existent encore au même prix, on repasse par la fiche produit à jour.
+ * l'instantané de la commande — sans refetch produit — puis ouvre le panier
+ * où le client revalide avant le checkout ; le serveur revérifie chaque prix.
  */
 export default function Orders() {
   const theme = useTheme();
-  const { session } = useSession();
+  const { session, isLoading: sessionLoading } = useSession();
   const { data: orders, isLoading, isError, refetch, isRefetching } = useMyOrders();
   const [filter, setFilter] = useState<Filter>('active');
 
@@ -60,18 +62,13 @@ export default function Orders() {
     };
   }, [orders]);
 
-  if (!session) {
+  if (sessionLoading || !session) {
     return (
-      <Screen>
-        <Header title="Mes commandes" large />
-        <EmptyState
-          title="Connectez-vous"
-          description="Vos commandes et votre historique apparaîtront ici."
-          actionLabel="Se connecter"
-          onAction={() => router.push('/(auth)/sign-in')}
-          icon={<Receipt size={32} color={theme.colors.textMuted} weight="duotone" />}
-        />
-      </Screen>
+      <AuthGate
+        title="Mes commandes"
+        description="Vos commandes et votre historique apparaîtront ici."
+        icon={<Receipt size={theme.iconSize.xl} color={theme.colors.textMuted} weight="duotone" />}
+      />
     );
   }
 
@@ -121,7 +118,7 @@ export default function Orders() {
               }
               actionLabel="Voir le menu"
               onAction={() => router.push('/(tabs)/menu')}
-              icon={<Receipt size={32} color={theme.colors.textMuted} weight="duotone" />}
+              icon={<Receipt size={theme.iconSize.xl} color={theme.colors.textMuted} weight="duotone" />}
             />
           }
         />
@@ -138,7 +135,12 @@ function OrderCard({ order }: { order: OrderDetail }) {
     .join(', ');
 
   return (
-    <Pressable onPress={() => router.push(`/order/${order.id}`)}>
+    <Pressable
+      onPress={() => router.push(`/order/${order.id}`)}
+      accessibilityLabel={`Commande ${order.order_number}, ${
+        orderStatusCustomerLabel[order.status]
+      }, ${formatMoney(order.total, order.currency)}. Voir le détail`}
+    >
       <Surface padding="base" elevation={1}>
         <View style={styles.rowBetween}>
           <Text variant="labelStrong" tabular color="textSecondary">
@@ -183,23 +185,30 @@ function OrderCard({ order }: { order: OrderDetail }) {
 /**
  * « Commander à nouveau ».
  *
- * On ne réinjecte pas l'instantané tel quel : on renvoie vers le menu avec
- * les produits d'origine mis en avant. Un produit supprimé ou dont les
- * options ont changé ne doit pas atterrir silencieusement dans le panier avec
- * un prix périmé.
+ * Réinjecte les lignes de la commande dans le panier depuis l'instantané —
+ * l'ancienne version montait une requête produit PAR carte de l'historique
+ * juste pour ce bouton. Les options ne sont pas rejouées (elles ont pu
+ * changer) : un toast l'explique, et le panier reste modifiable avant de
+ * confirmer.
  */
 function ReorderButton({ order }: { order: OrderDetail }) {
-  const firstProductId = order.items.find((item) => item.product_id)?.product_id ?? null;
-  const { data: product } = useProduct(firstProductId);
+  const toast = useToast();
 
   const reorder = () => {
-    if (product) {
-      // Les options d'origine ne sont pas rejouées automatiquement : on ouvre
-      // la fiche pour que le client revalide ses choix aux conditions du jour.
-      router.push(`/product/${product.id}`);
+    const { added, hadOptions } = refillCartFromOrder(order);
+
+    if (added === 0) {
+      toast.info('Ces plats ne sont plus au menu. Découvrez la carte du jour.');
+      router.push('/(tabs)/menu');
       return;
     }
-    router.push('/(tabs)/menu');
+
+    toast.success(
+      hadOptions
+        ? 'Panier rempli — vérifiez vos suppléments avant de commander.'
+        : 'Panier rempli à partir de votre commande.',
+    );
+    router.push('/cart');
   };
 
   return (

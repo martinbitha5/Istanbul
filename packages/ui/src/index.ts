@@ -18,6 +18,10 @@ export * from './components/OrderTimeline';
 export * from './components/PriceBreakdown';
 export * from './components/CartBar';
 export * from './components/Misc';
+export * from './components/StarRating';
+export * from './components/TrackingMap';
 
-// États
+// États et feedback
 export * from './components/States';
+export * from './components/Toast';
+export * from './components/IconBubble';

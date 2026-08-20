@@ -1,7 +1,7 @@
 'use client';
 
-import { Suspense, useMemo, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { Suspense, useEffect, useState } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
   formatDateTime,
   formatMoney,
@@ -35,7 +35,12 @@ import {
   Th,
   inputClass,
 } from '@/components/ui';
+import { Alert } from '@/components/Alert';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { FilterChips } from '@/components/FilterChips';
 import { useRestaurantId } from '@/hooks/useRestaurantId';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
+import { useNewOrderAlerts } from '@/hooks/useNewOrderAlerts';
 
 const FILTERS: { value: OrderStatus | 'ALL'; label: string }[] = [
   { value: 'ALL', label: 'Toutes' },
@@ -48,6 +53,10 @@ const FILTERS: { value: OrderStatus | 'ALL'; label: string }[] = [
   { value: 'DELIVERED', label: 'Livrées' },
   { value: 'CANCELLED', label: 'Annulées' },
 ];
+
+// Au-delà de dix minutes, une commande NEW non traitée devient un problème :
+// on la colore en danger pour qu'elle saute aux yeux.
+const STALE_NEW_MS = 10 * 60 * 1000;
 
 export default function OrdersPage() {
   return (
@@ -67,34 +76,76 @@ export default function OrdersPage() {
 function OrdersQueue() {
   const restaurantId = useRestaurantId();
   const params = useSearchParams();
+  const pathname = usePathname();
+  const router = useRouter();
 
-  const [filter, setFilter] = useState<OrderStatus | 'ALL'>(
+  const [filter, setFilterState] = useState<OrderStatus | 'ALL'>(
     (params.get('status') as OrderStatus | null) ?? 'ALL',
   );
   const [search, setSearch] = useState('');
+  // Debounce : la clé de requête inclut la chaîne — sans lui, une requête
+  // Supabase partait à chaque frappe.
+  const debouncedSearch = useDebouncedValue(search, 300);
   const [detail, setDetail] = useState<OrderDetail | null>(null);
   const [assigning, setAssigning] = useState<OrderDetail | null>(null);
+  const [rejecting, setRejecting] = useState<OrderDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Seule la ligne cliquée affiche un spinner (advance.isPending était
+  // partagé : toutes les lignes tournaient en même temps).
+  const [pendingOrderId, setPendingOrderId] = useState<string | null>(null);
+
+  // Le filtre vit dans l'URL : retour navigateur, partage et rechargement
+  // retombent sur la même vue (les tuiles du dashboard pointent déjà ici).
+  const setFilter = (value: OrderStatus | 'ALL') => {
+    setFilterState(value);
+    router.replace(value === 'ALL' ? pathname : `${pathname}?status=${value}`, { scroll: false });
+  };
+
+  // Synchronise l'état si l'URL change sans remontage (lien du dashboard
+  // cliqué alors que la page est déjà ouverte).
+  useEffect(() => {
+    const fromUrl = (params.get('status') as OrderStatus | null) ?? 'ALL';
+    setFilterState((current) => (current === fromUrl ? current : fromUrl));
+  }, [params]);
 
   const queue = useOrderQueue({
     restaurantId,
     statuses: filter === 'ALL' ? undefined : [filter],
-    search: search.trim() || undefined,
+    search: debouncedSearch.trim() || undefined,
   });
 
   const advance = useAdvanceOrderStatus();
 
-  // Notification sonore à chaque nouvelle commande : personne ne fixe l'écran
-  // en plein service.
-  useOrderQueueRealtime(restaurantId, () => {
-    if (typeof window !== 'undefined' && 'Notification' in window) {
-      if (Notification.permission === 'granted') {
-        new Notification('Nouvelle commande', { body: 'Une commande vient d’arriver.' });
-      }
-    }
-  });
+  // Minuteur : re-render toutes les 30 s pour que formatRelative et la
+  // détection des commandes en retard restent justes sans interaction.
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => setTick((value) => value + 1), 30_000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Alertes de nouvelles commandes : son + notification système + badge
+  // d'onglet. La permission se demande via le bouton « Activer les alertes »
+  // (l'ancien code testait la permission sans jamais la demander).
+  const { permission, requestPermission, notify } = useNewOrderAlerts();
+  useOrderQueueRealtime(restaurantId, () => notify());
 
   const orders = queue.data ?? [];
+  const now = Date.now();
+
+  const runAdvance = async (order: OrderDetail, to: OrderStatus, note?: string) => {
+    setError(null);
+    setPendingOrderId(order.id);
+    try {
+      await advance.mutateAsync({ orderId: order.id, to, note });
+      return true;
+    } catch (caught) {
+      setError(toUserMessage(caught));
+      return false;
+    } finally {
+      setPendingOrderId(null);
+    }
+  };
 
   const handleAdvance = async (order: OrderDetail) => {
     const next = nextOrderStatus(order.status, order.fulfillment);
@@ -105,61 +156,55 @@ function OrdersQueue() {
       return;
     }
 
-    setError(null);
-    try {
-      await advance.mutateAsync({ orderId: order.id, to: next });
-    } catch (caught) {
-      setError(toUserMessage(caught));
-    }
+    await runAdvance(order, next);
   };
 
   return (
     <div className="space-y-6">
       <SectionTitle
+        as="h1"
         title="Commandes"
         description="Mise à jour en temps réel. Acceptez, préparez, assignez."
         action={
-          <input
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="N° de commande, nom, téléphone…"
-            className={`${inputClass} sm:w-72`}
-            aria-label="Rechercher une commande"
-          />
+          <div className="flex flex-wrap items-center gap-2">
+            {permission === 'default' ? (
+              <Button variant="secondary" size="sm" onClick={() => void requestPermission()}>
+                Activer les alertes
+              </Button>
+            ) : null}
+            <input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="N° de commande, nom, téléphone…"
+              className={`${inputClass} sm:w-72`}
+              aria-label="Rechercher une commande"
+            />
+          </div>
         }
       />
 
       {/* --- Filtres ----------------------------------------------------- */}
-      <div className="flex flex-wrap gap-2">
-        {FILTERS.map((item) => {
-          const active = filter === item.value;
-          return (
-            <button
-              key={item.value}
-              onClick={() => setFilter(item.value)}
-              aria-pressed={active}
-              className="rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors"
-              style={{
-                background: active ? 'var(--color-primary)' : 'var(--color-surface)',
-                color: active ? '#fff' : 'var(--color-text-secondary)',
-                borderColor: active ? 'var(--color-primary)' : 'var(--color-border)',
-              }}
-            >
-              {item.label}
-            </button>
-          );
-        })}
-      </div>
+      <FilterChips
+        options={FILTERS}
+        value={filter}
+        onChange={setFilter}
+        label="Filtrer par statut"
+      />
 
-      {error ? (
-        <div
-          role="alert"
-          className="rounded-xl px-4 py-3 text-sm"
-          style={{ background: 'var(--color-danger-soft)', color: 'var(--color-danger)' }}
-        >
-          {error}
-        </div>
-      ) : null}
+      {/* Le contenu de la file change tout seul (realtime). Sans région
+          live, une personne au lecteur d'écran n'a aucun moyen de savoir
+          qu'une commande vient d'arriver : le son et la notification système
+          existent déjà, il manquait l'annonce. `polite` et non `assertive` —
+          on ne coupe pas la parole à quelqu'un en train de lire une adresse. */}
+      <p aria-live="polite" className="sr-only">
+        {queue.isLoading
+          ? 'Chargement de la file des commandes.'
+          : `${orders.length} commande${orders.length > 1 ? 's' : ''} ${
+              filter === 'ALL' ? 'dans la file' : `au statut ${orderStatusLabel[filter]}`
+            }.`}
+      </p>
+
+      {error ? <Alert>{error}</Alert> : null}
 
       {/* --- Liste ------------------------------------------------------- */}
       <Card padded={false} className="px-5 pb-2 pt-4">
@@ -177,7 +222,7 @@ function OrdersQueue() {
             }
           />
         ) : (
-          <Table>
+          <Table responsive ariaLabel="File des commandes">
             <thead>
               <tr>
                 <Th>Commande</Th>
@@ -193,10 +238,13 @@ function OrdersQueue() {
               {orders.map((order) => {
                 const next = nextOrderStatus(order.status, order.fulfillment);
                 const actionLabel = orderNextActionLabel[order.status];
+                const isStaleNew =
+                  order.status === 'NEW' &&
+                  now - new Date(order.created_at).getTime() > STALE_NEW_MS;
 
                 return (
                   <tr key={order.id} className="align-top">
-                    <Td>
+                    <Td label="Commande">
                       <button
                         onClick={() => setDetail(order)}
                         className="text-left font-semibold"
@@ -204,19 +252,26 @@ function OrdersQueue() {
                       >
                         {order.order_number}
                       </button>
-                      <p className="mt-0.5 text-xs text-[var(--color-text-muted)]">
+                      <p
+                        className="mt-0.5 text-xs"
+                        style={{
+                          // Une NEW qui attend depuis plus de 10 min vire au rouge.
+                          color: isStaleNew ? 'var(--color-danger)' : 'var(--color-text-muted)',
+                          fontWeight: isStaleNew ? 600 : undefined,
+                        }}
+                      >
                         {formatRelative(order.created_at)}
                       </p>
                     </Td>
 
-                    <Td>
+                    <Td label="Client">
                       <p className="font-medium">{order.contact_name}</p>
                       <p className="tabular text-xs text-[var(--color-text-muted)]">
                         {formatPhone(order.contact_phone)}
                       </p>
                     </Td>
 
-                    <Td className="max-w-xs">
+                    <Td label="Contenu" className="max-w-xs">
                       <p className="text-sm text-[var(--color-text-secondary)]">
                         {order.items
                           .map((item) => `${item.quantity}× ${item.product_name}`)
@@ -229,7 +284,7 @@ function OrdersQueue() {
                       ) : null}
                     </Td>
 
-                    <Td>
+                    <Td label="Mode">
                       <Badge tone={order.fulfillment === 'DELIVERY' ? 'info' : 'neutral'}>
                         {order.fulfillment === 'DELIVERY' ? 'Livraison' : 'Retrait'}
                       </Badge>
@@ -240,13 +295,13 @@ function OrdersQueue() {
                       ) : null}
                     </Td>
 
-                    <Td align="right">
+                    <Td label="Total" align="right">
                       <span className="tabular font-semibold">
                         {formatMoney(order.total, order.currency)}
                       </span>
                     </Td>
 
-                    <Td>
+                    <Td label="Statut">
                       <Badge tone={orderStatusTone[order.status]} dot>
                         {orderStatusLabel[order.status]}
                       </Badge>
@@ -258,26 +313,14 @@ function OrdersQueue() {
                           <Button
                             size="sm"
                             onClick={() => void handleAdvance(order)}
-                            loading={advance.isPending}
+                            loading={pendingOrderId === order.id && advance.isPending}
                           >
                             {actionLabel}
                           </Button>
                         ) : null}
 
                         {order.status === 'NEW' ? (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() =>
-                              void advance
-                                .mutateAsync({
-                                  orderId: order.id,
-                                  to: 'CANCELLED',
-                                  note: 'Refusée par le restaurant',
-                                })
-                                .catch((caught) => setError(toUserMessage(caught)))
-                            }
-                          >
+                          <Button size="sm" variant="ghost" onClick={() => setRejecting(order)}>
                             Refuser
                           </Button>
                         ) : null}
@@ -293,6 +336,29 @@ function OrdersQueue() {
 
       <OrderDetailModal order={detail} onClose={() => setDetail(null)} />
       <AssignDriverModal order={assigning} onClose={() => setAssigning(null)} />
+
+      {/* Refus avec motif : le motif part dans p_note de la RPC et se
+          retrouve dans l'historique de la commande côté client. */}
+      <ConfirmDialog
+        // key : remet le champ motif à zéro à chaque nouvelle commande visée.
+        key={rejecting?.id ?? 'none'}
+        open={rejecting !== null}
+        title={`Refuser la commande ${rejecting?.order_number ?? ''}`}
+        message="Le client sera notifié que sa commande est annulée. Cette action est définitive."
+        confirmLabel="Refuser la commande"
+        reasonLabel="Motif du refus"
+        reasonPlaceholder="Rupture de stock, fermeture exceptionnelle…"
+        loading={advance.isPending}
+        onClose={() => setRejecting(null)}
+        onConfirm={(reason) => {
+          if (!rejecting) return;
+          void runAdvance(rejecting, 'CANCELLED', reason ?? 'Refusée par le restaurant').then(
+            (ok) => {
+              if (ok) setRejecting(null);
+            },
+          );
+        }}
+      />
     </div>
   );
 }
@@ -432,30 +498,27 @@ function AssignDriverModal({ order, onClose }: { order: OrderDetail | null; onCl
   const { data: drivers, isLoading } = useAssignableDrivers(restaurantId);
   const assign = useAssignDriver();
   const [error, setError] = useState<string | null>(null);
+  // Spinner uniquement sur le livreur cliqué, pas sur toute la liste.
+  const [pendingDriverId, setPendingDriverId] = useState<string | null>(null);
 
   if (!order) return null;
 
   const handleAssign = async (driverId: string) => {
     setError(null);
+    setPendingDriverId(driverId);
     try {
       await assign.mutateAsync({ orderId: order.id, driverId });
       onClose();
     } catch (caught) {
       setError(toUserMessage(caught));
+    } finally {
+      setPendingDriverId(null);
     }
   };
 
   return (
     <Modal open onClose={onClose} title={`Assigner un livreur — ${order.order_number}`}>
-      {error ? (
-        <div
-          role="alert"
-          className="mb-4 rounded-xl px-3.5 py-2.5 text-sm"
-          style={{ background: 'var(--color-danger-soft)', color: 'var(--color-danger)' }}
-        >
-          {error}
-        </div>
-      ) : null}
+      {error ? <Alert className="mb-4">{error}</Alert> : null}
 
       {isLoading ? (
         <TableSkeleton rows={3} />
@@ -482,7 +545,11 @@ function AssignDriverModal({ order, onClose }: { order: OrderDetail | null; onCl
                 <Badge tone={driver.availability === 'AVAILABLE' ? 'success' : 'warning'} dot>
                   {driver.availability === 'AVAILABLE' ? 'Disponible' : 'En course'}
                 </Badge>
-                <Button size="sm" onClick={() => void handleAssign(driver.id)} loading={assign.isPending}>
+                <Button
+                  size="sm"
+                  onClick={() => void handleAssign(driver.id)}
+                  loading={pendingDriverId === driver.id && assign.isPending}
+                >
                   Assigner
                 </Button>
               </div>
@@ -508,9 +575,9 @@ function DeliveryBlock({ order }: { order: OrderDetail }) {
       <p className="text-sm">
         Livreur : {order.delivery?.driver?.profile?.full_name ?? 'Non assigné'}
       </p>
-      <p className="tabular text-sm text-[var(--color-text-secondary)]">
-        Code de confirmation : {code ?? '—'}
-      </p>
+      <p className="mt-1 text-xs text-[var(--color-text-muted)]">Code de confirmation</p>
+      {/* Grand et tabulaire : ce code se dicte au téléphone en plein service. */}
+      <p className="tabular text-2xl font-bold tracking-widest">{code ?? '—'}</p>
     </InfoBlock>
   );
 }

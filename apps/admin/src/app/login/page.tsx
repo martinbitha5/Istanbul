@@ -4,6 +4,7 @@ import { Suspense, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { signInWithEmail, toUserMessage } from '@istanbul/core';
 import { Button, Card, Field, inputClass } from '@/components/ui';
+import { Alert } from '@/components/Alert';
 import { getBrowserClient } from '@/lib/supabase/client';
 
 export default function LoginPage() {
@@ -46,12 +47,13 @@ function LoginForm() {
     <main className="flex min-h-dvh items-center justify-center p-6">
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
-          <p
+          {/* Le logo est le titre principal de la page de connexion. */}
+          <h1
             className="text-3xl tracking-tight"
             style={{ fontFamily: 'var(--font-playfair)', color: 'var(--color-primary)' }}
           >
             Istanbul
-          </p>
+          </h1>
           <p className="mt-1 text-xs font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">
             Dashboard restaurant
           </p>
@@ -83,15 +85,7 @@ function LoginForm() {
               />
             </Field>
 
-            {error ? (
-              <div
-                role="alert"
-                className="rounded-xl px-3.5 py-2.5 text-sm"
-                style={{ background: 'var(--color-danger-soft)', color: 'var(--color-danger)' }}
-              >
-                {error}
-              </div>
-            ) : null}
+            {error ? <Alert>{error}</Alert> : null}
 
             <Button type="submit" loading={submitting} className="w-full">
               Se connecter

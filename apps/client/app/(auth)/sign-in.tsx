@@ -6,6 +6,7 @@ import { isValidEmail, signInWithEmail, toUserMessage } from '@istanbul/core';
 import {
   Button,
   Header,
+  InlineAlert,
   Input,
   Pressable,
   Screen,
@@ -115,22 +116,11 @@ export default function SignIn() {
           </View>
 
           {errors.form ? (
-            <View
-              accessibilityLiveRegion="polite"
-              style={[
-                styles.formError,
-                {
-                  backgroundColor: theme.colors.dangerSoft,
-                  borderRadius: theme.radius.md,
-                  padding: theme.spacing.md,
-                  marginTop: theme.spacing.base,
-                },
-              ]}
-            >
-              <Text variant="label" color="danger">
-                {errors.form}
-              </Text>
-            </View>
+            <InlineAlert
+              tone="danger"
+              message={errors.form}
+              style={{ marginTop: theme.spacing.base }}
+            />
           ) : null}
 
           <Spacer size="xl" />
@@ -175,6 +165,5 @@ export default function SignIn() {
 
 const styles = StyleSheet.create({
   forgotRow: { alignItems: 'flex-end', marginTop: 12 },
-  formError: {},
   footerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
 });

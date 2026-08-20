@@ -95,7 +95,11 @@ export function useProductOptionGroups(productId: UUID | null) {
 function useInvalidateMenu() {
   const queryClient = useQueryClient();
   return () => {
-    void queryClient.invalidateQueries({ queryKey: ['admin'] });
+    // Ciblé sur le menu : invalider `['admin']` en entier refetchait aussi
+    // livreurs, clients, promotions et zones à chaque bascule de disponibilité.
+    void queryClient.invalidateQueries({ queryKey: ['admin', 'products'] });
+    void queryClient.invalidateQueries({ queryKey: ['admin', 'categories'] });
+    void queryClient.invalidateQueries({ queryKey: ['admin', 'option-groups'] });
     void queryClient.invalidateQueries({ queryKey: ['products'] });
     void queryClient.invalidateQueries({ queryKey: ['product'] });
     void queryClient.invalidateQueries({ queryKey: ['categories'] });
@@ -112,23 +116,63 @@ export function useDeleteProduct() {
   return useMutation({ mutationFn: deleteProduct, onSuccess: invalidate });
 }
 
-/** Rupture de stock — l'action la plus fréquente en plein service. */
-export function useToggleProductAvailability() {
+type ProductPatch = Record<string, unknown> & { id: UUID };
+
+/**
+ * Bascule optimiste d'un champ produit dans toutes les listes admin en cache.
+ * Sur un réseau à 1-3 s de latence, un interrupteur qui attend l'aller-retour
+ * serveur est un interrupteur sur lequel on double-clique.
+ */
+function useOptimisticProductToggle<TVariables extends { productId: UUID }>(
+  mutationFn: (variables: TVariables) => Promise<unknown>,
+  patch: (variables: TVariables) => Record<string, unknown>,
+) {
+  const queryClient = useQueryClient();
   const invalidate = useInvalidateMenu();
+
   return useMutation({
-    mutationFn: ({ productId, isAvailable }: { productId: UUID; isAvailable: boolean }) =>
-      setProductAvailability(productId, isAvailable),
-    onSuccess: invalidate,
+    mutationFn,
+
+    onMutate: async (variables: TVariables) => {
+      const prefix = ['admin', 'products'] as const;
+      await queryClient.cancelQueries({ queryKey: prefix });
+      const previous = queryClient.getQueriesData({ queryKey: prefix });
+
+      queryClient.setQueriesData({ queryKey: prefix }, (old: unknown) => {
+        if (!Array.isArray(old)) return old;
+        return (old as ProductPatch[]).map((product) =>
+          product.id === variables.productId ? { ...product, ...patch(variables) } : product,
+        );
+      });
+
+      return { previous };
+    },
+
+    onError: (_error, _variables, context) => {
+      context?.previous?.forEach(([key, data]) => {
+        queryClient.setQueryData(key, data);
+      });
+    },
+
+    onSettled: invalidate,
   });
 }
 
+/** Rupture de stock — l'action la plus fréquente en plein service. */
+export function useToggleProductAvailability() {
+  return useOptimisticProductToggle(
+    ({ productId, isAvailable }: { productId: UUID; isAvailable: boolean }) =>
+      setProductAvailability(productId, isAvailable),
+    ({ isAvailable }) => ({ is_available: isAvailable }),
+  );
+}
+
 export function useToggleProductActive() {
-  const invalidate = useInvalidateMenu();
-  return useMutation({
-    mutationFn: ({ productId, isActive }: { productId: UUID; isActive: boolean }) =>
+  return useOptimisticProductToggle(
+    ({ productId, isActive }: { productId: UUID; isActive: boolean }) =>
       setProductActive(productId, isActive),
-    onSuccess: invalidate,
-  });
+    ({ isActive }) => ({ is_active: isActive }),
+  );
 }
 
 export function useSaveCategory() {

@@ -1,8 +1,10 @@
-import { Platform } from 'react-native';
+import { Platform, View } from 'react-native';
 import { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ForkKnife, Heart, House, Receipt, User } from 'phosphor-react-native';
-import { useTheme } from '@istanbul/ui';
+import { OfflineBanner, useTheme } from '@istanbul/ui';
+import { useIsOffline } from '@/providers/AppProviders';
+import { TAB_BAR_HEIGHT } from '@/lib/layout';
 
 /**
  * Navigation principale — cinq onglets, pas un de plus (limite Material).
@@ -12,9 +14,15 @@ import { useTheme } from '@istanbul/ui';
 export default function TabsLayout() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
+  const offline = useIsOffline();
 
   return (
-    <Tabs
+    <View style={{ flex: 1 }}>
+      {/* Rendu hors de tout SafeAreaView : sans `safeAreaTop`, le bandeau
+          passait sous la barre de statut. C'est LE point de rendu unique du
+          bandeau pour les onglets — pas de doublon par écran. */}
+      <OfflineBanner visible={offline} safeAreaTop />
+      <Tabs
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: theme.colors.primary,
@@ -23,7 +31,7 @@ export default function TabsLayout() {
           backgroundColor: theme.colors.surface,
           borderTopColor: theme.colors.border,
           borderTopWidth: theme.borderWidth.hairline,
-          height: 58 + insets.bottom,
+          height: TAB_BAR_HEIGHT + insets.bottom,
           paddingTop: 6,
           paddingBottom: Math.max(insets.bottom, 8),
           elevation: 0,
@@ -86,6 +94,7 @@ export default function TabsLayout() {
           ),
         }}
       />
-    </Tabs>
+      </Tabs>
+    </View>
   );
 }

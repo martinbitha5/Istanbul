@@ -53,14 +53,14 @@ export function Button({
 
   const palette: Record<ButtonVariant, { bg: string; fg: string; border?: string }> = {
     primary: { bg: theme.colors.primary, fg: theme.colors.textOnPrimary },
-    accent: { bg: theme.colors.accent, fg: theme.colors.text },
+    accent: { bg: theme.colors.accent, fg: theme.colors.textOnAccent },
     secondary: {
       bg: 'transparent',
       fg: theme.colors.text,
       border: theme.colors.borderStrong,
     },
     ghost: { bg: 'transparent', fg: theme.colors.primary },
-    danger: { bg: theme.colors.danger, fg: '#FFFFFF' },
+    danger: { bg: theme.colors.danger, fg: theme.colors.textOnPrimary },
   };
 
   const { bg, fg, border } = palette[variant];
@@ -79,9 +79,14 @@ export function Button({
           height: HEIGHTS[size],
           paddingHorizontal: size === 'sm' ? theme.spacing.base : theme.spacing.xl,
           borderRadius: theme.radius.pill,
-          backgroundColor: isInactive && variant !== 'ghost' ? theme.colors.disabled : bg,
+          // Les variantes transparentes le restent quand elles sont inactives :
+          // un `secondary` désactivé ne doit pas devenir un pavé gris plein.
+          backgroundColor:
+            isInactive && variant !== 'ghost' && variant !== 'secondary'
+              ? theme.colors.disabled
+              : bg,
           borderWidth: border ? theme.borderWidth.thin : 0,
-          borderColor: border,
+          borderColor: isInactive && border ? theme.colors.border : border,
         },
         fullWidth && styles.fullWidth,
         variant === 'primary' && !isInactive && theme.elevation[2],

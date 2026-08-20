@@ -163,14 +163,22 @@ export async function confirmDelivery(deliveryId: UUID, code: string): Promise<D
 /** Le livreur prend une course laissée libre. */
 export async function claimDelivery(deliveryId: UUID, driverId: UUID): Promise<void> {
   const supabase = getSupabase();
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('deliveries')
     .update({ driver_id: driverId })
     .eq('id', deliveryId)
     .is('driver_id', null)
-    .eq('status', 'OFFERED');
+    .eq('status', 'OFFERED')
+    .select('id');
 
   if (error) throw error;
+
+  // 0 ligne touchée = un collègue a été plus rapide. Sans ce contrôle,
+  // l'UPDATE est un no-op silencieux et l'avancement de statut qui suit
+  // échoue avec un message incompréhensible.
+  if (!data || data.length === 0) {
+    throw new Error('Cette course vient d’être prise par un autre livreur.');
+  }
 
   await advanceDeliveryStatus(deliveryId, 'ACCEPTED');
 }
@@ -203,6 +211,25 @@ export async function pushDriverLocation(params: {
     p_accuracy_m: params.accuracyM ?? null,
   });
   if (error) throw error;
+}
+
+/**
+ * Trace GPS complète d'une course — l'itinéraire réellement parcouru,
+ * dessiné sur la carte plein écran. Bornée : à 15 s/point, 500 points
+ * couvrent déjà plus de deux heures de course.
+ */
+export async function fetchDriverTrail(
+  deliveryId: UUID,
+): Promise<Pick<DriverLocation, 'latitude' | 'longitude' | 'recorded_at'>[]> {
+  const { data, error } = await getSupabase()
+    .from('driver_locations')
+    .select('latitude, longitude, recorded_at')
+    .eq('delivery_id', deliveryId)
+    .order('recorded_at', { ascending: true })
+    .limit(500);
+
+  if (error) throw error;
+  return (data ?? []) as Pick<DriverLocation, 'latitude' | 'longitude' | 'recorded_at'>[];
 }
 
 /** Dernière position connue du livreur, pour la carte de suivi client. */

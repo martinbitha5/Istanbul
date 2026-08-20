@@ -33,6 +33,13 @@ export const config = {
   isDev: process.env.EXPO_PUBLIC_ENV !== 'production',
 } as const;
 
+/**
+ * Numéro du restaurant affiché en secours tant que la fiche restaurant n'est
+ * pas chargée (démarrage hors ligne). Dès qu'elle l'est, `restaurant.phone`
+ * fait autorité — ce fallback ne doit exister qu'ici, jamais dans un écran.
+ */
+export const FALLBACK_RESTAURANT_PHONE = '+243999000111';
+
 export const STORAGE_KEYS = {
   onboardingSeen: 'istanbul.onboarding.seen',
   themePreference: 'istanbul.theme',
