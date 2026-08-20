@@ -169,13 +169,18 @@ Au lancement, seul `CASH` (paiement à la livraison) est actif. Ajouter M-Pesa c
 créer une Edge Function `payments/mpesa` qui écrit dans cette table — aucune migration
 de schéma, aucun changement dans l'application client hormis l'affichage du moyen.
 
-## 9. Multi-restaurants — cloisonnement
+## 9. Rôles dans l'équipe — cloisonnement
 
-Le schéma portait un `restaurant_id` partout depuis le début, mais l'autorisation
-ne le lisait pas : `fn_is_staff()` répondait « oui » quel que soit le restaurant
-visé. Le staff du partenaire A pouvait donc modifier le menu de B, lire son
-chiffre d'affaires et faire avancer ses commandes. La **migration 21** referme
-cela.
+Istanbul Fast Food est le **seul** établissement de l'application. Les
+migrations 21 à 23 avaient construit une place de marché (plusieurs partenaires,
+commission négociée par partenaire, onboarding, agrégat de revenus) ; la
+**migration 24** la retire. Ce qui reste de ce travail n'est pas un reliquat :
+c'est la séparation des rôles au sein d'une même équipe.
+
+`restaurant_id` reste sur toutes les tables. La colonne porte les jointures
+existantes et ne coûte rien ; la retirer imposait de réécrire chaque policy,
+chaque fonction SQL et chaque requête des trois applications pour un gain nul
+côté utilisateur.
 
 ### `restaurant_members` — l'appartenance porte les droits
 
@@ -193,14 +198,19 @@ gain nul. **La source de vérité des droits, c'est la table d'appartenance.**
 
 | Prédicat | Rôles | Couvre |
 |----------|-------|--------|
-| `fn_can_view_restaurant` | tout membre + plateforme | tableau de bord, commandes, clients |
-| `fn_can_serve_restaurant` | tout membre + plateforme | statuts de commande, assignation livreur, rupture de stock |
-| `fn_can_manage_restaurant` | OWNER, MANAGER + plateforme | menu, prix, promotions, zones, agrément des livreurs |
-| `fn_can_admin_restaurant` | OWNER + plateforme | équipe, identité et paramètres de l'établissement |
+| `fn_can_view_restaurant` | tout membre + ADMIN | tableau de bord, commandes, clients |
+| `fn_can_serve_restaurant` | tout membre + ADMIN | statuts de commande, assignation livreur, rupture de stock |
+| `fn_can_manage_restaurant` | OWNER, MANAGER + ADMIN | menu, prix, promotions, zones, agrément des livreurs |
+| `fn_can_admin_restaurant` | OWNER + ADMIN | équipe, identité et paramètres de l'établissement |
+
+« + ADMIN » désigne `fn_is_admin()` : un compte `ADMIN` / `SUPER_ADMIN` passe
+partout sans ligne dans `restaurant_members`, c'est le compte du patron. La
+migration 21 en avait créé un doublon exact sous le nom `fn_is_platform_admin` ;
+la 24 le supprime.
 
 `view` et `serve` couvrent aujourd'hui le même ensemble. Ils restent distincts
 parce qu'ils répondent à des questions différentes : un futur rôle en lecture
-seule (comptable, franchiseur) les séparera sans réécrire une policy.
+seule (comptable) les séparera sans réécrire une policy.
 
 Tous sont `SECURITY DEFINER` et `STABLE` — même motif qu'en section 7 : ils
 lisent `restaurant_members` sans redéclencher la RLS de cette table.
@@ -216,7 +226,7 @@ passent donc par une fonction dont la **signature est la restriction** :
   non ».
 - `fn_order_confirmation_code(order_id)` — même principe, déjà en place depuis
   la migration 09 ; la migration 21 corrige seulement son périmètre
-  (`fn_is_staff()` l'ouvrait au staff de *tous* les partenaires).
+  (`fn_is_staff()` l'ouvrait à tout compte marqué staff).
 
 ### Les fonctions métier ont un garde-fou
 
@@ -230,39 +240,72 @@ et `fn_top_products` refusent un restaurant hors périmètre.
 `auth.uid() is null` reste autorisé partout : c'est le contexte serveur
 (pg_cron du mode démo, `service_role`, Edge Functions), déjà de confiance.
 
-### Place de marché
+### Un seul établissement, verrouillé
 
-`restaurants.is_published` rend l'établissement visible ou non dans l'app client
-— un partenaire en cours d'onboarding monte sa carte avant d'ouvrir boutique.
-`fn_create_restaurant` le crée fermé et non publié, avec ses horaires et sa
-grille de livraison par défaut.
+`fn_guard_single_restaurant` (migration 24) refuse toute deuxième ligne dans
+`restaurants`. Ce n'est pas de la coquetterie : les trois applications résolvent
+l'établissement par « la seule ligne de la table », et une seconde ligne les
+casserait en silence plutôt que bruyamment. Seul `app.bypass_guards` — le
+drapeau *local à la transaction* de la migration 07b — passe outre, pour les
+fixtures pgTAP qui montent leur propre restaurant de test.
 
-La commission négociée vit dans une table **séparée**, `restaurant_billing`, et
-ce n'est pas cosmétique : `restaurants` est en lecture publique (c'est la
-vitrine, l'app client doit l'afficher avant connexion), donc une colonne
-`commission_bps` y aurait publié le taux de chaque partenaire à ses concurrents
-et à quiconque détient la clé anon. Le motif « revoke select (colonne) » de la
-section 4 aurait marché, mais aurait cassé tous les `select *` sur `restaurants`
-dans les trois applications. Le propriétaire lit son taux, seule la plateforme
-l'écrit — et c'est là que vivront les futurs champs de reversement.
+`restaurants.is_published` reste : il masque l'établissement dans l'app client
+tant que la carte n'est pas prête. C'est la bannière de mise en route du
+dashboard qui s'appuie dessus.
 
-`fn_platform_revenue(from, to)` (migration 23) agrège la commission due par
-partenaire. Elle **calcule** au lieu de **stocker** : écrire le montant sur chaque
-`orders` aurait été plus rapide à lire, mais aurait figé le taux, et une
-renégociation rétroactive aurait alors imposé une migration de données. L'assiette
-est le sous-total des commandes livrées — ni la livraison (elle va au livreur) ni
-les frais de service. L'arrondi se fait une fois sur le total de la période, pas
-commande par commande : arrondir 400 fois creuse un écart visible sur la facture.
+Ce que la migration 24 retire : `restaurant_billing` (la commission n'a de sens
+qu'entre une plateforme et un partenaire tiers — Istanbul ne se facture pas
+lui-même), `fn_platform_revenue`, `fn_create_restaurant`, `fn_my_restaurants`,
+`fn_my_restaurant_ids` et `unaccent_fallback`, qui n'existait que pour calculer
+le slug d'un nouveau partenaire.
 
-Les tests `supabase/tests/multi_tenant.test.sql` (21 assertions) couvrent chaque
-brèche listée ci-dessus.
+### Amorçage du dashboard
+
+`fn_dashboard_bootstrap()` renvoie en un aller-retour tout ce que la coquille du
+dashboard doit savoir : le profil de l'appelant, la fiche de l'établissement et
+son rôle dans l'équipe. Le layout Next.js l'appelle côté serveur et passe le
+résultat au `RestaurantProvider`, qui amorce le cache React Query — voir la
+section 11.
+
+Les tests `supabase/tests/roles.test.sql` (24 assertions) couvrent chaque brèche
+listée ci-dessus, la séparation des trois rôles, et la disparition effective de
+la couche plateforme.
 
 ## 10. Ce qui reste hors périmètre v1
 
 - Calcul d'itinéraire optimisé côté serveur (l'app utilise OSRM, la tarification
   reste sur la distance à vol d'oiseau × 1.35)
 - Chat client ↔ livreur (téléphone uniquement)
-- Un même compte membre de plusieurs établissements avec des rôles différents :
-  le schéma le permet, le sélecteur du dashboard l'affiche, mais aucun écran
-  n'agrège les chiffres de plusieurs partenaires
-- Reversement automatique de la commission (elle est stockée, pas facturée)
+- Deuxième point de vente. Le schéma le supporterait (`restaurant_id` est
+  partout, les prédicats sont paramétrés par restaurant), mais la base le refuse
+  aujourd'hui et aucun écran n'expose de choix d'établissement. Rouvrir cette
+  porte, ce serait retirer `fn_guard_single_restaurant`, rétablir un sélecteur
+  dans le dashboard et repasser `RESTAURANT_ID` des apps mobiles en sélection
+  utilisateur.
+
+## 11. Le dashboard, et pourquoi il démarre vite
+
+Le chemin critique du dashboard tenait en quatre allers-retours **en série** —
+et le dernier n'était même pas lancé avant que le JavaScript ne soit chargé et
+hydraté :
+
+1. le middleware validait la session (`auth.getUser()`, appel réseau) ;
+2. le layout la revalidait, puis lisait `profiles` ;
+3. une fois hydraté, le navigateur appelait `fn_my_restaurants` — pendant ce
+   temps l'écran affichait « Chargement de vos établissements… », plein cadre ;
+4. la page, enfin montée, partait chercher ses propres données.
+
+Sur un réseau mobile kinois à 300 ms de latence, cela fait plus d'une seconde
+d'écran inutile avant le premier chiffre. Quatre changements l'ont supprimée :
+
+| Changement | Effet |
+|------------|-------|
+| `fn_dashboard_bootstrap()` appelé dans le layout | 1 requête au lieu de 3, et plus rien à attendre après hydratation |
+| `RestaurantProvider` amorce le cache React Query | `useRestaurant` / `useProfile` trouvent la donnée déjà là |
+| `auth.getClaims()` dans le middleware | vérification locale du jeton en signature asymétrique, au lieu d'un aller-retour par navigation |
+| `optimizePackageImports` sur `@phosphor-icons/react` | le baril de ~10 000 modules ne traverse plus le compilateur |
+
+Le provider ne fait **aucune** requête : tout ce qu'il expose vient du serveur.
+La checklist de mise en route, elle, est chargée en `dynamic()` et seulement si
+`is_published` est faux — ses quatre requêtes ne partent plus à chaque ouverture
+de la vue d'ensemble.

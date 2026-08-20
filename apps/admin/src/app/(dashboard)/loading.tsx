@@ -24,7 +24,7 @@ export default function DashboardLoading() {
       </div>
 
       {/* Tableau */}
-      <div className="space-y-3 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+      <div className="space-y-3 rounded-3xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
         {Array.from({ length: 6 }, (_, index) => (
           <Skeleton key={index} className="h-12 w-full" />
         ))}

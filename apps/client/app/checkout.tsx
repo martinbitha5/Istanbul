@@ -49,7 +49,7 @@ import {
   Text,
   useTheme,
 } from '@istanbul/ui';
-import { useRestaurantId } from '@/store/restaurant';
+import { RESTAURANT_ID as restaurantId } from '@/lib/restaurant';
 import { useIsOffline } from '@/providers/AppProviders';
 import { BOTTOM_BAR_INSET } from '@/lib/layout';
 
@@ -66,7 +66,6 @@ export default function Checkout() {
   const { session, isLoading: sessionLoading } = useSession();
   const { profile } = useProfile();
 
-  const restaurantId = useRestaurantId();
   const { data: restaurant } = useRestaurant(restaurantId);
   const { data: addresses } = useAddresses();
 

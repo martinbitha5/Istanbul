@@ -25,7 +25,7 @@ import {
   TrackingMap,
   useTheme,
 } from '@istanbul/ui';
-import { useRestaurantId } from '@/store/restaurant';
+import { RESTAURANT_ID as restaurantId } from '@/lib/restaurant';
 
 /**
  * Carte plein écran.
@@ -46,7 +46,6 @@ export default function OrderMap() {
   const delivery = order?.delivery ?? null;
   const live = Boolean(delivery && !['DELIVERED', 'CANCELLED', 'REJECTED'].includes(delivery.status));
 
-  const restaurantId = useRestaurantId();
   const restaurantQuery = useRestaurant(restaurantId);
   const restaurant = restaurantQuery.data;
   const { data: driverLocation } = useDriverLocation(delivery?.id ?? null, live);

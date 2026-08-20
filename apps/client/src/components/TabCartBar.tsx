@@ -7,7 +7,7 @@ import {
   useRestaurant,
 } from '@istanbul/core';
 import { CartBar } from '@istanbul/ui';
-import { useRestaurantId } from '@/store/restaurant';
+import { RESTAURANT_ID as restaurantId } from '@/lib/restaurant';
 import { TAB_BAR_HEIGHT } from '@/lib/layout';
 
 /** Nombre d'articles au panier — pour dimensionner le padding bas des listes. */
@@ -24,7 +24,6 @@ export function useCartItemCount(): number {
  * l'offset vient de `TAB_BAR_HEIGHT` et la devise du restaurant actif.
  */
 export function TabCartBar() {
-  const restaurantId = useRestaurantId();
   const { data: restaurant } = useRestaurant(restaurantId);
   const lines = useCartStore((state) => state.lines);
 

@@ -7,11 +7,9 @@ import {
   formatMoney,
   toUserMessage,
   useOpeningHours,
-  useRestaurantBilling,
   useRestaurantDetail,
   useSaveOpeningHours,
   useSaveRestaurant,
-  useSaveRestaurantBilling,
   type RestaurantPatch,
 } from '@istanbul/core';
 import type { OpeningHour, Restaurant } from '@istanbul/types';
@@ -78,11 +76,7 @@ export default function SettingsPage() {
 
       <ServiceCard restaurant={restaurant.data} />
       <IdentityForm restaurant={restaurant.data} canEdit={access.admin} />
-      <EconomicsForm
-        restaurant={restaurant.data}
-        canEdit={access.admin}
-        canEditCommission={access.platform}
-      />
+      <EconomicsForm restaurant={restaurant.data} canEdit={access.admin} />
       <OpeningHoursCard restaurantId={restaurantId} canEdit={access.admin} />
     </div>
   );
@@ -385,15 +379,7 @@ function IdentityForm({ restaurant, canEdit }: { restaurant: Restaurant; canEdit
 // Économie
 // ---------------------------------------------------------------------------
 
-function EconomicsForm({
-  restaurant,
-  canEdit,
-  canEditCommission,
-}: {
-  restaurant: Restaurant;
-  canEdit: boolean;
-  canEditCommission: boolean;
-}) {
+function EconomicsForm({ restaurant, canEdit }: { restaurant: Restaurant; canEdit: boolean }) {
   const { draft, setField, dirty, reset } = useDraft(restaurant, [
     'min_order_amount',
     'avg_prep_minutes',
@@ -404,46 +390,19 @@ function EconomicsForm({
   const save = useSaveRestaurant();
   const toast = useToast();
 
-  // La commission vit dans `restaurant_billing`, pas sur `restaurants` : cette
-  // dernière est en lecture publique, y mettre le taux négocié le publierait
-  // aux concurrents. La requête renvoie null quand la RLS masque la ligne —
-  // c'est le cas d'un membre « Gérant », et le champ disparaît alors.
-  const billing = useRestaurantBilling(restaurant.id);
-  const saveBilling = useSaveRestaurantBilling();
-  const [commissionDraft, setCommissionDraft] = useState<number | null>(null);
-
-  const commissionBps = commissionDraft ?? billing.data?.commission_bps ?? 0;
-  const commissionDirty =
-    commissionDraft !== null && commissionDraft !== (billing.data?.commission_bps ?? 0);
-
   // Frais de service saisis en pourcentage, stockés en points de base : le
   // gérant pense « 5 % », la base compte en bps pour éviter les flottants.
   const servicePercent =
     draft.service_fee_bps == null ? '' : String(Math.round(draft.service_fee_bps) / 100);
 
   const handleSave = () => {
-    if (dirty) {
-      save.mutate(
-        { restaurantId: restaurant.id, patch: draft },
-        {
-          onSuccess: () => toast.success('Paramètres enregistrés.'),
-          onError: (error) => toast.error(toUserMessage(error)),
-        },
-      );
-    }
-
-    if (canEditCommission && commissionDirty) {
-      saveBilling.mutate(
-        { restaurantId: restaurant.id, patch: { commission_bps: commissionBps } },
-        {
-          onSuccess: () => {
-            setCommissionDraft(null);
-            toast.success('Commission mise à jour.');
-          },
-          onError: (error) => toast.error(toUserMessage(error)),
-        },
-      );
-    }
+    save.mutate(
+      { restaurantId: restaurant.id, patch: draft },
+      {
+        onSuccess: () => toast.success('Paramètres enregistrés.'),
+        onError: (error) => toast.error(toUserMessage(error)),
+      },
+    );
   };
 
   return (
@@ -496,34 +455,6 @@ function EconomicsForm({
             disabled={!canEdit}
           />
         </Field>
-
-        {billing.data || canEditCommission ? (
-          <Field
-            label="Commission plateforme (%)"
-            hint={
-              canEditCommission
-                ? 'Négociée avec le partenaire. Modifiable uniquement par la plateforme.'
-                : 'Fixée par la plateforme. Contactez votre interlocuteur Istanbul pour la renégocier.'
-            }
-          >
-            <input
-              className={`${inputClass} tabular`}
-              type="number"
-              min={0}
-              max={50}
-              step="0.5"
-              inputMode="decimal"
-              value={commissionBps / 100}
-              onChange={(event) =>
-                setCommissionDraft(Math.round(Number(event.target.value) * 100))
-              }
-              // read-only plutôt que disabled : la valeur reste lisible et
-              // sélectionnable par le partenaire, elle n'est simplement pas la
-              // sienne à changer.
-              readOnly={!canEditCommission}
-            />
-          </Field>
-        ) : null}
       </div>
 
       <div className="mt-5 grid gap-3 sm:grid-cols-2">
@@ -553,28 +484,16 @@ function EconomicsForm({
         Exemple sur un panier de {formatMoney(1000)} : frais de service{' '}
         <span className="tabular">
           {formatMoney(Math.round((1000 * (draft.service_fee_bps ?? 0)) / 10000))}
-        </span>{' '}
-        {billing.data || canEditCommission ? (
-          <>
-            {' '}
-            · commission plateforme{' '}
-            <span className="tabular">
-              {formatMoney(Math.round((1000 * commissionBps) / 10000))}
-            </span>
-          </>
-        ) : null}
+        </span>
         .
       </p>
 
       <SaveBar
-        dirty={dirty || commissionDirty}
-        pending={save.isPending || saveBilling.isPending}
-        canEdit={canEdit || canEditCommission}
+        dirty={dirty}
+        pending={save.isPending}
+        canEdit={canEdit}
         onSave={handleSave}
-        onReset={() => {
-          reset();
-          setCommissionDraft(null);
-        }}
+        onReset={reset}
       />
     </Card>
   );

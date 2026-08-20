@@ -176,17 +176,21 @@ porte la classe `.tabular`. Sans elle, passer de `9` à `10` décale la colonne
 entière, et un tableau de commandes qui se rafraîchit toutes les secondes
 devient illisible.
 
-### Règles propres au multi-établissements
+### Règles propres au dashboard
 
-- **Le contexte avant le contenu.** Le sélecteur d'établissement est en haut de
-  la sidebar, au-dessus de la navigation — pas dans le pied de page à côté du
-  profil, où il passerait pour un réglage de compte. En mobile, le nom de
-  l'établissement remplace la marque dans l'en-tête.
-- **Le sélecteur disparaît à un seul établissement.** Un menu déroulant à une
-  entrée est un faux affordance.
+- **Le contexte avant le contenu.** En haut de la sidebar, au-dessus de la
+  navigation, la pastille d'état du service répond à la question qu'on se pose
+  vingt fois par service : « est-ce qu'on prend encore des commandes ? » Elle
+  informe et ne bascule pas — l'interrupteur reste sur la vue d'ensemble, pour
+  qu'un clic distrait dans la barre latérale ne coupe pas les ventes. À la place
+  vivait un sélecteur d'établissement, retiré avec le multi-restaurants.
 - **La navigation se filtre par rôle.** Une entrée invisible n'est pas une
   sécurité (la RLS s'en charge) : elle évite d'ouvrir une page qui n'afficherait
   que des refus.
+- **Jamais d'écran d'attente plein cadre au démarrage.** Ce que le serveur peut
+  résoudre avant le premier rendu (l'établissement, le profil, le rôle) arrive
+  avec le HTML. Ce qui se charge ensuite se signale par un squelette *à sa
+  place* dans la page, pas par un voile sur toute l'application.
 - **Deux rythmes d'écriture.** Ce qu'on touche en plein service (ouvert /
   ferme / rupture de stock) s'enregistre au clic. Ce qui a des conséquences
   tarifaires passe par un brouillon et une barre « modifications non
@@ -200,7 +204,7 @@ de la même base — 67 styles, 161 palettes, 57 appariements typographiques, 99
 règles UX, et une checklist d'accessibilité.
 
 ```bash
-python .claude/skills/ui-ux-pro-max/scripts/search.py "admin dashboard multi-restaurant" --design-system --density 8
+python .claude/skills/ui-ux-pro-max/scripts/search.py "restaurant admin dashboard" --design-system --density 8
 ```
 
 Ses recommandations de palette sont **écartées au profit des tokens du §2** :

@@ -23,7 +23,7 @@ export default function RouteError({
   return (
     <main className="flex min-h-[60vh] items-center justify-center p-6 text-center">
       <div className="max-w-md">
-        <h1 className="text-2xl font-semibold" style={{ fontFamily: 'var(--font-sora)' }}>
+        <h1 className="text-2xl font-semibold" style={{ fontFamily: 'var(--font-display)' }}>
           Une erreur est survenue
         </h1>
         <p className="mt-3 text-sm text-[var(--color-text-secondary)]">

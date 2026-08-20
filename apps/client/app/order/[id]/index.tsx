@@ -50,7 +50,7 @@ import {
   useTheme,
   useToast,
 } from '@istanbul/ui';
-import { useRestaurantId } from '@/store/restaurant';
+import { RESTAURANT_ID as restaurantId } from '@/lib/restaurant';
 import { useIsOffline } from '@/providers/AppProviders';
 import { refillCartFromOrder } from '@/lib/reorder';
 
@@ -82,7 +82,6 @@ export default function OrderTracking() {
         delivery.status,
       ),
   );
-  const restaurantId = useRestaurantId();
   const { data: restaurant } = useRestaurant(restaurantId);
   const { data: driverLocation } = useDriverLocation(delivery?.id ?? null, trackingActive);
   useDriverLocationRealtime(trackingActive ? (delivery?.id ?? null) : null);

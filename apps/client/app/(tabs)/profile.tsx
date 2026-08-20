@@ -39,7 +39,7 @@ import {
   useThemeContext,
   useToast,
 } from '@istanbul/ui';
-import { useRestaurantId } from '@/store/restaurant';
+import { RESTAURANT_ID as restaurantId } from '@/lib/restaurant';
 import { FALLBACK_RESTAURANT_PHONE } from '@/lib/config';
 
 export default function Profile() {
@@ -48,7 +48,6 @@ export default function Profile() {
   const { preference, setPreference, isDark } = useThemeContext();
   const { session, isLoading: sessionLoading } = useSession();
   const { profile, isLoading: profileLoading, refetch } = useProfile();
-  const restaurantId = useRestaurantId();
   const { data: restaurant } = useRestaurant(restaurantId);
 
   // Le numéro vient de la fiche restaurant (multi-restaurant compatible) ;

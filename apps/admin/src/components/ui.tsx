@@ -35,7 +35,7 @@ export function Card({
 }) {
   return (
     <div
-      className={`rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] ${
+      className={`rounded-3xl border border-[var(--color-border)] bg-[var(--color-surface)] ${
         padded ? 'p-5' : ''
       } ${className}`}
       style={{ boxShadow: 'var(--shadow-1)' }}
@@ -62,7 +62,7 @@ export function SectionTitle({
       <div>
         <Heading
           className="text-xl font-semibold tracking-tight"
-          style={{ fontFamily: 'var(--font-sora)' }}
+          style={{ fontFamily: 'var(--font-display)' }}
         >
           {title}
         </Heading>
@@ -456,7 +456,7 @@ export function EmptyState({
 }) {
   return (
     <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
-      <h3 className="text-lg font-semibold" style={{ fontFamily: 'var(--font-sora)' }}>
+      <h3 className="text-lg font-semibold" style={{ fontFamily: 'var(--font-display)' }}>
         {title}
       </h3>
       {description ? (
@@ -612,7 +612,7 @@ export function Modal({
           <h2
             id={titleId}
             className="text-lg font-semibold"
-            style={{ fontFamily: 'var(--font-sora)' }}
+            style={{ fontFamily: 'var(--font-display)' }}
           >
             {title}
           </h2>

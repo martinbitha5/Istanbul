@@ -20,7 +20,7 @@ import {
   Screen,
   useTheme,
 } from '@istanbul/ui';
-import { useRestaurantId } from '@/store/restaurant';
+import { RESTAURANT_ID as restaurantId } from '@/lib/restaurant';
 import { AuthGate } from '@/components/AuthGate';
 import { TabCartBar, useCartItemCount } from '@/components/TabCartBar';
 import { useCartBarListPadding } from '@/lib/layout';
@@ -33,7 +33,6 @@ export default function Favorites() {
   const { ids: favoriteIds } = useFavoriteIds();
   const toggleFavorite = useToggleFavorite();
   const toggleFavoriteMutate = toggleFavorite.mutate;
-  const restaurantId = useRestaurantId();
   const { data: restaurant } = useRestaurant(restaurantId);
 
   const itemCount = useCartItemCount();

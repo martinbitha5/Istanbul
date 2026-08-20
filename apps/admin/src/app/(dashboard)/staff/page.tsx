@@ -43,11 +43,13 @@ import { useRestaurantContext } from '@/providers/RestaurantProvider';
 const ROLES: RestaurantRole[] = [RestaurantRole.OWNER, RestaurantRole.MANAGER, RestaurantRole.STAFF];
 
 /**
- * Équipe de l'établissement.
+ * Équipe d'Istanbul.
  *
- * C'est la page qui rend le multi-restaurants réel côté humain : chaque
- * partenaire recrute, promeut et retire ses propres gens, sans passer par la
- * plateforme et sans jamais voir les équipes des autres (RLS, migration 21).
+ * Trois rôles, parce que « accès au dashboard » n'est pas une permission
+ * unique : la personne à la caisse doit faire avancer les commandes sans
+ * pouvoir changer les prix ni lire le chiffre d'affaires. La RLS applique la
+ * même hiérarchie côté base (migration 21), cette page ne fait que la rendre
+ * modifiable.
  *
  * On ne crée pas le compte depuis ici. Le faire supposerait la clé
  * `service_role` dans le navigateur — c'est-à-dire un dashboard capable de
@@ -76,7 +78,7 @@ export default function StaffPage() {
       <SectionTitle
         as="h1"
         title="Équipe"
-        description={`Qui peut administrer ${restaurant?.name ?? 'cet établissement'}, et jusqu’où.`}
+        description={`Qui peut administrer ${restaurant.name}, et jusqu’où.`}
         action={
           <Button onClick={() => setInviteOpen(true)}>
             <UserPlus size={18} aria-hidden />

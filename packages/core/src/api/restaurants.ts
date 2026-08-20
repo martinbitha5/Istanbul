@@ -1,8 +1,6 @@
 import type {
-  ManagedRestaurant,
   OpeningHour,
   Restaurant,
-  RestaurantBilling,
   RestaurantMember,
   RestaurantRole,
   UUID,
@@ -10,30 +8,14 @@ import type {
 import { getSupabase } from '../supabase/client';
 
 /**
- * Gestion multi-établissements.
+ * Fiche, horaires et équipe du restaurant.
  *
- * Rien ici ne filtre par restaurant « pour faire joli » : la RLS refuse de
- * toute façon les lignes hors périmètre (migration 21). Les `eq()` servent à
- * ne pas rapatrier ce qu'on n'affichera pas, pas à protéger quoi que ce soit.
+ * Istanbul est le seul établissement : `restaurantId` circule encore dans ces
+ * signatures parce que le schéma porte la colonne (toutes les lignes du
+ * catalogue, des commandes et des zones y sont rattachées), mais il n'y a
+ * jamais qu'une valeur possible. Rien ici ne filtre « pour faire joli » : la
+ * RLS refuse de toute façon les lignes hors périmètre.
  */
-
-// ---------------------------------------------------------------------------
-// Périmètre de l'utilisateur
-// ---------------------------------------------------------------------------
-
-/**
- * Établissements que l'utilisateur peut ouvrir dans le dashboard.
- *
- * Passe par la fonction SQL plutôt que par un `select` sur `restaurants` :
- * la table est en lecture publique (c'est la vitrine), un `select *` y
- * renverrait donc *tous* les partenaires, y compris à un gérant qui n'en
- * administre qu'un.
- */
-export async function fetchMyRestaurants(): Promise<ManagedRestaurant[]> {
-  const { data, error } = await getSupabase().rpc('fn_my_restaurants');
-  if (error) throw error;
-  return (data ?? []) as ManagedRestaurant[];
-}
 
 // ---------------------------------------------------------------------------
 // Fiche de l'établissement
@@ -88,49 +70,6 @@ export async function saveRestaurant(
 
   if (error) throw error;
   return data as Restaurant;
-}
-
-// ---------------------------------------------------------------------------
-// Conditions commerciales
-// ---------------------------------------------------------------------------
-
-/**
- * Commission du partenaire.
- *
- * Renvoie `null` plutôt qu'une erreur quand la RLS masque la ligne : un membre
- * « Gérant » n'a pas à connaître les conditions négociées, et l'écran doit
- * simplement masquer le champ, pas afficher un message d'échec.
- */
-export async function fetchRestaurantBilling(
-  restaurantId: UUID,
-): Promise<RestaurantBilling | null> {
-  const { data, error } = await getSupabase()
-    .from('restaurant_billing')
-    .select('*')
-    .eq('restaurant_id', restaurantId)
-    .maybeSingle();
-
-  if (error) throw error;
-  return (data as RestaurantBilling | null) ?? null;
-}
-
-/** Réservé à la plateforme — la policy d'écriture refuse tout le reste. */
-export async function saveRestaurantBilling(
-  restaurantId: UUID,
-  patch: Partial<Pick<RestaurantBilling, 'commission_bps' | 'billing_email' | 'billing_note'>>,
-): Promise<void> {
-  const { error } = await getSupabase()
-    .from('restaurant_billing')
-    .upsert({ restaurant_id: restaurantId, ...patch }, { onConflict: 'restaurant_id' });
-
-  if (error) throw error;
-}
-
-/** Toutes les commissions — la RLS ne sert la table qu'à la plateforme. */
-export async function fetchAllBilling(): Promise<RestaurantBilling[]> {
-  const { data, error } = await getSupabase().from('restaurant_billing').select('*');
-  if (error) throw error;
-  return (data ?? []) as RestaurantBilling[];
 }
 
 // ---------------------------------------------------------------------------
@@ -247,87 +186,4 @@ export async function removeRestaurantMember(input: {
   });
 
   if (error) throw error;
-}
-
-// ---------------------------------------------------------------------------
-// Onboarding d'un partenaire (plateforme)
-// ---------------------------------------------------------------------------
-
-export interface CreateRestaurantInput {
-  name: string;
-  phone: string;
-  addressLine: string;
-  latitude: number;
-  longitude: number;
-  ownerEmail?: string | null;
-  commissionBps?: number;
-  city?: string;
-}
-
-/**
- * Ouvre un établissement, non publié et fermé aux commandes.
- *
- * Le partenaire monte son menu, règle ses zones, puis publie lui-même. Créer
- * un restaurant déjà visible dans l'app client mettrait en vitrine une carte
- * vide.
- */
-export async function createRestaurant(input: CreateRestaurantInput): Promise<Restaurant> {
-  const { data, error } = await getSupabase().rpc('fn_create_restaurant', {
-    p_name: input.name,
-    p_phone: input.phone,
-    p_address_line: input.addressLine,
-    p_latitude: input.latitude,
-    p_longitude: input.longitude,
-    p_owner_email: input.ownerEmail ?? null,
-    p_commission_bps: input.commissionBps ?? 0,
-    p_city: input.city ?? 'Kinshasa',
-  });
-
-  if (error) throw error;
-  return data as Restaurant;
-}
-
-// ---------------------------------------------------------------------------
-// Revenus de la plateforme
-// ---------------------------------------------------------------------------
-
-export interface PlatformRevenueRow {
-  restaurant_id: UUID;
-  restaurant_name: string;
-  is_published: boolean;
-  orders_delivered: number;
-  /** Sous-total encaissé sur la période, en centimes. */
-  gross_sales: number;
-  /** Frais de livraison, reversés aux livreurs — hors assiette de commission. */
-  delivery_fees: number;
-  commission_bps: number;
-  commission_due: number;
-  net_to_partner: number;
-}
-
-/**
- * Commission due par partenaire sur une période.
- *
- * L'assiette est le sous-total des commandes livrées : ni la livraison (elle
- * va au livreur) ni les frais de service. Le serveur refuse l'appel à qui
- * n'est pas administrateur de la plateforme.
- */
-export async function fetchPlatformRevenue(
-  from: Date,
-  to: Date = new Date(),
-): Promise<PlatformRevenueRow[]> {
-  const { data, error } = await getSupabase().rpc('fn_platform_revenue', {
-    p_from: from.toISOString(),
-    p_to: to.toISOString(),
-  });
-
-  if (error) throw error;
-  return (data ?? []) as PlatformRevenueRow[];
-}
-
-/** Tous les partenaires — réservé à l'administration de la plateforme. */
-export async function fetchAllRestaurants(): Promise<Restaurant[]> {
-  const { data, error } = await getSupabase().from('restaurants').select('*').order('name');
-  if (error) throw error;
-  return (data ?? []) as Restaurant[];
 }

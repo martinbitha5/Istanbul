@@ -11,20 +11,10 @@ import {
   fetchProducts,
   fetchPublicPromotions,
   fetchRestaurant,
-  fetchRestaurants,
   toggleFavorite,
   type ProductFilters,
 } from '../api/catalog';
 import { queryKeys } from '../query/keys';
-
-/** Liste des restaurants — n'affiche un sélecteur que s'il y en a plusieurs. */
-export function useRestaurants() {
-  return useQuery({
-    queryKey: queryKeys.restaurants(),
-    queryFn: fetchRestaurants,
-    staleTime: 10 * 60_000,
-  });
-}
 
 export function useRestaurant(restaurantId: UUID) {
   return useQuery({

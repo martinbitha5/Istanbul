@@ -29,7 +29,7 @@ import {
   Text,
   useTheme,
 } from '@istanbul/ui';
-import { useRestaurantId } from '@/store/restaurant';
+import { RESTAURANT_ID as restaurantId } from '@/lib/restaurant';
 import { BOTTOM_BAR_INSET } from '@/lib/layout';
 
 /**
@@ -42,7 +42,6 @@ import { BOTTOM_BAR_INSET } from '@/lib/layout';
  */
 export default function Cart() {
   const theme = useTheme();
-  const restaurantId = useRestaurantId();
   const { data: restaurant } = useRestaurant(restaurantId);
 
   const lines = useCartStore((state) => state.lines);

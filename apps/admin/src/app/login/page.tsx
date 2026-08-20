@@ -36,9 +36,12 @@ function LoginForm() {
       // posé — sans lui, la première navigation reboucle sur /login.
       router.replace((params.get('redirect') as never) ?? '/');
       router.refresh();
+      // Pas de setSubmitting(false) ici : le spinner doit tenir jusqu'à ce que
+      // la navigation démonte cette page. L'arrêter dès la réponse de Supabase
+      // laissait un bouton inerte pendant tout le rendu de la destination —
+      // l'utilisateur croyait que « ça ne faisait rien » et recliquait.
     } catch (caught) {
       setError(toUserMessage(caught));
-    } finally {
       setSubmitting(false);
     }
   };
@@ -49,8 +52,8 @@ function LoginForm() {
         <div className="mb-8 text-center">
           {/* Le logo est le titre principal de la page de connexion. */}
           <h1
-            className="text-3xl tracking-tight"
-            style={{ fontFamily: 'var(--font-playfair)', color: 'var(--color-primary)' }}
+            className="text-3xl font-extrabold tracking-tighter"
+            style={{ fontFamily: 'var(--font-display)', color: 'var(--color-primary)' }}
           >
             Istanbul
           </h1>

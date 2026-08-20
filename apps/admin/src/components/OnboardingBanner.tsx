@@ -17,16 +17,19 @@ import { useRestaurantId } from '@/hooks/useRestaurantId';
 import { useRestaurantAccess } from '@/providers/RestaurantProvider';
 
 /**
- * Mise en route d'un établissement.
+ * Mise en route du restaurant.
  *
- * Un partenaire créé par la plateforme arrive sur un dashboard vide, non
- * publié, et sans indication de ce qui bloque. La bannière répond à la seule
- * question qu'il se pose — « qu'est-ce qu'il me reste à faire pour recevoir
- * des commandes ? » — et disparaît dès la publication.
+ * Sur une base fraîche, le dashboard s'ouvre sur une carte vide, sans zone de
+ * livraison, et rien ne dit ce qui bloque. La bannière répond à la seule
+ * question qui se pose alors — « qu'est-ce qu'il me reste à faire pour
+ * recevoir des commandes ? » — et disparaît dès la publication.
  *
- * Elle ne s'affiche donc **jamais** pour un établissement déjà en service :
- * une checklist permanente sur l'écran d'un gérant qui tourne depuis six mois
- * est du bruit, pas de l'aide.
+ * Elle ne s'affiche donc **jamais** pour un restaurant déjà en service : une
+ * checklist permanente sur l'écran d'un gérant qui tourne depuis six mois est
+ * du bruit, pas de l'aide. C'est l'appelant qui tranche (`is_published`), et
+ * qui ne charge ce module qu'à ce moment : ses quatre requêtes ne partent pas
+ * à chaque ouverture de la vue d'ensemble, et son code reste hors du bundle
+ * initial.
  */
 
 const MIN_PRODUCTS = 3;
@@ -44,7 +47,8 @@ export function OnboardingBanner() {
   const save = useSaveRestaurant();
   const toast = useToast();
 
-  // Rien tant qu'on ne sait pas, et rien une fois publié.
+  // Filet : l'appelant ne monte le composant que si `is_published` est faux,
+  // mais la publication se fait depuis ce bouton — il faut disparaître ensuite.
   if (!restaurant.data || restaurant.data.is_published) return null;
 
   const activeProducts = (products.data ?? []).filter((product) => product.is_active);
@@ -93,7 +97,7 @@ export function OnboardingBanner() {
     save.mutate(
       { restaurantId, patch: { is_published: true, is_accepting_orders: true } },
       {
-        onSuccess: () => toast.success('Établissement publié. Les clients peuvent commander.'),
+        onSuccess: () => toast.success('Restaurant publié. Les clients peuvent commander.'),
         onError: (error) => toast.error(toUserMessage(error)),
       },
     );
@@ -111,20 +115,20 @@ export function OnboardingBanner() {
             <Rocket size={20} style={{ color: 'var(--color-on-primary-soft)' }} />
           </span>
           <div className="min-w-0">
-            <h2 className="text-lg font-semibold" style={{ fontFamily: 'var(--font-sora)' }}>
+            <h2 className="text-lg font-semibold" style={{ fontFamily: 'var(--font-display)' }}>
               Mise en route
             </h2>
             <p className="mt-0.5 text-sm text-[var(--color-text-secondary)]">
               {ready
                 ? 'Tout est prêt. Publiez pour apparaître dans l’app client.'
-                : `${done} étape${done > 1 ? 's' : ''} sur ${steps.length} — cet établissement n’est pas encore visible des clients.`}
+                : `${done} étape${done > 1 ? 's' : ''} sur ${steps.length} — le restaurant n’est pas encore visible des clients.`}
             </p>
           </div>
         </div>
 
         {access.admin ? (
           <Button onClick={publish} disabled={!ready} loading={save.isPending}>
-            Publier l’établissement
+            Publier le restaurant
           </Button>
         ) : null}
       </div>

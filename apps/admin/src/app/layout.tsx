@@ -1,25 +1,21 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter, Playfair_Display_SC, Sora } from 'next/font/google';
+import { Inter, Inter_Tight } from 'next/font/google';
 import { Providers } from './providers';
 import './globals.css';
 
+// Typographie Wise : Inter pour le corps (leur police officielle), et pour
+// les titres une approximation de « Wise Sans » (propriétaire, non
+// distribuable) avec Inter Tight en graisses fortes.
 const inter = Inter({
   subsets: ['latin'],
   variable: '--font-inter',
   display: 'swap',
 });
 
-const sora = Sora({
+const interTight = Inter_Tight({
   subsets: ['latin'],
-  weight: ['500', '600', '700'],
-  variable: '--font-sora',
-  display: 'swap',
-});
-
-const playfair = Playfair_Display_SC({
-  subsets: ['latin'],
-  weight: ['400', '700'],
-  variable: '--font-playfair',
+  weight: ['600', '700', '800'],
+  variable: '--font-display',
   display: 'swap',
 });
 
@@ -33,10 +29,10 @@ export const viewport: Viewport = {
   initialScale: 1,
   themeColor: [
     // Littéraux imposés par l'API themeColor (pas de var() possible ici).
-    // Provenance : tokens Istanbul --color-background clair/sombre — à tenir
-    // en phase avec packages/tokens et globals.css.
-    { media: '(prefers-color-scheme: light)', color: '#FFFBF7' },
-    { media: '(prefers-color-scheme: dark)', color: '#100D0B' },
+    // Provenance : tokens --color-background clair/sombre du thème Wise —
+    // à tenir en phase avec globals.css.
+    { media: '(prefers-color-scheme: light)', color: '#FFFFFF' },
+    { media: '(prefers-color-scheme: dark)', color: '#121511' },
   ],
 };
 
@@ -53,7 +49,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     // script inline, le serveur ne peut pas le connaître.
     <html
       lang="fr"
-      className={`${inter.variable} ${sora.variable} ${playfair.variable}`}
+      className={`${inter.variable} ${interTight.variable}`}
       suppressHydrationWarning
     >
       <body>

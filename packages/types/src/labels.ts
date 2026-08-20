@@ -1,11 +1,11 @@
 import type {
   DeliveryStatus,
   DriverAvailability,
-  EffectiveRestaurantRole,
   FulfillmentType,
   OrderStatus,
   PaymentProvider,
   PaymentStatus,
+  RestaurantRole,
   VehicleType,
 } from './enums';
 import type { TrackingStep } from './state-machine';
@@ -152,23 +152,20 @@ export const deliveryStatusTone: Record<DeliveryStatus, StatusTone> = {
  * et « Équipe » sont plus parlants pour un propriétaire de fast-food que
  * MANAGER et STAFF, et la description lève l'ambiguïté au moment de choisir.
  */
-export const restaurantRoleLabel: Record<EffectiveRestaurantRole, string> = {
+export const restaurantRoleLabel: Record<RestaurantRole, string> = {
   OWNER: 'Propriétaire',
   MANAGER: 'Gérant',
   STAFF: 'Équipe',
-  PLATFORM: 'Plateforme',
 };
 
-export const restaurantRoleDescription: Record<EffectiveRestaurantRole, string> = {
+export const restaurantRoleDescription: Record<RestaurantRole, string> = {
   OWNER: 'Tout, y compris l’équipe et les paramètres de l’établissement.',
   MANAGER: 'Menu, promotions, zones, livreurs et commandes. Pas l’équipe.',
   STAFF: 'Commandes du jour et disponibilité des produits.',
-  PLATFORM: 'Administration de la plateforme : accès à tous les partenaires.',
 };
 
-export const restaurantRoleTone: Record<EffectiveRestaurantRole, StatusTone> = {
+export const restaurantRoleTone: Record<RestaurantRole, StatusTone> = {
   OWNER: 'success',
   MANAGER: 'info',
   STAFF: 'neutral',
-  PLATFORM: 'warning',
 };

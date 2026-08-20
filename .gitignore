@@ -5,8 +5,11 @@ node_modules/
 # Builds
 dist/
 build/
-.next/
+# `.next*/` couvre aussi les dossiers de build parallèles (NEXT_DIST_DIR),
+# ex. .next-build/ et .next-verif/.
+.next*/
 out/
+*.bak
 .turbo/
 *.tsbuildinfo
 

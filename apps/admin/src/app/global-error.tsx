@@ -28,8 +28,8 @@ export default function GlobalError({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          background: '#fffbf7',
-          color: '#1a1613',
+          background: '#ffffff',
+          color: '#0e0f0c',
           fontFamily: 'system-ui, -apple-system, sans-serif',
           textAlign: 'center',
           padding: 24,
@@ -37,7 +37,7 @@ export default function GlobalError({
       >
         <div style={{ maxWidth: 420 }}>
           <h1 style={{ fontSize: 24, fontWeight: 600 }}>Une erreur est survenue</h1>
-          <p style={{ marginTop: 12, fontSize: 14, color: '#5b5149' }}>
+          <p style={{ marginTop: 12, fontSize: 14, color: '#454745' }}>
             Le dashboard n’a pas pu s’afficher. Réessayez ; si le problème persiste, rechargez la
             page.
           </p>
@@ -49,7 +49,7 @@ export default function GlobalError({
               padding: '0 20px',
               borderRadius: 999,
               border: 'none',
-              background: '#c4320f',
+              background: '#163300',
               color: '#ffffff',
               fontSize: 14,
               fontWeight: 600,

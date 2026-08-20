@@ -112,13 +112,24 @@ et déclenche une **notification push** aux acteurs concernés.
 
 ## 🔐 Rôles
 
+Deux niveaux se superposent. `UserRole` dit ce qu'une personne est vis-à-vis de
+l'application :
+
 | Rôle | Accès |
 |------|-------|
 | `CUSTOMER` | Ses commandes, ses adresses, son profil |
 | `DRIVER` | Les courses qui lui sont assignées + les courses disponibles |
-| `RESTAURANT_STAFF` | Commandes et menu de son restaurant |
-| `ADMIN` | Tout le restaurant : menu, livreurs, clients, promotions, zones |
-| `SUPER_ADMIN` | Multi-restaurants, configuration plateforme |
+| `RESTAURANT_STAFF` | Le dashboard, dans la limite de son rôle d'équipe |
+| `ADMIN` / `SUPER_ADMIN` | Tout, sans passer par l'équipe |
+
+`RestaurantRole` dit jusqu'où elle va dans le dashboard — parce que « accès au
+dashboard » n'est pas une permission unique :
+
+| Rôle d'équipe | Peut |
+|---------------|------|
+| `OWNER` | Tout, y compris l'équipe et les paramètres |
+| `MANAGER` | Menu, prix, promotions, zones, livreurs, commandes |
+| `STAFF` | Commandes du jour et ruptures de stock — ni les prix, ni l'équipe |
 
 Les permissions sont appliquées par **Row Level Security** au niveau PostgreSQL —
 aucune règle métier de sécurité ne vit uniquement côté client.

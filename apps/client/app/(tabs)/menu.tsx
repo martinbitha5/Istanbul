@@ -25,7 +25,7 @@ import {
   Spacer,
   useTheme,
 } from '@istanbul/ui';
-import { useRestaurantId } from '@/store/restaurant';
+import { RESTAURANT_ID as restaurantId } from '@/lib/restaurant';
 import { TabCartBar, useCartItemCount } from '@/components/TabCartBar';
 import { useCartBarListPadding } from '@/lib/layout';
 
@@ -52,7 +52,6 @@ export default function Menu() {
     }
   }, [params.category]);
 
-  const restaurantId = useRestaurantId();
   const { data: restaurant } = useRestaurant(restaurantId);
   const { data: categories } = useCategories(restaurantId);
   const { profile } = useProfile();

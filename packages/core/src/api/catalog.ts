@@ -17,25 +17,6 @@ import { getSupabase } from '../supabase/client';
  * avant l'écran de connexion (policy `products_read_all`).
  */
 
-/**
- * Restaurants visibles par un client — pour le sélecteur multi-restaurants.
- *
- * `is_published` filtre les partenaires en cours d'onboarding : un
- * établissement qui monte encore sa carte ne doit pas apparaître dans l'app
- * avec un menu vide. Le dashboard, lui, passe par `fetchMyRestaurants`, qui
- * les inclut.
- */
-export async function fetchRestaurants(): Promise<Restaurant[]> {
-  const { data, error } = await getSupabase()
-    .from('restaurants')
-    .select('*')
-    .eq('is_published', true)
-    .order('created_at');
-
-  if (error) throw error;
-  return (data ?? []) as Restaurant[];
-}
-
 export async function fetchRestaurant(id: UUID): Promise<Restaurant> {
   const { data, error } = await getSupabase()
     .from('restaurants')

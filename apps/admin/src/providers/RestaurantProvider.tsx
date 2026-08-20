@@ -1,29 +1,24 @@
 'use client';
 
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode,
-} from 'react';
-import type { EffectiveRestaurantRole, ManagedRestaurant, UUID } from '@istanbul/types';
-import { useMyRestaurants } from '@istanbul/core';
+import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import type { Profile, Restaurant, RestaurantRole, UUID } from '@istanbul/types';
+import { queryKeys } from '@istanbul/core';
 
 /**
- * Établissement courant du dashboard.
+ * L'établissement du dashboard : Istanbul, et lui seul.
  *
- * C'est la pièce qui fait exister le multi-restaurants côté interface. Avant,
- * `useRestaurantId` lisait `profile.restaurant_id` et retombait sur un UUID en
- * dur : un gérant de deux établissements n'en voyait qu'un, et un ADMIN de la
- * plateforme voyait un restaurant qui n'existait peut-être pas.
+ * Ce contexte ne fait *aucune* requête. Tout ce qu'il expose vient du serveur,
+ * résolu pendant le rendu du layout (`fn_dashboard_bootstrap`). C'est le
+ * changement qui rend le dashboard rapide : la version précédente montait un
+ * écran d'attente plein cadre, attendait l'hydratation, appelait
+ * `fn_my_restaurants`, choisissait un établissement dans une liste — puis
+ * seulement montait la page, qui partait alors chercher ses propres données.
+ * Quatre allers-retours en série avant le premier chiffre à l'écran.
  *
- * Le choix est mémorisé dans `localStorage` — pas dans l'URL. C'était tentant
- * (`?restaurant=…` est partageable), mais toutes les pages du dashboard
- * auraient dû propager le paramètre à chaque `<Link>`, et un lien partagé
- * entre deux gérants d'établissements différents aurait ouvert une page vide.
+ * Il reste un contexte plutôt qu'une constante importée : les droits (`access`)
+ * dépendent du rôle de la personne connectée, et une bonne dizaine d'écrans
+ * les lisent.
  */
 
 export interface RestaurantAccess {
@@ -33,160 +28,57 @@ export interface RestaurantAccess {
   manage: boolean;
   /** Équipe et paramètres de l'établissement. */
   admin: boolean;
-  /** Administration de la plateforme : tous les partenaires. */
-  platform: boolean;
+}
+
+export interface RestaurantBootstrap {
+  profile: Profile;
+  restaurant: Restaurant;
+  role: RestaurantRole | null;
+  isAdmin: boolean;
 }
 
 interface RestaurantContextValue {
   restaurantId: UUID;
-  restaurant: ManagedRestaurant | null;
-  restaurants: ManagedRestaurant[];
-  role: EffectiveRestaurantRole | null;
+  restaurant: Restaurant;
+  role: RestaurantRole | null;
   access: RestaurantAccess;
-  selectRestaurant: (id: UUID) => void;
-  isLoading: boolean;
-  error: unknown;
 }
 
 const RestaurantContext = createContext<RestaurantContextValue | null>(null);
 
-const STORAGE_KEY = 'istanbul.admin.restaurant';
-
-function readStoredId(): UUID | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    return window.localStorage.getItem(STORAGE_KEY);
-  } catch {
-    // Navigation privée, quota, stockage bloqué : on retombe simplement sur
-    // le premier établissement de la liste.
-    return null;
-  }
-}
-
-function writeStoredId(id: UUID) {
-  try {
-    window.localStorage.setItem(STORAGE_KEY, id);
-  } catch {
-    /* Idem : perdre la préférence est sans conséquence. */
-  }
-}
-
-export function RestaurantProvider({ children }: { children: ReactNode }) {
-  const { data, isLoading, error, refetch } = useMyRestaurants();
-  const restaurants = useMemo(() => data ?? [], [data]);
-
-  const [selectedId, setSelectedId] = useState<UUID | null>(null);
-
-  // La restauration depuis localStorage se fait après montage : lire le
-  // stockage pendant le rendu ferait diverger le HTML serveur et le client.
-  useEffect(() => {
-    if (restaurants.length === 0) return;
-
-    setSelectedId((current) => {
-      const stored = current ?? readStoredId();
-      const isValid = stored && restaurants.some((restaurant) => restaurant.id === stored);
-      // Un établissement retiré de l'équipe entre deux sessions ne doit pas
-      // bloquer le dashboard sur un identifiant mort.
-      return isValid ? stored : restaurants[0]!.id;
-    });
-  }, [restaurants]);
-
-  const selectRestaurant = useCallback((id: UUID) => {
-    setSelectedId(id);
-    writeStoredId(id);
-  }, []);
-
-  const restaurant = restaurants.find((item) => item.id === selectedId) ?? null;
-  const role = restaurant?.member_role ?? null;
-
-  const access = useMemo<RestaurantAccess>(() => {
-    const platform = role === 'PLATFORM';
-    return {
-      view: role !== null,
-      manage: platform || role === 'OWNER' || role === 'MANAGER',
-      admin: platform || role === 'OWNER',
-      platform,
-    };
-  }, [role]);
-
-  const value = useMemo<RestaurantContextValue>(
-    () => ({
-      restaurantId: restaurant?.id ?? '',
-      restaurant,
-      restaurants,
-      role,
-      access,
-      selectRestaurant,
-      isLoading,
-      error,
-    }),
-    [restaurant, restaurants, role, access, selectRestaurant, isLoading, error],
-  );
-
-  return (
-    <RestaurantContext.Provider value={value}>
-      {isLoading ? (
-        <BootScreen label="Chargement de vos établissements…" />
-      ) : error ? (
-        <BootScreen
-          label="Impossible de charger vos établissements."
-          hint="Vérifiez votre connexion, puis réessayez."
-          action={{ label: 'Réessayer', onClick: () => void refetch() }}
-        />
-      ) : restaurants.length === 0 ? (
-        <BootScreen
-          label="Aucun établissement rattaché à ce compte"
-          hint="Votre accès existe, mais personne ne vous a encore ajouté à une équipe. Demandez au propriétaire de l’établissement de vous inviter avec cette adresse e-mail."
-        />
-      ) : (
-        children
-      )}
-    </RestaurantContext.Provider>
-  );
-}
-
-/**
- * Écran d'attente plein cadre.
- *
- * Rendu avant la coquille du dashboard : afficher une sidebar dont aucun lien
- * ne mène nulle part serait pire que rien.
- */
-function BootScreen({
-  label,
-  hint,
-  action,
+export function RestaurantProvider({
+  bootstrap,
+  children,
 }: {
-  label: string;
-  hint?: string;
-  action?: { label: string; onClick: () => void };
+  bootstrap: RestaurantBootstrap;
+  children: ReactNode;
 }) {
-  return (
-    <main className="flex min-h-dvh items-center justify-center p-6">
-      <div className="max-w-md text-center">
-        <p
-          className="text-2xl leading-none tracking-tight"
-          style={{ fontFamily: 'var(--font-playfair)', color: 'var(--color-primary)' }}
-        >
-          Istanbul
-        </p>
-        <h1 className="mt-6 text-lg font-semibold" style={{ fontFamily: 'var(--font-sora)' }}>
-          {label}
-        </h1>
-        {hint ? (
-          <p className="mt-3 text-sm leading-relaxed text-[var(--color-text-secondary)]">{hint}</p>
-        ) : null}
-        {action ? (
-          <button
-            onClick={action.onClick}
-            className="mt-6 inline-flex h-11 cursor-pointer items-center rounded-full border px-5 text-sm font-semibold"
-            style={{ borderColor: 'var(--color-border-strong)', color: 'var(--color-text)' }}
-          >
-            {action.label}
-          </button>
-        ) : null}
-      </div>
-    </main>
-  );
+  const queryClient = useQueryClient();
+  const { profile, restaurant, role, isAdmin } = bootstrap;
+
+  // Amorçage du cache React Query, de façon synchrone : les hooks partagés
+  // (`useRestaurant`, `useProfile`) trouvent la donnée déjà là et n'ouvrent pas
+  // une requête pour ce que le serveur vient d'envoyer dans le HTML.
+  // `useState(initialiseur)` plutôt qu'un `useEffect` : l'effet s'exécuterait
+  // après le premier rendu des enfants, donc après le départ des requêtes.
+  useState(() => {
+    queryClient.setQueryData(queryKeys.restaurant(restaurant.id), restaurant);
+    queryClient.setQueryData(queryKeys.profile(), profile);
+  });
+
+  const value = useMemo<RestaurantContextValue>(() => {
+    // Un compte ADMIN de l'application administre le restaurant même sans
+    // ligne dans `restaurant_members` : c'est le compte du patron.
+    const access: RestaurantAccess = {
+      view: true,
+      manage: isAdmin || role === 'OWNER' || role === 'MANAGER',
+      admin: isAdmin || role === 'OWNER',
+    };
+
+    return { restaurantId: restaurant.id, restaurant, role, access };
+  }, [restaurant, role, isAdmin]);
+
+  return <RestaurantContext.Provider value={value}>{children}</RestaurantContext.Provider>;
 }
 
 export function useRestaurantContext(): RestaurantContextValue {
@@ -197,7 +89,7 @@ export function useRestaurantContext(): RestaurantContextValue {
   return context;
 }
 
-/** Droits de l'utilisateur sur l'établissement affiché. */
+/** Droits de l'utilisateur sur l'établissement. */
 export function useRestaurantAccess(): RestaurantAccess {
   return useRestaurantContext().access;
 }

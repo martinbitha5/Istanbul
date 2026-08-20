@@ -72,6 +72,12 @@ importers:
       '@types/react-dom':
         specifier: ~19.1.0
         version: 19.1.11(@types/react@19.1.17)
+      import-in-the-middle:
+        specifier: ^3.3.3
+        version: 3.3.3
+      require-in-the-middle:
+        specifier: ^8.0.1
+        version: 8.0.1
       tailwindcss:
         specifier: ^4.1.5
         version: 4.3.3

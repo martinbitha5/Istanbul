@@ -36,7 +36,7 @@ import {
   useTheme,
   useToast,
 } from '@istanbul/ui';
-import { useRestaurantId } from '@/store/restaurant';
+import { RESTAURANT_ID as restaurantId } from '@/lib/restaurant';
 
 /** Diamètre des boutons ronds du hero (fermer, favori). */
 const CIRCLE_BUTTON_SIZE = 40;
@@ -55,7 +55,6 @@ export default function ProductDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
 
   const { data: product, isLoading, isError, refetch } = useProduct(id ?? null);
-  const restaurantId = useRestaurantId();
   const { data: restaurant } = useRestaurant(restaurantId);
   const { profile } = useProfile();
   const { ids: favoriteIds } = useFavoriteIds();

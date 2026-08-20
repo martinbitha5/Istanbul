@@ -1,8 +1,17 @@
 @import 'tailwindcss';
 
 /* ---------------------------------------------------------------------------
-   Tokens Istanbul.
-   Miroir exact de packages/tokens — régénérable via `pnpm tokens:css`.
+   Tokens du dashboard — thème « Wise ».
+
+   Palette reprise du design system Wise (wise.com) : vert forêt #163300 en
+   primaire, vert vif #9fe870 en accent, neutres encre #0e0f0c, rayons
+   généreux (10/16/24/32) et boutons pilule. Les valeurs proviennent des
+   variables CSS du site Wise (thème `np-theme-personal`).
+
+   ⚠ Ce fichier diverge volontairement de packages/tokens (thème Ember,
+   toujours utilisé par les apps mobiles) : ne pas le régénérer via
+   `pnpm tokens:css` sous peine d'écraser le thème Wise.
+
    Le mode sombre est défini deux fois : pour le choix explicite
    (`[data-theme="dark"]`) et pour la préférence système, sans que l'un
    n'écrase l'autre.
@@ -11,68 +20,72 @@
   /* Les selects, scrollbars et champs natifs suivent le thème de la page. */
   color-scheme: light;
 
-  --color-background: #fffbf7;
+  --color-background: #ffffff;
   --color-surface: #ffffff;
   --color-surface-raised: #ffffff;
-  --color-surface-sunken: #fbf6f1;
-  --color-surface-inverse: #1a1613;
-  --color-scrim: rgba(26, 22, 19, 0.55);
+  /* Neutre Wise : rgba(22,51,0,0.08) aplati sur blanc. */
+  --color-surface-sunken: #f2f4ef;
+  --color-surface-inverse: #0e0f0c;
+  --color-scrim: rgba(14, 15, 12, 0.55);
 
-  --color-text: #1a1613;
-  --color-text-secondary: #5b5149;
-  --color-text-muted: #7a6e64;
+  --color-text: #0e0f0c;
+  --color-text-secondary: #454745;
+  --color-text-muted: #6a6c6a;
   --color-text-inverse: #ffffff;
   --color-text-on-primary: #ffffff;
-  --color-text-on-accent: #1a1613;
+  --color-text-on-accent: #163300;
 
-  /* Ember 600 : le blanc dessus tient 5.5:1 (le 500 ne tenait que ~3.3:1). */
-  --color-primary: #c4320f;
-  --color-primary-pressed: #9e260b;
-  --color-primary-soft: #fff3ef;
-  --color-on-primary-soft: #9e260b;
+  /* Vert forêt Wise : boutons pleins, liens, état actif. */
+  --color-primary: #163300;
+  --color-primary-pressed: #0d1f00;
+  --color-primary-soft: #e2f6d5;
+  --color-on-primary-soft: #163300;
 
-  --color-accent: #ebb43a;
-  --color-accent-soft: #fdecc4;
-  --color-on-accent-soft: #8b5b12;
+  /* Vert vif Wise : le CTA signature, toujours avec de l'encre dessus. */
+  --color-accent: #9fe870;
+  --color-accent-soft: #ecffe0;
+  --color-on-accent-soft: #163300;
 
-  /* Tons assombris pour tenir 4.5:1 en texte sur fond clair. */
-  --color-success: #24713a;
-  --color-success-soft: #ddf3e1;
-  --color-warning: #b27714;
-  --color-warning-soft: #fdecc4;
-  --color-danger: #d32f2f;
-  --color-danger-soft: #fbdddd;
-  --color-info: #14657e;
-  --color-info-soft: #d6eef6;
+  --color-success: #054d28;
+  --color-success-soft: #e2f6d5;
+  --color-warning: #9a6500;
+  --color-warning-soft: #fff7d7;
+  --color-danger: #cb272f;
+  --color-danger-soft: #fbeaea;
+  --color-info: #0077a5;
+  --color-info-soft: #ebfaff;
 
-  /* Texte posé sur les fonds *-soft : plus sombre que la couleur pleine
-     car le fond pastel réduit le contraste. */
-  --color-on-success-soft: #1b5a2e;
-  --color-on-warning-soft: #8b5b12;
-  --color-on-danger-soft: #b02424;
-  --color-on-info-soft: #14657e;
+  /* Texte posé sur les fonds *-soft : paires contrastes issues de Wise
+     (sentiment-*-content), toutes ≥ 4.5:1. */
+  --color-on-success-soft: #054d28;
+  --color-on-warning-soft: #4a3b1c;
+  --color-on-danger-soft: #a72027;
+  --color-on-info-soft: #006286;
 
-  /* Anneau de focus dédié : l'ancien anneau couleur primary était invisible
-     sur les boutons primaires (même couleur que le fond). */
-  --color-focus-ring: #1b7f9e;
+  /* Anneau de focus dédié : un anneau vert forêt serait invisible sur les
+     boutons primaires (même couleur que le fond). */
+  --color-focus-ring: #0077a5;
 
-  --color-border: #e6dcd3;
-  --color-border-strong: #cfc3b8;
-  --color-divider: #f3ece5;
-  --color-skeleton: #f3ece5;
+  /* Bordures Wise : rgba(14,15,12,0.12) aplati sur blanc. */
+  --color-border: #e2e2e1;
+  --color-border-strong: #c8c9c6;
+  --color-divider: #f0f1ef;
+  --color-skeleton: #f0f1ef;
 
-  --color-disabled: #f3ece5;
-  --color-disabled-text: #a2958a;
-  --color-overlay: rgba(26, 22, 19, 0.45);
+  --color-disabled: #f0f1ef;
+  --color-disabled-text: #a8aaa6;
+  --color-overlay: rgba(14, 15, 12, 0.45);
 
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  --radius-xl: 24px;
+  /* Échelle de rayons Wise : small 10, medium 16, large 24, xlarge 32. */
+  --radius-sm: 10px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-xl: 32px;
 
-  --shadow-1: 0 2px 8px rgba(58, 30, 18, 0.06);
-  --shadow-2: 0 6px 16px rgba(58, 30, 18, 0.1);
-  --shadow-3: 0 12px 28px rgba(58, 30, 18, 0.16);
+  /* Ombres neutres et discrètes : le design Wise est essentiellement plat. */
+  --shadow-1: 0 1px 4px rgba(14, 15, 12, 0.06);
+  --shadow-2: 0 2px 10px rgba(14, 15, 12, 0.1);
+  --shadow-3: 0 12px 28px rgba(14, 15, 12, 0.18);
 }
 
 /* Les deux blocs sombres ci-dessous doivent rester identiques : l'un couvre
@@ -81,55 +94,55 @@
 :root[data-theme='dark'] {
   color-scheme: dark;
 
-  --color-background: #100d0b;
-  --color-surface: #1a1613;
-  --color-surface-raised: #292420;
-  --color-surface-sunken: #0a0807;
-  --color-surface-inverse: #fbf6f1;
+  /* Encre Wise (#121511 = leur token --color-dark). */
+  --color-background: #121511;
+  --color-surface: #1b1e19;
+  --color-surface-raised: #262a24;
+  --color-surface-sunken: #0b0d0a;
+  --color-surface-inverse: #f2f3f0;
   --color-scrim: rgba(0, 0, 0, 0.65);
 
-  --color-text: #f7f1eb;
-  --color-text-secondary: #cfc3b8;
-  --color-text-muted: #a2958a;
-  --color-text-inverse: #1a1613;
-  /* Encre sur orange : plus jamais de blanc sur primary en sombre. */
-  --color-text-on-primary: #100d0b;
-  --color-text-on-accent: #100d0b;
+  --color-text: #f2f3f0;
+  --color-text-secondary: #c3c5c1;
+  --color-text-muted: #969893;
+  --color-text-inverse: #121511;
+  /* En sombre le primaire devient le vert vif : encre dessus, jamais de blanc. */
+  --color-text-on-primary: #163300;
+  --color-text-on-accent: #163300;
 
-  /* Le 500 ne tient pas 4.5:1 sur fond encre 950 : on remonte d'un cran. */
-  --color-primary: #f76b45;
-  --color-primary-pressed: #ff9877;
-  --color-primary-soft: rgba(247, 107, 69, 0.16);
-  --color-on-primary-soft: #ff9877;
+  --color-primary: #9fe870;
+  --color-primary-pressed: #80e142;
+  --color-primary-soft: rgba(159, 232, 112, 0.16);
+  --color-on-primary-soft: #9fe870;
 
-  --color-accent: #f4c95d;
-  --color-accent-soft: rgba(244, 201, 93, 0.16);
-  --color-on-accent-soft: #fadd93;
+  --color-accent: #9fe870;
+  --color-accent-soft: rgba(159, 232, 112, 0.16);
+  --color-on-accent-soft: #b9efa0;
 
-  --color-success: #8ed49e;
-  --color-success-soft: rgba(142, 212, 158, 0.16);
-  --color-warning: #f4c95d;
-  --color-warning-soft: rgba(244, 201, 93, 0.16);
-  --color-danger: #ee9a9a;
-  --color-danger-soft: rgba(238, 154, 154, 0.16);
-  --color-info: #79c8de;
-  --color-info-soft: rgba(121, 200, 222, 0.16);
+  --color-success: #8ed4a2;
+  --color-success-soft: rgba(142, 212, 162, 0.16);
+  --color-warning: #ffd11a;
+  --color-warning-soft: rgba(255, 209, 26, 0.14);
+  --color-danger: #ff8787;
+  --color-danger-soft: rgba(255, 135, 135, 0.16);
+  --color-info: #38c8ff;
+  --color-info-soft: rgba(56, 200, 255, 0.14);
 
-  /* En sombre, les tons 300 suffisent : le fond soft est déjà très sombre. */
-  --color-on-success-soft: #8ed49e;
-  --color-on-warning-soft: #f4c95d;
-  --color-on-danger-soft: #ee9a9a;
-  --color-on-info-soft: #79c8de;
+  /* En sombre, la couleur pleine suffit : le fond soft est déjà très sombre. */
+  --color-on-success-soft: #8ed4a2;
+  --color-on-warning-soft: #ffd11a;
+  --color-on-danger-soft: #ff8787;
+  --color-on-info-soft: #38c8ff;
 
-  --color-focus-ring: #79c8de;
+  --color-focus-ring: #38c8ff;
 
-  --color-border: #332c27;
-  --color-border-strong: #4a413a;
-  --color-divider: #241f1b;
-  --color-skeleton: #241f1b;
+  --color-border: #2b2e29;
+  --color-border-strong: #41443f;
+  --color-divider: #1e211c;
+  --color-skeleton: #1e211c;
 
-  --color-disabled: #241f1b;
-  --color-disabled-text: #7a6e64;
+  --color-disabled: #1e211c;
+  --color-disabled-text: #6f716c;
   --color-overlay: rgba(0, 0, 0, 0.6);
 
   --shadow-1: 0 2px 8px rgba(0, 0, 0, 0.4);
@@ -141,52 +154,52 @@
   :root:not([data-theme='light']) {
     color-scheme: dark;
 
-    --color-background: #100d0b;
-    --color-surface: #1a1613;
-    --color-surface-raised: #292420;
-    --color-surface-sunken: #0a0807;
-    --color-surface-inverse: #fbf6f1;
+    --color-background: #121511;
+    --color-surface: #1b1e19;
+    --color-surface-raised: #262a24;
+    --color-surface-sunken: #0b0d0a;
+    --color-surface-inverse: #f2f3f0;
     --color-scrim: rgba(0, 0, 0, 0.65);
 
-    --color-text: #f7f1eb;
-    --color-text-secondary: #cfc3b8;
-    --color-text-muted: #a2958a;
-    --color-text-inverse: #1a1613;
-    --color-text-on-primary: #100d0b;
-    --color-text-on-accent: #100d0b;
+    --color-text: #f2f3f0;
+    --color-text-secondary: #c3c5c1;
+    --color-text-muted: #969893;
+    --color-text-inverse: #121511;
+    --color-text-on-primary: #163300;
+    --color-text-on-accent: #163300;
 
-    --color-primary: #f76b45;
-    --color-primary-pressed: #ff9877;
-    --color-primary-soft: rgba(247, 107, 69, 0.16);
-    --color-on-primary-soft: #ff9877;
+    --color-primary: #9fe870;
+    --color-primary-pressed: #80e142;
+    --color-primary-soft: rgba(159, 232, 112, 0.16);
+    --color-on-primary-soft: #9fe870;
 
-    --color-accent: #f4c95d;
-    --color-accent-soft: rgba(244, 201, 93, 0.16);
-    --color-on-accent-soft: #fadd93;
+    --color-accent: #9fe870;
+    --color-accent-soft: rgba(159, 232, 112, 0.16);
+    --color-on-accent-soft: #b9efa0;
 
-    --color-success: #8ed49e;
-    --color-success-soft: rgba(142, 212, 158, 0.16);
-    --color-warning: #f4c95d;
-    --color-warning-soft: rgba(244, 201, 93, 0.16);
-    --color-danger: #ee9a9a;
-    --color-danger-soft: rgba(238, 154, 154, 0.16);
-    --color-info: #79c8de;
-    --color-info-soft: rgba(121, 200, 222, 0.16);
+    --color-success: #8ed4a2;
+    --color-success-soft: rgba(142, 212, 162, 0.16);
+    --color-warning: #ffd11a;
+    --color-warning-soft: rgba(255, 209, 26, 0.14);
+    --color-danger: #ff8787;
+    --color-danger-soft: rgba(255, 135, 135, 0.16);
+    --color-info: #38c8ff;
+    --color-info-soft: rgba(56, 200, 255, 0.14);
 
-    --color-on-success-soft: #8ed49e;
-    --color-on-warning-soft: #f4c95d;
-    --color-on-danger-soft: #ee9a9a;
-    --color-on-info-soft: #79c8de;
+    --color-on-success-soft: #8ed4a2;
+    --color-on-warning-soft: #ffd11a;
+    --color-on-danger-soft: #ff8787;
+    --color-on-info-soft: #38c8ff;
 
-    --color-focus-ring: #79c8de;
+    --color-focus-ring: #38c8ff;
 
-    --color-border: #332c27;
-    --color-border-strong: #4a413a;
-    --color-divider: #241f1b;
-    --color-skeleton: #241f1b;
+    --color-border: #2b2e29;
+    --color-border-strong: #41443f;
+    --color-divider: #1e211c;
+    --color-skeleton: #1e211c;
 
-    --color-disabled: #241f1b;
-    --color-disabled-text: #7a6e64;
+    --color-disabled: #1e211c;
+    --color-disabled-text: #6f716c;
     --color-overlay: rgba(0, 0, 0, 0.6);
 
     --shadow-1: 0 2px 8px rgba(0, 0, 0, 0.4);

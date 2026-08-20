@@ -24,7 +24,6 @@ import {
   Toggle,
 } from '@/components/ui';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
-import { OnboardingBanner } from '@/components/OnboardingBanner';
 import { useToast } from '@/components/Toaster';
 import { useRestaurantId } from '@/hooks/useRestaurantId';
 
@@ -38,6 +37,15 @@ const TopProductsChart = dynamic(() => import('./charts').then((mod) => mod.TopP
   ssr: false,
   loading: () => <Skeleton className="h-64 w-full" />,
 });
+
+// Checklist de mise en route : utile une fois dans la vie du restaurant, donc
+// hors du bundle initial et montée seulement tant que la carte n'est pas
+// publiée. Elle interroge le menu, les catégories, les zones et les horaires —
+// quatre requêtes qui n'ont rien à faire sur l'écran d'un service en cours.
+const OnboardingBanner = dynamic(
+  () => import('@/components/OnboardingBanner').then((mod) => mod.OnboardingBanner),
+  { ssr: false },
+);
 
 /**
  * Vue d'ensemble.
@@ -82,15 +90,10 @@ export default function DashboardPage() {
       {/* --- En-tête ---------------------------------------------------- */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight" style={{ fontFamily: 'var(--font-sora)' }}>
+          <h1 className="text-2xl font-bold tracking-tight" style={{ fontFamily: 'var(--font-display)' }}>
             Vue d’ensemble
           </h1>
-          {/* Le nom de l'établissement en premier : sur un compte qui en gère
-              plusieurs, « Activité du jour » ne dit pas de quel comptoir on
-              parle, et c'est le genre d'ambiguïté qui fait refuser la
-              mauvaise commande. */}
           <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-            {restaurant?.name ? `${restaurant.name} · ` : ''}
             {new Date().toLocaleDateString('fr-FR', { dateStyle: 'long' })}
           </p>
         </div>
@@ -123,9 +126,8 @@ export default function DashboardPage() {
         ) : null}
       </div>
 
-      {/* Mise en route : ne s'affiche que pour un établissement non publié,
-          et disparaît d'elle-même une fois la carte en ligne. */}
-      <OnboardingBanner />
+      {/* Mise en route : rien à charger tant que la carte est en ligne. */}
+      {restaurant && !restaurant.is_published ? <OnboardingBanner /> : null}
 
       <ConfirmDialog
         open={confirmClosing}
@@ -293,13 +295,19 @@ function StatCard({
   icon?: React.ReactNode;
   accent?: boolean;
 }) {
-  return (
-    <Card className={accent ? 'border-transparent' : ''}>
+  // Les textes secondaires de la carte accent héritent de l'encre et jouent
+  // sur l'opacité : le vert vif n'a pas de token muted dédié.
+  const mutedClass = accent
+    ? 'opacity-75'
+    : 'text-[var(--color-text-muted)]';
+
+  const body = (
+    <>
       <div className="flex items-start justify-between gap-2">
-        <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
-          {label}
-        </p>
-        {icon ? <span style={{ color: 'var(--color-primary)' }}>{icon}</span> : null}
+        <p className={`text-xs font-semibold uppercase tracking-wide ${mutedClass}`}>{label}</p>
+        {icon ? (
+          <span style={{ color: accent ? 'currentColor' : 'var(--color-primary)' }}>{icon}</span>
+        ) : null}
       </div>
 
       {value === null ? (
@@ -307,15 +315,33 @@ function StatCard({
       ) : (
         <p
           className="tabular mt-2 text-2xl font-bold tracking-tight"
-          style={{ fontFamily: 'var(--font-sora)' }}
+          style={{ fontFamily: 'var(--font-display)' }}
         >
           {value}
         </p>
       )}
 
-      {hint ? <p className="mt-1 text-xs text-[var(--color-text-muted)]">{hint}</p> : null}
-    </Card>
+      {hint ? <p className={`mt-1 text-xs ${mutedClass}`}>{hint}</p> : null}
+    </>
   );
+
+  // La carte accent reprend le CTA signature de Wise : vert vif, encre dessus.
+  if (accent) {
+    return (
+      <div
+        className="rounded-3xl p-5"
+        style={{
+          background: 'var(--color-accent)',
+          color: 'var(--color-text-on-accent)',
+          boxShadow: 'var(--shadow-1)',
+        }}
+      >
+        {body}
+      </div>
+    );
+  }
+
+  return <Card>{body}</Card>;
 }
 
 function QueueTile({
@@ -333,12 +359,12 @@ function QueueTile({
   return (
     <Link
       href={href as never}
-      className="rounded-xl border border-[var(--color-border)] p-4 transition-colors hover:border-[var(--color-primary)]"
+      className="rounded-2xl border border-[var(--color-border)] p-4 transition-colors hover:border-[var(--color-primary)] hover:bg-[var(--color-surface-sunken)]"
     >
       {count === null ? (
         <Skeleton className="h-9 w-12" />
       ) : (
-        <p className="tabular text-3xl font-bold" style={{ fontFamily: 'var(--font-sora)' }}>
+        <p className="tabular text-3xl font-bold" style={{ fontFamily: 'var(--font-display)' }}>
           {count}
         </p>
       )}

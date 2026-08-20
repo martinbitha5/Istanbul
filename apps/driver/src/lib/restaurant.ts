@@ -5,10 +5,10 @@
  * `app/delivery/[id].tsx` et `app/(tabs)/profile.tsx` — deux sources de
  * vérité qui finissent toujours par diverger.
  *
- * TODO(données) : ces valeurs devraient venir de la table `restaurants`
- * (le client et l'admin la lisent déjà). Tant que l'app livreur est
- * mono-restaurant, la constante suffit, mais toute évolution multi-sites
- * passera par un fetch au démarrage.
+ * TODO(données) : ces valeurs devraient venir de la table `restaurants`, que
+ * le client et le dashboard lisent déjà — une adresse corrigée au dashboard ne
+ * se propage pas ici. La constante n'est pas un choix d'architecture, c'est
+ * une dette : elle tient parce qu'Istanbul ne déménage pas souvent.
  */
 export const RESTAURANT = {
   name: 'Istanbul Fast Food',

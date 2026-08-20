@@ -64,17 +64,19 @@ export function useTopProducts(restaurantId: UUID) {
 // Menu
 // ---------------------------------------------------------------------------
 
-export function useAdminProducts(restaurantId: UUID) {
+export function useAdminProducts(restaurantId: UUID, enabled = true) {
   return useQuery({
     queryKey: queryKeys.adminProducts(restaurantId),
     queryFn: () => fetchAllProducts(restaurantId),
+    enabled,
   });
 }
 
-export function useAdminCategories(restaurantId: UUID) {
+export function useAdminCategories(restaurantId: UUID, enabled = true) {
   return useQuery({
     queryKey: queryKeys.adminCategories(restaurantId),
     queryFn: () => fetchAllCategories(restaurantId),
+    enabled,
   });
 }
 
@@ -273,10 +275,11 @@ export function useDeletePromotion() {
   });
 }
 
-export function useAdminZones(restaurantId: UUID) {
+export function useAdminZones(restaurantId: UUID, enabled = true) {
   return useQuery({
     queryKey: queryKeys.adminZones(restaurantId),
     queryFn: () => fetchAllDeliveryZones(restaurantId),
+    enabled,
   });
 }
 

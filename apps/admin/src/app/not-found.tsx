@@ -9,11 +9,11 @@ export default function NotFound() {
       <div className="max-w-md">
         <p
           className="text-5xl font-bold tracking-tight text-[var(--color-primary)]"
-          style={{ fontFamily: 'var(--font-sora)' }}
+          style={{ fontFamily: 'var(--font-display)' }}
         >
           404
         </p>
-        <h1 className="mt-4 text-xl font-semibold" style={{ fontFamily: 'var(--font-sora)' }}>
+        <h1 className="mt-4 text-xl font-semibold" style={{ fontFamily: 'var(--font-display)' }}>
           Page introuvable
         </h1>
         <p className="mt-3 text-sm text-[var(--color-text-secondary)]">

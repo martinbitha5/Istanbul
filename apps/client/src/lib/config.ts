@@ -24,8 +24,9 @@ export const config = {
   mapboxToken: process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? '',
 
   /**
-   * Mono-restaurant au lancement. Le schéma supporte le multi-restaurants ;
-   * le jour venu, cette constante devient une sélection utilisateur.
+   * L'identifiant d'Istanbul dans la base visée. Variable d'environnement et
+   * non constante en dur, pour que le build de développement pointe sur la
+   * base locale (où l'UUID vient du seed) et celui du store sur la production.
    */
   restaurantId:
     process.env.EXPO_PUBLIC_RESTAURANT_ID ?? '00000000-0000-0000-0000-000000000001',

@@ -66,27 +66,32 @@ revoke table + re-grant colonne par colonne.
 - [x] Notation de la commande et du livreur (écran post-livraison, moyenne livreur par trigger)
 - [x] Programme de fidélité (1 pt/$ livré, 1 pt = 5 ¢ au checkout — taux dans app_config)
 - [x] Assignation automatique du livreur le plus proche (trigger READY, toggle app_config.auto_assign)
-- [x] Multi-restaurants côté client (sélecteur auto-visible dès 2 restaurants, panier vidé au changement)
-- [x] **Multi-restaurants réel côté dashboard (migration 21)** — `restaurant_members`
-      (OWNER/MANAGER/STAFF), toutes les policies re-scopées par établissement,
-      garde-fous ajoutés aux fonctions SECURITY DEFINER, sélecteur
-      d'établissement, pages Équipe / Établissement / Partenaires,
-      commission et publication par partenaire. 21 assertions pgTAP dédiées.
-- [x] Revenus de la plateforme par partenaire (`fn_platform_revenue`, migration 23) —
-      commission due sur le sous-total des commandes livrées, par mois / trimestre / année.
-- [x] Mise en route guidée du partenaire (bannière de progression sur le dashboard
-      d'un établissement non publié, publication en un geste une fois les 4 étapes faites).
+- [x] **Rôles dans l'équipe (migration 21)** — `restaurant_members`
+      (OWNER/MANAGER/STAFF), toutes les policies re-scopées, garde-fous ajoutés
+      aux fonctions SECURITY DEFINER, pages Équipe et Établissement.
+- [x] Mise en route guidée (bannière de progression tant que la carte n'est pas
+      publiée, publication en un geste une fois les 4 étapes faites).
 - [x] Optimisation d'itinéraire (OSRM : itinéraire sur les cartes client ET livreur, distance/ETA vivants)
+- [x] **Retour au mono-restaurant (migration 24)** — la couche « place de
+      marché » construite par les migrations 21–23 est retirée : plus de
+      partenaires, de commission, ni de sélecteur d'établissement. Ce qui reste
+      de ce travail, ce sont les trois rôles et les prédicats d'autorisation,
+      qui séparent désormais des métiers et non des enseignes.
+      24 assertions pgTAP (`roles.test.sql`).
+- [x] **Chemin critique du dashboard** — `fn_dashboard_bootstrap` (1 requête au
+      lieu de 3), cache React Query amorcé côté serveur, `getClaims` dans le
+      middleware, `optimizePackageImports`, checklist de mise en route en
+      chargement différé. L'écran d'attente plein cadre au démarrage a disparu.
 
 ---
 
-**Au passage :** l'écriture des tests de cloisonnement a mis au jour trois trous
-qui n'étaient pas du multi-restaurants mais de la sécurité tout court —
-`fn_advance_order_status` sans aucun contrôle d'appelant (tout compte connecté
-pouvait faire avancer toute commande), `fn_dashboard_stats` / `fn_sales_series` /
-`fn_top_products` servant le chiffre d'affaires de n'importe quel restaurant, et
-`profiles_read_staff` ouvrant l'annuaire complet de la plateforme au premier
-membre du staff venu.
+**Au passage :** l'écriture des tests de rôles a mis au jour trois trous qui
+n'étaient pas de l'autorisation par établissement mais de la sécurité tout
+court — `fn_advance_order_status` sans aucun contrôle d'appelant (tout compte
+connecté pouvait faire avancer toute commande), `fn_dashboard_stats` /
+`fn_sales_series` / `fn_top_products` servant le chiffre d'affaires à qui le
+demandait, et `profiles_read_staff` ouvrant l'annuaire complet au premier membre
+du staff venu.
 
 ## Dette assumée à ce stade
 
@@ -96,6 +101,6 @@ membre du staff venu.
 | Assignation manuelle du livreur | le gérant connaît ses livreurs | > 5 livreurs simultanés |
 | Pas de chat client ↔ livreur | le téléphone suffit et coûte moins cher | retours terrain |
 | Images non redimensionnées côté serveur | Storage + `expo-image` gèrent le cache | > 100 produits |
-| Commission calculée à la volée, jamais figée | une renégociation doit se répercuter sur l'historique tant qu'aucune facture n'est émise | émission de la première facture |
-| Pas de reversement automatisé | la plateforme facture hors application | premier reversement mensuel |
 | Ajout d'un membre par e-mail d'un compte existant | créer le compte exigerait `service_role` côté navigateur | invitations Supabase Auth via Edge Function |
+| `restaurant_id` conservé partout malgré le mono-restaurant | la colonne porte les jointures ; la retirer imposait de réécrire toutes les policies et requêtes pour un gain nul | jamais, sauf réouverture d'un second point de vente |
+| Adresse et téléphone du restaurant en dur dans l'app livreur | `apps/driver/src/lib/restaurant.ts` ne lit pas la table `restaurants` | déménagement, ou changement de numéro |

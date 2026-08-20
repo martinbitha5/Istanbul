@@ -5,7 +5,6 @@ import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-  Buildings,
   ChartLineUp,
   ForkKnife,
   Gear,
@@ -20,10 +19,9 @@ import {
   Users,
   X,
 } from '@phosphor-icons/react';
-import { signOut, useProfile } from '@istanbul/core';
+import { signOut, useProfile, useRestaurantDetail } from '@istanbul/core';
 import { Avatar } from '@/components/Avatar';
 import { ThemeSwitcher } from '@/components/ThemeSwitcher';
-import { RestaurantSwitcher } from '@/components/RestaurantSwitcher';
 import {
   useRestaurantAccess,
   useRestaurantContext,
@@ -33,11 +31,9 @@ import {
 /**
  * Navigation, groupée par intention.
  *
- * Onze entrées à plat, c'est une liste qu'on relit à chaque fois. Trois
+ * Dix entrées à plat, c'est une liste qu'on relit à chaque fois. Trois
  * groupes courts — ce que je fais maintenant, ce que je fais vendre, ce que
- * j'administre — se parcourent d'un coup d'œil, et les nouvelles pages
- * (équipe, établissement, partenaires) trouvent une place évidente plutôt
- * que d'allonger la liste.
+ * j'administre — se parcourent d'un coup d'œil.
  *
  * `need` est le droit minimum. Une entrée invisible n'est pas une sécurité :
  * la RLS refuse déjà l'écriture. Elle évite d'exposer une page qui
@@ -80,7 +76,6 @@ const NAV_GROUPS: {
     items: [
       { href: '/staff', label: 'Équipe', icon: UsersThree, need: 'admin' },
       { href: '/settings', label: 'Établissement', icon: Gear, need: 'admin' },
-      { href: '/restaurants', label: 'Partenaires', icon: Buildings, need: 'platform' },
     ],
   },
 ];
@@ -135,7 +130,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
                     // La cible fait 44 px de haut (py-2.5 + line-height) :
                     // le gérant navigue au pouce depuis un téléphone posé
                     // près de la caisse.
-                    className="flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors duration-150 hover:bg-[var(--color-surface-sunken)]"
+                    // Pilule pleine largeur, comme la navigation Wise.
+                    className="flex cursor-pointer items-center gap-3 rounded-full px-3.5 py-2.5 text-sm font-medium transition-colors duration-150 hover:bg-[var(--color-surface-sunken)]"
                     style={{
                       background: active ? 'var(--color-primary-soft)' : undefined,
                       color: active
@@ -174,7 +170,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
       >
         <Brand />
         <div className="mt-4">
-          <RestaurantSwitcher />
+          <ServiceState />
         </div>
         {/* La navigation défile, pas la sidebar : le pied de page (thème,
             compte, déconnexion) doit rester atteignable même sur un écran
@@ -196,7 +192,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
           </button>
         </div>
         <div className="mt-4">
-          <RestaurantSwitcher onNavigate={() => setDrawerOpen(false)} />
+          <ServiceState />
         </div>
         <div className="mt-5 min-h-0 flex-1 overflow-y-auto">{nav}</div>
         <UserFooter profile={profile} onSignOut={handleSignOut} />
@@ -213,10 +209,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
           >
             <List size={20} aria-hidden />
           </button>
-          {/* En mobile, le nom de l'établissement remplace la marque : sur un
-              compte multi-partenaires, savoir *où* l'on est prime sur savoir
-              quelle application on utilise. */}
-          <MobileTitle />
+          <Brand compact />
         </header>
 
         <main id="contenu" className="mx-auto max-w-7xl p-4 sm:p-6 lg:p-8">
@@ -316,35 +309,63 @@ function MobileDrawer({
   );
 }
 
-function MobileTitle() {
-  const { restaurant } = useRestaurantContext();
-
-  return (
-    <span className="min-w-0">
-      <span
-        className="block truncate text-sm font-semibold leading-tight"
-        style={{ color: 'var(--color-text)' }}
-      >
-        {restaurant?.name ?? 'Istanbul'}
-      </span>
-      <span className="block text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">
-        Dashboard
-      </span>
-    </span>
-  );
-}
-
-function Brand() {
+function Brand({ compact = false }: { compact?: boolean }) {
   return (
     <div>
+      {/* Wordmark façon Wise : grotesque très grasse, interlettrage serré. */}
       <p
-        className="text-2xl leading-none tracking-tight"
-        style={{ fontFamily: 'var(--font-playfair)', color: 'var(--color-primary)' }}
+        className={
+          compact
+            ? 'text-lg font-extrabold leading-none tracking-tighter'
+            : 'text-2xl font-extrabold leading-none tracking-tighter'
+        }
+        style={{ fontFamily: 'var(--font-display)', color: 'var(--color-primary)' }}
       >
         Istanbul
       </p>
       <p className="mt-1 text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">
         Dashboard
+      </p>
+    </div>
+  );
+}
+
+/**
+ * État du service, à la place qu'occupait le sélecteur d'établissement.
+ *
+ * Ce n'est pas du remplissage : « est-ce qu'on prend encore des commandes ? »
+ * est la question qu'on se pose vingt fois par service, et la réponse était
+ * jusqu'ici enterrée dans la page Établissement. L'interrupteur reste sur la
+ * vue d'ensemble — ici on informe, on ne bascule pas, pour qu'un clic distrait
+ * dans la barre latérale ne coupe pas les ventes.
+ */
+function ServiceState() {
+  const { restaurant: initial } = useRestaurantContext();
+  // La fiche vient du cache React Query, amorcé par le provider : affichage
+  // immédiat, et l'interrupteur de la vue d'ensemble se répercute ici sans
+  // rechargement (les deux partagent la clé `restaurant`).
+  const { data } = useRestaurantDetail(initial.id);
+  const restaurant = data ?? initial;
+  const accepting = restaurant.is_accepting_orders && restaurant.is_open;
+
+  return (
+    <div
+      className="rounded-xl border px-3 py-2.5"
+      style={{
+        borderColor: 'var(--color-border)',
+        background: accepting ? 'var(--color-success-soft)' : 'var(--color-surface-sunken)',
+      }}
+    >
+      <p className="truncate text-sm font-semibold leading-tight" title={restaurant.name}>
+        {restaurant.name}
+      </p>
+      <p className="mt-1 flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)]">
+        <span
+          aria-hidden
+          className="inline-block h-1.5 w-1.5 shrink-0 rounded-full"
+          style={{ background: accepting ? 'var(--color-success)' : 'var(--color-text-muted)' }}
+        />
+        {accepting ? 'Commandes ouvertes' : 'Commandes fermées'}
       </p>
     </div>
   );

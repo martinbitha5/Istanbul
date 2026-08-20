@@ -1,12 +1,10 @@
-import React, { useCallback, useMemo, useState } from 'react';
-import { FlatList, Modal, RefreshControl, StyleSheet, View, type ListRenderItem } from 'react-native';
+import React, { useCallback, useMemo } from 'react';
+import { FlatList, RefreshControl, StyleSheet, View, type ListRenderItem } from 'react-native';
 import { router } from 'expo-router';
 import { Image } from 'expo-image';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import {
-  CaretDown,
   CaretRight,
-  Check,
   MagnifyingGlass,
   MapPin,
   Storefront,
@@ -25,7 +23,6 @@ import {
   useProfile,
   usePromotions,
   useRestaurant,
-  useRestaurants,
   useToggleFavorite,
 } from '@istanbul/core';
 import type { Address, Category, OrderDetail, Product, Promotion, Restaurant } from '@istanbul/types';
@@ -34,7 +31,6 @@ import {
   CategoryChips,
   EmptyState,
   ErrorState,
-  ListRow,
   ListSkeleton,
   Pressable,
   ProductCard,
@@ -45,7 +41,7 @@ import {
   Text,
   useTheme,
 } from '@istanbul/ui';
-import { useRestaurantId, useRestaurantStore } from '@/store/restaurant';
+import { RESTAURANT_ID as restaurantId } from '@/lib/restaurant';
 import { TabCartBar, useCartItemCount } from '@/components/TabCartBar';
 import { useCartBarListPadding } from '@/lib/layout';
 
@@ -60,7 +56,6 @@ export default function Home() {
   const theme = useTheme();
 
   const { profile } = useProfile();
-  const restaurantId = useRestaurantId();
   const { data: restaurant } = useRestaurant(restaurantId);
   const { data: categories } = useCategories(restaurantId);
   const { data: promotions } = usePromotions(restaurantId);
@@ -236,10 +231,6 @@ const HomeHeader = React.memo(function HomeHeader({
           </Text>
           <CaretRight size={theme.iconSize.xs} color={theme.colors.textMuted} weight="bold" />
         </Pressable>
-
-        {/* Sélecteur multi-restaurants — invisible tant qu'il n'y a
-            qu'un seul point de vente. */}
-        <RestaurantPicker />
       </View>
 
       <Spacer size="base" />
@@ -426,89 +417,6 @@ const HomeHeader = React.memo(function HomeHeader({
   );
 });
 
-/**
- * Sélecteur de restaurant.
- *
- * N'apparaît que si la base contient plusieurs restaurants : le jour où un
- * deuxième point de vente ouvre, il se matérialise sans mise à jour de l'app.
- * Changer de restaurant vide le panier (produits et prix n'existent pas
- * ailleurs) — le store s'en charge.
- */
-function RestaurantPicker() {
-  const theme = useTheme();
-  const restaurantId = useRestaurantStore((state) => state.restaurantId);
-  const setRestaurantId = useRestaurantStore((state) => state.setRestaurantId);
-  const { data: restaurants } = useRestaurants();
-  const [open, setOpen] = useState(false);
-
-  if (!restaurants || restaurants.length < 2) return null;
-
-  const current = restaurants.find((candidate) => candidate.id === restaurantId);
-
-  return (
-    <>
-      <Pressable
-        onPress={() => setOpen(true)}
-        noScale
-        accessibilityLabel="Changer de restaurant"
-        style={[styles.addressRow, { marginTop: theme.spacing.xs }]}
-      >
-        <Storefront size={theme.iconSize.sm} color={theme.colors.primary} weight="fill" />
-        <Text variant="label" color="textSecondary" numberOfLines={1} style={{ marginHorizontal: 6 }}>
-          {current?.name ?? 'Choisir un restaurant'}
-        </Text>
-        <CaretDown size={theme.iconSize.xs} color={theme.colors.textMuted} weight="bold" />
-      </Pressable>
-
-      <Modal
-        visible={open}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setOpen(false)}
-      >
-        <Pressable
-          onPress={() => setOpen(false)}
-          noScale
-          style={[
-            styles.pickerBackdrop,
-            { padding: theme.screenPadding, backgroundColor: theme.colors.overlay },
-          ]}
-        >
-          <Surface padding="none" elevation={3} style={{ paddingHorizontal: theme.spacing.base }}>
-            {restaurants.map((restaurant) => (
-              <ListRow
-                key={restaurant.id}
-                title={restaurant.name}
-                subtitle={restaurant.address_line}
-                icon={
-                  <Storefront
-                    size={theme.iconSize.sm}
-                    color={
-                      restaurant.id === restaurantId
-                        ? theme.colors.primary
-                        : theme.colors.textMuted
-                    }
-                    weight={restaurant.id === restaurantId ? 'fill' : 'regular'}
-                  />
-                }
-                right={
-                  restaurant.id === restaurantId ? (
-                    <Check size={theme.iconSize.sm} color={theme.colors.primary} weight="bold" />
-                  ) : undefined
-                }
-                onPress={() => {
-                  setRestaurantId(restaurant.id);
-                  setOpen(false);
-                }}
-              />
-            ))}
-          </Surface>
-        </Pressable>
-      </Modal>
-    </>
-  );
-}
-
 function PromoCard({ promotion }: { promotion: Promotion }) {
   const theme = useTheme();
 
@@ -572,5 +480,4 @@ const styles = StyleSheet.create({
   carouselItem: { width: 190 },
   promo: { width: 280, height: 150, overflow: 'hidden' },
   searchFacade: { flexDirection: 'row', alignItems: 'center', height: 48 },
-  pickerBackdrop: { flex: 1, justifyContent: 'center' },
 });

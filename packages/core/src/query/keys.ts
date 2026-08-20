@@ -13,14 +13,7 @@ export const queryKeys = {
   restaurant: (id: UUID) => ['restaurant', id] as const,
   restaurants: () => ['restaurants'] as const,
 
-  /** Périmètre du dashboard : les établissements que je peux administrer. */
-  myRestaurants: () => ['my-restaurants'] as const,
-  /** Tous les partenaires — administration de la plateforme uniquement. */
-  allRestaurants: () => ['admin', 'restaurants'] as const,
   restaurantMembers: (restaurantId: UUID) => ['admin', 'members', restaurantId] as const,
-  restaurantBilling: (restaurantId: UUID) => ['admin', 'billing', restaurantId] as const,
-  allBilling: () => ['admin', 'billing', 'all'] as const,
-  platformRevenue: (period: string) => ['admin', 'platform-revenue', period] as const,
   openingHours: (restaurantId: UUID) => ['opening-hours', restaurantId] as const,
 
   categories: (restaurantId: UUID) => ['categories', restaurantId] as const,

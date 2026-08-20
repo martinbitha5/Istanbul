@@ -3,7 +3,6 @@ import type {
   DriverAvailability,
   FulfillmentType,
   NotificationTopic,
-  EffectiveRestaurantRole,
   OptionSelectionType,
   OrderStatus,
   PaymentProvider,
@@ -52,21 +51,6 @@ export interface Restaurant {
   onboarded_at: ISODateString | null;
 }
 
-/**
- * Conditions commerciales d'un partenaire.
- *
- * Table séparée de `restaurants`, qui est en lecture publique : la commission
- * négociée n'a rien à faire dans la vitrine. Lisible par le propriétaire de
- * l'établissement, modifiable par la seule plateforme.
- */
-export interface RestaurantBilling {
-  restaurant_id: UUID;
-  /** Commission plateforme en points de base (100 bps = 1 %). */
-  commission_bps: number;
-  billing_email: string | null;
-  billing_note: string | null;
-}
-
 /** Horaires d'ouverture — 0 = dimanche … 6 = samedi. */
 export interface OpeningHour {
   id: UUID;
@@ -77,7 +61,7 @@ export interface OpeningHour {
   is_closed: boolean;
 }
 
-/** Rattachement d'une personne à l'équipe d'un établissement. */
+/** Rattachement d'une personne à l'équipe du restaurant. */
 export interface RestaurantMember {
   restaurant_id: UUID;
   profile_id: UUID;
@@ -87,22 +71,6 @@ export interface RestaurantMember {
   created_at: ISODateString;
   /** Jointure sur `profiles`, remplie par les requêtes du dashboard. */
   profile?: Pick<Profile, 'full_name' | 'email' | 'phone' | 'avatar_url'> | null;
-}
-
-/**
- * Établissement tel que le voit un membre du dashboard : la version courte
- * renvoyée par `fn_my_restaurants`, avec le rôle effectif de l'appelant.
- */
-export interface ManagedRestaurant {
-  id: UUID;
-  name: string;
-  slug: string;
-  logo_url: string | null;
-  city: string;
-  is_open: boolean;
-  is_accepting_orders: boolean;
-  is_published: boolean;
-  member_role: EffectiveRestaurantRole;
 }
 
 export interface Profile {
