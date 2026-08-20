@@ -1,6 +1,19 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+
+  /**
+   * Dossier de build, redirigeable.
+   *
+   * Un `next build` lancé pendant qu'un `next dev` tourne écrit dans le même
+   * `.next` et les deux se détruisent mutuellement : le serveur se met à
+   * répondre 500 (« ENOENT ... chunk »), le build meurt sur un « Cannot find
+   * module for page: /_document ». Aucun des deux messages ne parle du vrai
+   * problème, et on perd un après-midi à chercher un bug qui n'existe pas.
+   *
+   * `NEXT_DIST_DIR=.next-verif pnpm build` permet de vérifier une compilation
+   * sans toucher au serveur de développement en cours.
+   */
   distDir: process.env.NEXT_DIST_DIR || '.next',
 
   // Les packages du workspace sont livrés en TypeScript brut : Next doit les
