@@ -29,6 +29,8 @@ import { Avatar } from '@/components/Avatar';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { useToast } from '@/components/Toaster';
 import { useRestaurantId } from '@/hooks/useRestaurantId';
+import { useRestaurantAccess } from '@/providers/RestaurantProvider';
+import { EnrollDriverModal } from './EnrollDriverModal';
 
 /**
  * Livreurs.
@@ -45,9 +47,12 @@ export default function DriversPage() {
   const approve = useApproveDriver();
   const toast = useToast();
 
+  const access = useRestaurantAccess();
+
   // Spinner uniquement sur la ligne cliquée (approve.isPending était partagé).
   const [approvingId, setApprovingId] = useState<string | null>(null);
   const [suspending, setSuspending] = useState<Driver | null>(null);
+  const [enrollOpen, setEnrollOpen] = useState(false);
 
   // Les disponibles d'abord : en plein service, c'est la seule ligne qu'on
   // cherche. L'ordre de l'enum (OFFLINE, AVAILABLE, BUSY) ne correspond pas à
@@ -93,6 +98,11 @@ export default function DriversPage() {
         as="h1"
         title="Livreurs"
         description={`${online} en ligne sur ${list.length}`}
+        action={
+          access.manage ? (
+            <Button onClick={() => setEnrollOpen(true)}>Ajouter un livreur</Button>
+          ) : null
+        }
       />
 
       <Card padded={false} className="px-5 pb-2 pt-4">
@@ -103,7 +113,12 @@ export default function DriversPage() {
         ) : list.length === 0 ? (
           <EmptyState
             title="Aucun livreur"
-            description="Créez un compte avec le rôle DRIVER depuis Supabase, il apparaîtra ici pour approbation."
+            description="Enrôlez votre premier livreur : son compte est créé ici, et il se connecte ensuite à l’application livreur."
+            action={
+              access.manage ? (
+                <Button onClick={() => setEnrollOpen(true)}>Ajouter un livreur</Button>
+              ) : null
+            }
           />
         ) : (
           <Table responsive ariaLabel="Liste des livreurs">
@@ -232,6 +247,12 @@ export default function DriversPage() {
           </Table>
         )}
       </Card>
+
+      <EnrollDriverModal
+        open={enrollOpen}
+        onClose={() => setEnrollOpen(false)}
+        restaurantId={restaurantId}
+      />
 
       <ConfirmDialog
         open={suspending !== null}

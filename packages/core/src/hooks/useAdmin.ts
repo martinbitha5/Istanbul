@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { UUID } from '@istanbul/types';
 import {
   approveDriver,
+  createDriver,
   deleteCategory,
   deleteDeliveryZone,
   deleteOption,
@@ -224,6 +225,22 @@ export function useAssignableDrivers(restaurantId: UUID) {
     queryKey: queryKeys.assignableDrivers(restaurantId),
     queryFn: () => fetchAssignableDrivers(restaurantId),
     refetchInterval: 30_000,
+  });
+}
+
+/**
+ * Enrôlement d'un livreur.
+ *
+ * Invalide la liste comme `useApproveDriver` : la fiche doit apparaître dans
+ * le tableau sans que le gérant ait à recharger la page.
+ */
+export function useCreateDriver() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: createDriver,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['admin', 'drivers'] });
+    },
   });
 }
 

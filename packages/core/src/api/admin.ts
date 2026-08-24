@@ -11,6 +11,7 @@ import type {
   SalesPoint,
   TopProduct,
   UUID,
+  VehicleType,
 } from '@istanbul/types';
 import { getSupabase } from '../supabase/client';
 
@@ -305,6 +306,80 @@ export async function approveDriver(driverId: UUID, isApproved: boolean): Promis
     .update({ is_approved: isApproved })
     .eq('id', driverId);
   if (error) throw error;
+}
+
+/**
+ * Retrouve un profil par e-mail ou téléphone.
+ *
+ * Sert à l'enrôlement d'un livreur : avant de créer un compte, on regarde si
+ * la personne en a déjà un (elle a pu commander en tant que cliente). La
+ * lecture passe par la policy `profiles_read_staff` — inutile de sortir la
+ * clé service_role pour ça.
+ *
+ * La comparaison sur le téléphone ignore espaces, points et tirets : le même
+ * numéro s'écrit « +243 89 000 00 01 » au clavier et « +243890000001 » en
+ * base, et un enrôlement qui échoue sur un espace est incompréhensible.
+ */
+export async function findProfileByContact(
+  contact: string,
+): Promise<Pick<Profile, 'id' | 'full_name' | 'email' | 'phone'> | null> {
+  const trimmed = contact.trim();
+  if (!trimmed) return null;
+
+  const isEmail = trimmed.includes('@');
+  const normalized = isEmail ? trimmed.toLowerCase() : trimmed.replace(/[\s.-]/g, '');
+
+  const { data, error } = await getSupabase()
+    .from('profiles')
+    .select('id, full_name, email, phone')
+    .or(`email.ilike.${normalized},phone.eq.${normalized}`)
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw error;
+  return (data as Pick<Profile, 'id' | 'full_name' | 'email' | 'phone'> | null) ?? null;
+}
+
+export interface NewDriver {
+  profileId: UUID;
+  restaurantId: UUID;
+  vehicle: VehicleType;
+  plateNumber?: string | null;
+  nationalId?: string | null;
+  /** Un livreur enrôlé par le restaurant est approuvé d'office. */
+  isApproved?: boolean;
+}
+
+/**
+ * Rattache un profil existant à l'équipe de livraison.
+ *
+ * L'écriture est autorisée par la policy `drivers_manage_admin`
+ * (`fn_can_manage_restaurant`) : pas de fonction SECURITY DEFINER à écrire,
+ * pas de migration à passer en production pour cet écran.
+ *
+ * `profile_id` est unique : un `upsert` plutôt qu'un `insert` pour que
+ * réenrôler un ancien livreur suspendu remette simplement sa fiche à jour au
+ * lieu d'échouer sur une violation de contrainte.
+ */
+export async function createDriver(input: NewDriver): Promise<Driver> {
+  const { data, error } = await getSupabase()
+    .from('drivers')
+    .upsert(
+      {
+        profile_id: input.profileId,
+        restaurant_id: input.restaurantId,
+        vehicle: input.vehicle,
+        plate_number: input.plateNumber?.trim() || null,
+        national_id: input.nationalId?.trim() || null,
+        is_approved: input.isApproved ?? true,
+      },
+      { onConflict: 'profile_id' },
+    )
+    .select('*, profile:profiles ( full_name, phone, avatar_url )')
+    .single();
+
+  if (error) throw error;
+  return data as Driver;
 }
 
 // ---------------------------------------------------------------------------
