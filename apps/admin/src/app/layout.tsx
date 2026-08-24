@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter, Inter_Tight } from 'next/font/google';
+import { Figtree, Inter, Inter_Tight } from 'next/font/google';
 import { Providers } from './providers';
 import './globals.css';
 
@@ -19,9 +19,24 @@ const interTight = Inter_Tight({
   display: 'swap',
 });
 
+// Typographie de la vitrine : Figtree tient le rôle d'UberMove, propriétaire
+// et non redistribuable. Même grotesque géométrique légèrement arrondie, même
+// tenue en 700. Le texte courant reste sur Inter (≈ UberMoveText), déjà
+// chargée ci-dessus : la vitrine n'ajoute donc qu'une seule police.
+const figtree = Figtree({
+  subsets: ['latin'],
+  weight: ['500', '700', '800'],
+  variable: '--font-ue-display',
+  display: 'swap',
+});
+
 export const metadata: Metadata = {
-  title: 'Istanbul Fast Food — Dashboard',
-  description: 'Gestion des commandes, du menu et des livraisons.',
+  title: {
+    default: 'Istanbul Fast Food — Livraison à Kinshasa',
+    template: '%s — Istanbul Fast Food',
+  },
+  description:
+    'Commandez vos plats préférés chez Istanbul Fast Food et faites-vous livrer près de chez vous.',
 };
 
 export const viewport: Viewport = {
@@ -49,7 +64,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     // script inline, le serveur ne peut pas le connaître.
     <html
       lang="fr"
-      className={`${inter.variable} ${interTight.variable}`}
+      className={`${inter.variable} ${interTight.variable} ${figtree.variable}`}
       suppressHydrationWarning
     >
       <body>

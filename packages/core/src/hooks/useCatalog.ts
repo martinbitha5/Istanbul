@@ -1,3 +1,9 @@
+'use client';
+
+// Ces hooks partent dans le baril `@istanbul/core`, que la vitrine importe
+// depuis des composants serveur (pour `formatMoney`). Sans la directive, le
+// compilateur Next refuse tout le baril dès qu'un fichier y appelle un hook
+// React. Sur Expo, la directive est ignorée.
 import { useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { UUID } from '@istanbul/types';

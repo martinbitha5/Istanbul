@@ -14,6 +14,7 @@ import {
   Receipt,
   SignOut,
   SquaresFour,
+  Storefront,
   Tag,
   UsersThree,
   Users,
@@ -51,31 +52,31 @@ const NAV_GROUPS: {
   {
     label: null,
     items: [
-      { href: '/', label: 'Vue d’ensemble', icon: ChartLineUp, need: 'view' },
-      { href: '/orders', label: 'Commandes', icon: Receipt, need: 'view' },
+      { href: '/admin', label: 'Vue d’ensemble', icon: ChartLineUp, need: 'view' },
+      { href: '/admin/orders', label: 'Commandes', icon: Receipt, need: 'view' },
     ],
   },
   {
     label: 'Carte',
     items: [
-      { href: '/menu', label: 'Menu', icon: ForkKnife, need: 'manage' },
-      { href: '/categories', label: 'Catégories', icon: SquaresFour, need: 'manage' },
-      { href: '/promotions', label: 'Promotions', icon: Tag, need: 'manage' },
+      { href: '/admin/menu', label: 'Menu', icon: ForkKnife, need: 'manage' },
+      { href: '/admin/categories', label: 'Catégories', icon: SquaresFour, need: 'manage' },
+      { href: '/admin/promotions', label: 'Promotions', icon: Tag, need: 'manage' },
     ],
   },
   {
     label: 'Exploitation',
     items: [
-      { href: '/drivers', label: 'Livreurs', icon: Motorcycle, need: 'manage' },
-      { href: '/zones', label: 'Zones de livraison', icon: MapTrifold, need: 'manage' },
-      { href: '/customers', label: 'Clients', icon: Users, need: 'view' },
+      { href: '/admin/drivers', label: 'Livreurs', icon: Motorcycle, need: 'manage' },
+      { href: '/admin/zones', label: 'Zones de livraison', icon: MapTrifold, need: 'manage' },
+      { href: '/admin/customers', label: 'Clients', icon: Users, need: 'view' },
     ],
   },
   {
     label: 'Administration',
     items: [
-      { href: '/staff', label: 'Équipe', icon: UsersThree, need: 'admin' },
-      { href: '/settings', label: 'Établissement', icon: Gear, need: 'admin' },
+      { href: '/admin/staff', label: 'Équipe', icon: UsersThree, need: 'admin' },
+      { href: '/admin/settings', label: 'Établissement', icon: Gear, need: 'admin' },
     ],
   },
 ];
@@ -98,7 +99,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
   const handleSignOut = async () => {
     await signOut();
-    router.replace('/login');
+    router.replace('/admin/login');
     router.refresh();
   };
 
@@ -394,6 +395,18 @@ function UserFooter({
           </p>
         </div>
       </div>
+
+      {/* Vers la vitrine publique, qui occupe désormais la racine du site.
+          Le gérant y va pour vérifier ce que le client voit après une
+          modification de la carte — c'est un aller-retour constant. */}
+      <Link
+        href="/"
+        className="flex w-full cursor-pointer items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-colors duration-150 hover:bg-[var(--color-surface-sunken)]"
+        style={{ color: 'var(--color-text-secondary)' }}
+      >
+        <Storefront size={18} aria-hidden />
+        Voir la vitrine
+      </Link>
 
       <button
         onClick={onSignOut}

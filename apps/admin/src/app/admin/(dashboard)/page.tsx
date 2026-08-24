@@ -179,7 +179,7 @@ export default function DashboardPage() {
           title="En cours de traitement"
           description="Cliquez sur un statut pour filtrer la file des commandes."
           action={
-            <Link href="/orders">
+            <Link href="/admin/orders">
               <Button variant="secondary" size="sm">
                 Ouvrir la file
               </Button>
@@ -192,25 +192,25 @@ export default function DashboardPage() {
             label="Nouvelles"
             count={stats.data ? stats.data.orders_new : null}
             tone="warning"
-            href="/orders?status=NEW"
+            href="/admin/orders?status=NEW"
           />
           <QueueTile
             label="En préparation"
             count={stats.data ? stats.data.orders_preparing : null}
             tone="info"
-            href="/orders?status=PREPARING"
+            href="/admin/orders?status=PREPARING"
           />
           <QueueTile
             label="Prêtes"
             count={stats.data ? stats.data.orders_ready : null}
             tone="info"
-            href="/orders?status=READY"
+            href="/admin/orders?status=READY"
           />
           <QueueTile
             label="En livraison"
             count={stats.data ? stats.data.orders_in_transit : null}
             tone="neutral"
-            href="/orders?status=PICKED_UP"
+            href="/admin/orders?status=PICKED_UP"
           />
         </div>
       </Card>

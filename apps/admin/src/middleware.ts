@@ -12,11 +12,20 @@ type CookieToSet = { name: string; value: string; options: CookieOptions };
  * session expire silencieusement au bout d'une heure), et rediriger vers la
  * connexion si l'utilisateur n'est pas authentifié.
  *
+ * Il ne couvre que `/admin` : la racine est la vitrine publique, qui doit
+ * s'afficher pour un visiteur anonyme (le catalogue est lisible par `anon`).
+ * Le `matcher` en bas fait déjà ce filtrage — la garde ici n'est qu'une
+ * ceinture de sécurité si le motif venait à s'élargir.
+ *
  * Le contrôle de rôle (staff / admin) reste côté RLS : ce middleware ne fait
  * que de l'aiguillage, il n'est pas une barrière de sécurité.
  */
 export async function middleware(request: NextRequest) {
-  const isLoginPage = request.nextUrl.pathname.startsWith('/login');
+  if (!request.nextUrl.pathname.startsWith('/admin')) {
+    return NextResponse.next({ request });
+  }
+
+  const isLoginPage = request.nextUrl.pathname.startsWith('/admin/login');
 
   // Aucun cookie de session : inutile de construire un client Supabase et
   // d'aller interroger le serveur d'authentification pour se faire répondre
@@ -70,7 +79,7 @@ export async function middleware(request: NextRequest) {
 
   if (authenticated && isLoginPage) {
     const url = request.nextUrl.clone();
-    url.pathname = '/';
+    url.pathname = '/admin';
     url.search = '';
     return NextResponse.redirect(url);
   }
@@ -87,7 +96,7 @@ function hasAuthCookie(request: NextRequest): boolean {
 
 function redirectToLogin(request: NextRequest) {
   const url = request.nextUrl.clone();
-  url.pathname = '/login';
+  url.pathname = '/admin/login';
   url.search = '';
   // On mémorise la destination pour y revenir après connexion.
   url.searchParams.set('redirect', request.nextUrl.pathname);
@@ -95,8 +104,11 @@ function redirectToLogin(request: NextRequest) {
 }
 
 export const config = {
-  // `_next/*` en entier, pas seulement `static` : les requêtes de données de
-  // navigation client (`_next/data`) déclenchaient elles aussi une validation
-  // de session, alors que la page qu'elles servent la refait de son côté.
-  matcher: ['/((?!_next/|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)'],
+  // Seul le backoffice est gardé. La vitrine (`/`, `/feed`) ne doit déclencher
+  // aucune validation de session : elle s'affiche pour un visiteur anonyme, et
+  // un aller-retour d'authentification en tête de chaque page publique se
+  // paierait sur le premier rendu.
+  //
+  // `:path*` couvre aussi `/admin` tout court (zéro segment).
+  matcher: ['/admin/:path*'],
 };

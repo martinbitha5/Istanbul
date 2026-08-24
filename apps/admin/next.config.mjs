@@ -47,6 +47,37 @@ const nextConfig = {
     ],
   },
 
+  /**
+   * Anciennes URL du dashboard.
+   *
+   * La racine est passée à la vitrine publique et le backoffice est descendu
+   * sous /admin. Les signets et les onglets épinglés de l'équipe pointent
+   * encore sur /orders ou /menu : sans ces redirections ils tomberaient sur
+   * un 404 de la vitrine, ce qui se lit comme « le dashboard a disparu ».
+   *
+   * Redirections permanentes : ces chemins ne reviendront pas.
+   */
+  async redirects() {
+    const moved = [
+      'login',
+      'orders',
+      'menu',
+      'categories',
+      'promotions',
+      'drivers',
+      'zones',
+      'customers',
+      'staff',
+      'settings',
+    ];
+
+    return moved.map((path) => ({
+      source: `/${path}`,
+      destination: `/admin/${path}`,
+      permanent: true,
+    }));
+  },
+
   // `typedRoutes` est volontairement désactivé : il transforme chaque href en
   // union littérale, ce qui oblige à caster les URL construites
   // (« /orders?status=NEW ») et fait échouer le build pour un gain nul ici.

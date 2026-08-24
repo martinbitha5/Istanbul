@@ -17,7 +17,7 @@ import { RestaurantProvider } from '@/providers/RestaurantProvider';
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { profile, restaurant, role, isAdmin } = await getDashboardBootstrap();
 
-  if (!profile) redirect('/login');
+  if (!profile) redirect('/admin/login');
 
   const allowed = ['RESTAURANT_STAFF', 'ADMIN', 'SUPER_ADMIN'];
   if (!allowed.includes(profile.role)) {

@@ -34,7 +34,9 @@ function LoginForm() {
       await signInWithEmail(email, password);
       // refresh() force le middleware à relire le cookie de session fraîchement
       // posé — sans lui, la première navigation reboucle sur /login.
-      router.replace((params.get('redirect') as never) ?? '/');
+      // Défaut `/admin` et non `/` : la racine est désormais la vitrine
+      // publique, pas le dashboard.
+      router.replace((params.get('redirect') as never) ?? '/admin');
       router.refresh();
       // Pas de setSubmitting(false) ici : le spinner doit tenir jusqu'à ce que
       // la navigation démonte cette page. L'arrêter dès la réponse de Supabase

@@ -1,0 +1,283 @@
+/* ---------------------------------------------------------------------------
+   Tokens de la vitrine publique — design relevé sur Uber Eats.
+
+   Provenance : les deux pages sauvegardées sur le bureau (accueil et feed).
+   Uber sert son CSS en classes atomiques inlinées dans le HTML ; les valeurs
+   ci-dessous sont celles qui en ressortent réellement, pas une approximation
+   à l'œil :
+
+     police    UberMove (titres) / UberMoveText (texte)
+     tailles   52/64, 36/44, 28/36 · 18/24, 16/24, 14/20
+     graisses  700, 500, normal
+     couleurs  #000000, #FFFFFF, #F3F3F3, #E8E8E8, #EEEEEE, #06C167, #142328
+     rayons    8px (cartes, images) et 500px (pilules)
+     ombres    0 0 8px rgba(0,0,0,.1) + 0 4px 4px rgba(0,0,0,.04)
+     entête    64px de haut, 56px en mobile · conteneur 1280px, gouttière 40px
+
+   Ce bloc est volontairement séparé de globals.css : le backoffice garde son
+   thème Wise (vert forêt, rayons 16/24, pilules), la vitrine prend le thème
+   Uber (noir et blanc, rayon 8, accent vert). Les deux cohabitent sans se
+   marcher dessus parce que tout est porté par `[data-surface='store']`.
+--------------------------------------------------------------------------- */
+
+[data-surface='store'] {
+  /* Uber Eats n'a pas de mode sombre : la vitrine est claire, point.
+     Sans ce `color-scheme`, un visiteur en préférence sombre récupérait des
+     champs de formulaire et des scrollbars noirs sur fond blanc. */
+  color-scheme: light;
+
+  /* --- Couleurs ---------------------------------------------------------
+     `ink` est le noir de marque : Uber l'utilise pour le texte *et* pour les
+     boutons primaires. L'accent vert (#06C167) ne sert qu'aux signaux
+     positifs (badge « ouvert », prix promo), jamais comme fond de bouton. */
+  --ue-ink: #000000;
+  --ue-ink-secondary: #545454;
+  --ue-ink-tertiary: #757575;
+  --ue-ink-inverse: #ffffff;
+
+  --ue-surface: #ffffff;
+  /* Fond des champs de recherche et des puces au repos. */
+  --ue-surface-sunken: #f3f3f3;
+  /* Boutons secondaires, puces sélectionnées, survols. */
+  --ue-surface-muted: #e8e8e8;
+  --ue-surface-ink: #000000;
+
+  --ue-border: #e2e2e2;
+  --ue-border-subtle: #eeeeee;
+
+  --ue-green: #06c167;
+  --ue-green-pressed: #048a4a;
+  --ue-green-soft: #e6f8ee;
+  --ue-deep: #142328;
+
+  /* --- Rayons -----------------------------------------------------------
+     Uber n'en a que deux. Pas de 12px, pas de 16px : une carte fait 8, une
+     pilule fait 500. Toute autre valeur trahit immédiatement la copie. */
+  --ue-radius: 8px;
+  --ue-pill: 500px;
+
+  --ue-shadow-card:
+    0px 0px 8px rgba(0, 0, 0, 0.1), 0px 4px 4px rgba(0, 0, 0, 0.04);
+  --ue-shadow-pop: 0px 0px 25px rgba(0, 0, 0, 0.1);
+  --ue-shadow-header: inset 0px -1px 0px #f3f3f3;
+
+  --ue-header-height: 64px;
+  --ue-container: 1280px;
+  --ue-gutter: 40px;
+
+  /* Figtree remplace UberMove, qui est propriétaire et non redistribuable :
+     même grotesque géométrique un peu ronde, mêmes proportions en gras. Le
+     texte courant reste sur Inter, très proche d'UberMoveText. */
+  --ue-font-display: var(--font-ue-display), 'Helvetica Neue', Helvetica, Arial,
+    sans-serif;
+  --ue-font-text: var(--font-inter), system-ui, 'Helvetica Neue', Helvetica,
+    Arial, sans-serif;
+
+  background: var(--ue-surface);
+  color: var(--ue-ink);
+  font-family: var(--ue-font-text);
+}
+
+@media (max-width: 767px) {
+  [data-surface='store'] {
+    --ue-header-height: 56px;
+    --ue-gutter: 16px;
+  }
+}
+
+@layer components {
+  /* ---------------------------------------------------------------------------
+     Échelle typographique.
+
+     Elle est nommée par rôle et non par taille : `.ue-display` reste le titre
+     de héros même le jour où il passera de 52 à 48 px.
+  --------------------------------------------------------------------------- */
+  [data-surface='store'] .ue-display,
+  [data-surface='store'] .ue-h1,
+  [data-surface='store'] .ue-h2,
+  [data-surface='store'] .ue-h3 {
+    font-family: var(--ue-font-display);
+    font-weight: 700;
+    /* UberMove est plus étroite que Figtree : ce demi-cran de resserrement
+       rattrape la différence sur les gros titres, là où elle se voit. */
+    letter-spacing: -0.02em;
+  }
+
+  [data-surface='store'] .ue-display {
+    font-size: 40px;
+    line-height: 48px;
+  }
+
+  @media (min-width: 768px) {
+    [data-surface='store'] .ue-display {
+      font-size: 52px;
+      line-height: 64px;
+    }
+  }
+
+  [data-surface='store'] .ue-h1 {
+    font-size: 28px;
+    line-height: 36px;
+  }
+
+  @media (min-width: 768px) {
+    [data-surface='store'] .ue-h1 {
+      font-size: 36px;
+      line-height: 44px;
+    }
+  }
+
+  [data-surface='store'] .ue-h2 {
+    font-size: 24px;
+    line-height: 32px;
+  }
+
+  @media (min-width: 768px) {
+    [data-surface='store'] .ue-h2 {
+      font-size: 28px;
+      line-height: 36px;
+    }
+  }
+
+  [data-surface='store'] .ue-h3 {
+    font-size: 18px;
+    line-height: 24px;
+  }
+
+  /* ---------------------------------------------------------------------------
+     Composants récurrents.
+
+     Seulement ceux qui reviennent partout et dont la moindre dérive se
+     remarque (un bouton à 6px de rayon au milieu de pilules). Le reste du
+     style vit dans les composants, en utilitaires Tailwind.
+  --------------------------------------------------------------------------- */
+  [data-surface='store'] .ue-container {
+    width: 100%;
+    max-width: var(--ue-container);
+    margin: 0 auto;
+    padding-left: var(--ue-gutter);
+    padding-right: var(--ue-gutter);
+  }
+
+  [data-surface='store'] .ue-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border: none;
+    border-radius: var(--ue-pill);
+    padding: 12px 20px;
+    font-family: var(--ue-font-text);
+    font-size: 16px;
+    line-height: 20px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 200ms cubic-bezier(0, 0, 1, 1);
+    white-space: nowrap;
+  }
+
+  [data-surface='store'] .ue-btn-primary {
+    background: var(--ue-surface-ink);
+    color: var(--ue-ink-inverse);
+  }
+
+  [data-surface='store'] .ue-btn-primary:hover {
+    background: #333333;
+  }
+
+  [data-surface='store'] .ue-btn-secondary {
+    background: var(--ue-surface-muted);
+    color: var(--ue-ink);
+  }
+
+  [data-surface='store'] .ue-btn-secondary:hover {
+    background: #dcdcdc;
+  }
+
+  [data-surface='store'] .ue-btn-ghost {
+    background: transparent;
+    color: var(--ue-ink);
+  }
+
+  [data-surface='store'] .ue-btn-ghost:hover {
+    background: var(--ue-surface-sunken);
+  }
+
+  [data-surface='store'] .ue-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  /* Puce de filtre : bordure au repos, inversée en noir quand elle est active —
+     c'est exactement le comportement des filtres « Offres / Frais / Trier ». */
+  [data-surface='store'] .ue-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid var(--ue-border);
+    border-radius: var(--ue-pill);
+    background: var(--ue-surface);
+    padding: 8px 16px;
+    font-size: 14px;
+    line-height: 20px;
+    font-weight: 500;
+    color: var(--ue-ink);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background-color 200ms cubic-bezier(0, 0, 1, 1);
+  }
+
+  [data-surface='store'] .ue-chip:hover {
+    background: var(--ue-surface-sunken);
+  }
+
+  [data-surface='store'] .ue-chip[aria-pressed='true'],
+  [data-surface='store'] .ue-chip[data-active='true'] {
+    background: var(--ue-surface-ink);
+    border-color: var(--ue-surface-ink);
+    color: var(--ue-ink-inverse);
+  }
+
+  /* Les rails horizontaux (catégories, promos, cartes produit) défilent au
+     doigt sans jamais montrer de barre : Uber s'appuie sur des flèches. */
+  [data-surface='store'] .ue-rail {
+    display: flex;
+    overflow-x: auto;
+    scroll-behavior: smooth;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  [data-surface='store'] .ue-rail::-webkit-scrollbar {
+    display: none;
+  }
+
+  [data-surface='store'] .ue-rail > * {
+    scroll-snap-align: start;
+    flex: 0 0 auto;
+  }
+
+  /* Placeholder d'image : le dégradé balayé d'Uber, repris tel quel. */
+  [data-surface='store'] .ue-skeleton {
+    background-color: #e8e8e8;
+    background-image: linear-gradient(120deg, #e8e8e8 20%, #f3f3f3 28%, #e8e8e8 43%);
+    background-size: 100vw 100%;
+    animation: ue-shimmer 1.6s linear infinite;
+  }
+
+  @keyframes ue-shimmer {
+    from {
+      background-position: -100vw 0;
+    }
+    to {
+      background-position: 100vw 0;
+    }
+  }
+
+  [data-surface='store'] :focus-visible {
+    outline: 2px solid var(--ue-ink);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+}

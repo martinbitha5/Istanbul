@@ -1,5 +1,9 @@
 @import 'tailwindcss';
 
+/* Tokens de la vitrine publique (thème Uber Eats), portés par
+   `[data-surface='store']` : ils ne touchent pas au thème Wise ci-dessous. */
+@import './store.css';
+
 /* ---------------------------------------------------------------------------
    Tokens du dashboard — thème « Wise ».
 

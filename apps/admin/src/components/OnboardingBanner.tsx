@@ -60,7 +60,7 @@ export function OnboardingBanner() {
       done: (categories.data ?? []).length > 0,
       label: 'Créer au moins une catégorie',
       hint: 'Entrées, Sandwichs, Boissons… la carte s’organise avant de se remplir.',
-      href: '/categories',
+      href: '/admin/categories',
       cta: 'Ouvrir les catégories',
     },
     {
@@ -70,21 +70,21 @@ export function OnboardingBanner() {
         activeProducts.length > 0
           ? `${activeProducts.length} produit${activeProducts.length > 1 ? 's' : ''} actif${activeProducts.length > 1 ? 's' : ''} pour l’instant.`
           : 'Une carte vide en vitrine fait fuir un client pour de bon.',
-      href: '/menu',
+      href: '/admin/menu',
       cta: 'Ouvrir le menu',
     },
     {
       done: activeZones.length > 0,
       label: 'Régler les zones de livraison',
       hint: 'Sans zone active, aucun frais ne peut être calculé et la commande est refusée.',
-      href: '/zones',
+      href: '/admin/zones',
       cta: 'Ouvrir les zones',
     },
     {
       done: openDays.length > 0,
       label: 'Confirmer les horaires',
       hint: 'Les horaires par défaut (10h–22h, 7j/7) sont rarement les bons.',
-      href: '/settings',
+      href: '/admin/settings',
       cta: 'Ouvrir l’établissement',
     },
   ];

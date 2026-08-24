@@ -85,6 +85,31 @@ pnpm admin    # Next.js — http://localhost:3000
 
 ---
 
+## ☁️ Déploiement du dashboard (Vercel)
+
+Seul `apps/admin` est déployé. Le projet Vercel doit être configuré ainsi :
+
+| Réglage | Valeur |
+|---------|--------|
+| Root Directory | `apps/admin` |
+| Include files outside root directory | activé (le monorepo pnpm en dépend) |
+| Framework | Next.js (détecté) |
+
+Le reste vit dans `apps/admin/vercel.json`, notamment l'`installCommand`. Sans le
+filtre `--filter @istanbul/admin...`, Vercel installerait tout le workspace —
+dont les deux applications Expo et leurs dépendances natives, inutiles ici et
+longues à télécharger. Le filtre ne retient que le dashboard et les packages
+dont il dépend (`types`, `core`).
+
+⚠️ `vercel.json` est validé contre un schéma strict : **aucune clé hors schéma**,
+pas même un `"//"` de commentaire — le build échoue avant de compiler.
+
+Les deux variables `NEXT_PUBLIC_*` sont versionnées dans
+`apps/admin/.env.production` (elles sont publiques par conception, la sécurité
+repose sur la RLS) : rien à renseigner côté Vercel.
+
+---
+
 ## 🎯 Le parcours de bout en bout
 
 ```

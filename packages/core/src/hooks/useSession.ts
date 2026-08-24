@@ -1,3 +1,5 @@
+'use client';
+
 import { useEffect, useSyncExternalStore } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
