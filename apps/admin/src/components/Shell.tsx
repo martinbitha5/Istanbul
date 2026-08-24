@@ -22,6 +22,7 @@ import {
 } from '@phosphor-icons/react';
 import { signOut, useProfile, useRestaurantDetail } from '@istanbul/core';
 import { Avatar } from '@/components/Avatar';
+import { Logo } from '@/components/Logo';
 import { ThemeSwitcher } from '@/components/ThemeSwitcher';
 import {
   useRestaurantAccess,
@@ -131,8 +132,16 @@ export function Shell({ children }: { children: React.ReactNode }) {
                     // La cible fait 44 px de haut (py-2.5 + line-height) :
                     // le gérant navigue au pouce depuis un téléphone posé
                     // près de la caisse.
-                    // Pilule pleine largeur, comme la navigation Wise.
-                    className="flex cursor-pointer items-center gap-3 rounded-full px-3.5 py-2.5 text-sm font-medium transition-colors duration-150 hover:bg-[var(--color-surface-sunken)]"
+                    // Pilule pleine largeur : le rayon 500 d'Uber, appliqué
+                    // à une entrée de navigation.
+                    // La graisse double le gris pour marquer l'entrée active :
+                    // en monochrome, deux gris voisins ne suffisent pas à
+                    // distinguer « sélectionné » de « survolé ».
+                    className={`flex cursor-pointer items-center gap-3 rounded-full px-3.5 py-2.5 text-sm transition-colors duration-150 ${
+                      active
+                        ? 'font-semibold'
+                        : 'font-medium hover:bg-[var(--color-surface-sunken)]'
+                    }`}
                     style={{
                       background: active ? 'var(--color-primary-soft)' : undefined,
                       color: active
@@ -165,8 +174,11 @@ export function Shell({ children }: { children: React.ReactNode }) {
       </a>
 
       {/* --- Sidebar (desktop) ------------------------------------------ */}
+      {/* Filet de séparation sur `divider` (#EEE) et non `border` : c'est le
+          trait d'Uber, assez présent pour poser la colonne, assez discret
+          pour ne pas la transformer en encadré. */}
       <aside
-        className="hidden w-64 shrink-0 flex-col border-r border-[var(--color-border)] bg-[var(--color-surface)] p-4 lg:flex"
+        className="hidden w-64 shrink-0 flex-col border-r border-[var(--color-divider)] bg-[var(--color-surface)] p-4 lg:flex"
         style={{ position: 'sticky', top: 0, height: '100dvh' }}
       >
         <Brand />
@@ -187,7 +199,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
           <button
             onClick={() => setDrawerOpen(false)}
             aria-label="Fermer le menu"
-            className="cursor-pointer rounded-full p-2 text-[var(--color-text-muted)]"
+            className="grid h-10 w-10 shrink-0 cursor-pointer place-items-center rounded-full bg-[var(--color-surface-sunken)] text-[var(--color-text)] transition-colors duration-200 hover:bg-[var(--color-surface-muted)]"
           >
             <X size={20} aria-hidden />
           </button>
@@ -201,14 +213,22 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
       {/* --- Contenu ----------------------------------------------------- */}
       <div className="min-w-0 flex-1">
-        <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-[var(--color-border)] bg-[var(--color-background)]/85 px-4 py-3 backdrop-blur lg:hidden">
+        {/* Même entête que la vitrine en mobile : 56 px, fond plein, et le
+            filet posé en `inset` plutôt qu'en bordure — c'est ce qui donne
+            au trait son épaisseur d'un pixel exact au défilement. */}
+        <header
+          className="sticky top-0 z-30 flex items-center gap-3 bg-[var(--color-background)] px-4 lg:hidden"
+          style={{
+            height: 'var(--ue-header-height)',
+            boxShadow: 'inset 0 -1px 0 var(--color-divider)',
+          }}
+        >
           <button
             onClick={() => setDrawerOpen(true)}
             aria-label="Ouvrir le menu"
-            className="cursor-pointer rounded-xl p-2"
-            style={{ background: 'var(--color-surface)' }}
+            className="-ml-2 grid h-10 w-10 shrink-0 cursor-pointer place-items-center rounded-full transition-colors duration-200 hover:bg-[var(--color-surface-sunken)]"
           >
-            <List size={20} aria-hidden />
+            <List size={24} aria-hidden />
           </button>
           <Brand compact />
         </header>
@@ -310,23 +330,35 @@ function MobileDrawer({
   );
 }
 
+/**
+ * Le mot-logo, identique à celui de la vitrine (StoreHeader) : « Istanbul »
+ * en 800, « Fast Food » en 500, interlettrage à -0.03em. C'est le premier
+ * élément que le gérant voit en basculant d'un côté à l'autre — s'il change
+ * de dessin, les deux surfaces n'ont pas l'air d'appartenir au même produit.
+ *
+ * Seule l'exergue « Dashboard » s'ajoute ici, pour lever l'ambiguïté quand
+ * les deux onglets sont ouverts côte à côte.
+ */
 function Brand({ compact = false }: { compact?: boolean }) {
   return (
-    <div>
-      {/* Wordmark façon Wise : grotesque très grasse, interlettrage serré. */}
-      <p
-        className={
-          compact
-            ? 'text-lg font-extrabold leading-none tracking-tighter'
-            : 'text-2xl font-extrabold leading-none tracking-tighter'
-        }
-        style={{ fontFamily: 'var(--font-display)', color: 'var(--color-primary)' }}
-      >
-        Istanbul
-      </p>
-      <p className="mt-1 text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">
-        Dashboard
-      </p>
+    <div className="flex items-center gap-2.5">
+      <Logo height={compact ? 32 : 40} priority />
+      <div>
+        <p
+          className={`whitespace-nowrap leading-none ${compact ? 'text-lg' : 'text-xl'}`}
+          style={{
+            fontFamily: 'var(--font-display)',
+            letterSpacing: '-0.03em',
+            color: 'var(--color-text)',
+          }}
+        >
+          <span style={{ fontWeight: 800 }}>Istanbul</span>{' '}
+          <span style={{ fontWeight: 500 }}>Fast Food</span>
+        </p>
+        <p className="mt-1 text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">
+          Dashboard
+        </p>
+      </div>
     </div>
   );
 }

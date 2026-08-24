@@ -115,7 +115,7 @@ export function OnboardingBanner() {
             <Rocket size={20} style={{ color: 'var(--color-on-primary-soft)' }} />
           </span>
           <div className="min-w-0">
-            <h2 className="text-lg font-semibold" style={{ fontFamily: 'var(--font-display)' }}>
+            <h2 className="display text-lg">
               Mise en route
             </h2>
             <p className="mt-0.5 text-sm text-[var(--color-text-secondary)]">

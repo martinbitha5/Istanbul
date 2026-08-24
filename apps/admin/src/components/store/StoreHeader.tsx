@@ -14,6 +14,7 @@ import {
   X,
 } from '@phosphor-icons/react';
 import { selectItemCount, useCartStore, useSession } from '@istanbul/core';
+import { Logo } from '@/components/Logo';
 import { setDeliveryPrefs, useDeliveryPrefs } from '@/lib/delivery-prefs';
 
 /**
@@ -158,23 +159,28 @@ export function StoreHeader({
 }
 
 /**
- * Le mot-logo.
+ * Le logo suivi du mot-logo.
  *
  * Uber écrit « Uber Eats » en deux graisses ; ici « Istanbul » en 800 et
  * « Fast Food » en 500, même principe de contraste dans un seul mot-logo.
+ * L'ovale de l'enseigne le précède — le texte reste, car l'ovale n'est plus
+ * lisible à cette taille.
  */
 function Wordmark() {
   return (
-    <span
-      className="whitespace-nowrap text-xl leading-none md:text-[22px]"
-      style={{ fontFamily: 'var(--ue-font-display)', letterSpacing: '-0.03em' }}
-    >
-      <span style={{ fontWeight: 800 }}>Istanbul</span>
-      {/* « Fast Food » saute sous 640 px : sur le feed, la place gagnée va à
-          l'adresse et au panier. */}
-      <span style={{ fontWeight: 500 }} className="hidden sm:inline">
-        {' '}
-        Fast Food
+    <span className="flex items-center gap-2">
+      <Logo height={34} priority />
+      <span
+        className="whitespace-nowrap text-xl leading-none md:text-[22px]"
+        style={{ fontFamily: 'var(--ue-font-display)', letterSpacing: '-0.03em' }}
+      >
+        <span style={{ fontWeight: 800 }}>Istanbul</span>
+        {/* « Fast Food » saute sous 640 px : sur le feed, la place gagnée va à
+            l'adresse et au panier. */}
+        <span style={{ fontWeight: 500 }} className="hidden sm:inline">
+          {' '}
+          Fast Food
+        </span>
       </span>
     </span>
   );
@@ -464,13 +470,7 @@ function StoreDrawer({ open, onClose }: { open: boolean; onClose: () => void }) 
 
         <div className="mt-auto pt-8">
           <div className="flex items-center gap-3">
-            <span
-              aria-hidden
-              className="grid h-12 w-12 shrink-0 place-items-center rounded-[var(--ue-radius)] text-lg font-extrabold text-[var(--ue-ink-inverse)]"
-              style={{ background: 'var(--ue-surface-ink)', fontFamily: 'var(--ue-font-display)' }}
-            >
-              IF
-            </span>
+            <Logo height={48} />
             <p className="text-base font-medium leading-snug">Encore mieux dans l’application.</p>
           </div>
           <div className="mt-4 flex gap-2">

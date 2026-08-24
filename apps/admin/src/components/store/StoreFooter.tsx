@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { AppleLogo, FacebookLogo, GooglePlayLogo, InstagramLogo, WhatsappLogo } from '@phosphor-icons/react/dist/ssr';
+import { Logo } from '@/components/Logo';
 
 /**
  * Pied de page, structuré comme celui d'Uber Eats : mot-logo à gauche, deux
@@ -37,12 +38,15 @@ export function StoreFooter({ phone, city }: { phone?: string | null; city?: str
       <div className="ue-container">
         <div className="flex flex-col gap-10 md:flex-row md:justify-between">
           <div>
-            <p
-              className="text-2xl leading-none"
-              style={{ fontFamily: 'var(--ue-font-display)', fontWeight: 800, letterSpacing: '-0.03em' }}
-            >
-              Istanbul <span style={{ fontWeight: 500 }}>Fast Food</span>
-            </p>
+            <div className="flex items-center gap-3">
+              <Logo height={56} />
+              <p
+                className="text-2xl leading-none"
+                style={{ fontFamily: 'var(--ue-font-display)', fontWeight: 800, letterSpacing: '-0.03em' }}
+              >
+                Istanbul <span style={{ fontWeight: 500 }}>Fast Food</span>
+              </p>
+            </div>
 
             <div className="mt-6 flex gap-2">
               <span className="ue-btn ue-btn-secondary !px-4 !text-sm">

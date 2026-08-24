@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { signInWithEmail, toUserMessage } from '@istanbul/core';
 import { Button, Card, Field, inputClass } from '@/components/ui';
 import { Alert } from '@/components/Alert';
+import { Logo } from '@/components/Logo';
 import { getBrowserClient } from '@/lib/supabase/client';
 
 export default function LoginPage() {
@@ -51,13 +52,21 @@ function LoginForm() {
   return (
     <main className="flex min-h-dvh items-center justify-center p-6">
       <div className="w-full max-w-sm">
-        <div className="mb-8 text-center">
-          {/* Le logo est le titre principal de la page de connexion. */}
+        <div className="mb-8 flex flex-col items-center text-center">
+          <Logo height={96} priority className="mb-4" />
+          {/* Le nom écrit reste le titre principal de la page : l'ovale porte
+              « Pide & Kebap », pas « Istanbul Fast Food ». Même dessin que sur
+              la vitrine et dans la barre latérale. */}
           <h1
-            className="text-3xl font-extrabold tracking-tighter"
-            style={{ fontFamily: 'var(--font-display)', color: 'var(--color-primary)' }}
+            className="text-3xl leading-none"
+            style={{
+              fontFamily: 'var(--font-display)',
+              letterSpacing: '-0.03em',
+              color: 'var(--color-text)',
+            }}
           >
-            Istanbul
+            <span style={{ fontWeight: 800 }}>Istanbul</span>{' '}
+            <span style={{ fontWeight: 500 }}>Fast Food</span>
           </h1>
           <p className="mt-1 text-xs font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">
             Dashboard restaurant

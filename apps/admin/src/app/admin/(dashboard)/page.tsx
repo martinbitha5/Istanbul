@@ -90,7 +90,7 @@ export default function DashboardPage() {
       {/* --- En-tête ---------------------------------------------------- */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight" style={{ fontFamily: 'var(--font-display)' }}>
+          <h1 className="display text-2xl">
             Vue d’ensemble
           </h1>
           <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
@@ -313,10 +313,7 @@ function StatCard({
       {value === null ? (
         <Skeleton className="mt-3 h-8 w-24" />
       ) : (
-        <p
-          className="tabular mt-2 text-2xl font-bold tracking-tight"
-          style={{ fontFamily: 'var(--font-display)' }}
-        >
+        <p className="display tabular mt-2 text-2xl">
           {value}
         </p>
       )}
@@ -325,14 +322,17 @@ function StatCard({
     </>
   );
 
-  // La carte accent reprend le CTA signature de Wise : vert vif, encre dessus.
+  // La carte mise en avant s'inverse — encre pleine, texte papier — comme les
+  // bandeaux noirs d'Uber Eats. Le vert #06C167 reste un signal ponctuel
+  // (badge « ouvert », prix promo) : en pavé de 200 px il perd ce rôle et ne
+  // veut plus rien dire.
   if (accent) {
     return (
       <div
-        className="rounded-3xl p-5"
+        className="rounded-lg p-5"
         style={{
-          background: 'var(--color-accent)',
-          color: 'var(--color-text-on-accent)',
+          background: 'var(--color-surface-inverse)',
+          color: 'var(--color-text-inverse)',
           boxShadow: 'var(--shadow-1)',
         }}
       >
@@ -364,7 +364,7 @@ function QueueTile({
       {count === null ? (
         <Skeleton className="h-9 w-12" />
       ) : (
-        <p className="tabular text-3xl font-bold" style={{ fontFamily: 'var(--font-display)' }}>
+        <p className="display tabular text-3xl">
           {count}
         </p>
       )}

@@ -245,10 +245,13 @@ function OrdersQueue() {
                 return (
                   <tr key={order.id} className="align-top">
                     <Td label="Commande">
+                      {/* Souligné plutôt que coloré : depuis que le primaire
+                          est l'encre, une couleur de lien ne se distinguerait
+                          plus du texte courant. C'est aussi ce que fait la
+                          vitrine pour ses liens en ligne. */}
                       <button
                         onClick={() => setDetail(order)}
-                        className="text-left font-semibold"
-                        style={{ color: 'var(--color-primary)' }}
+                        className="cursor-pointer text-left font-semibold underline decoration-1 underline-offset-4 hover:decoration-2"
                       >
                         {order.order_number}
                       </button>

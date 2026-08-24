@@ -13,7 +13,7 @@ export default function NotFound() {
         >
           404
         </p>
-        <h1 className="mt-4 text-xl font-semibold" style={{ fontFamily: 'var(--font-display)' }}>
+        <h1 className="display mt-4 text-xl">
           Page introuvable
         </h1>
         <p className="mt-3 text-sm text-[var(--color-text-secondary)]">

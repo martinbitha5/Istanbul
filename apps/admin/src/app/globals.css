@@ -1,95 +1,131 @@
 @import 'tailwindcss';
 
-/* Tokens de la vitrine publique (thème Uber Eats), portés par
-   `[data-surface='store']` : ils ne touchent pas au thème Wise ci-dessous. */
+/* Palette Uber Eats : primitives `--ue-*` sur `:root`, plus les composants de
+   la vitrine sous `[data-surface='store']`. Les tokens du dashboard ci-dessous
+   s'y branchent — c'est la source unique des couleurs des deux surfaces. */
 @import './store.css';
 
 /* ---------------------------------------------------------------------------
-   Tokens du dashboard — thème « Wise ».
+   Tokens du dashboard.
 
-   Palette reprise du design system Wise (wise.com) : vert forêt #163300 en
-   primaire, vert vif #9fe870 en accent, neutres encre #0e0f0c, rayons
-   généreux (10/16/24/32) et boutons pilule. Les valeurs proviennent des
-   variables CSS du site Wise (thème `np-theme-personal`).
+   Le backoffice partage désormais le design de la vitrine : noir et blanc,
+   accent vert #06C167, rayon 8 px, boutons pilule, ombres portées plutôt que
+   bordures. Le gérant passe sa journée à faire l'aller-retour entre les deux
+   (« ce que je change dans la carte, à quoi ça ressemble côté client ») ;
+   deux chartes différentes lui faisaient traverser une frontière visuelle à
+   chaque clic.
+
+   Rien n'est redéfini en dur ici : chaque token pointe une primitive `--ue-*`
+   de store.css. Les noms sémantiques restent inchangés, donc les vingt pages
+   du dashboard et components/ui.tsx suivent sans être touchés.
 
    ⚠ Ce fichier diverge volontairement de packages/tokens (thème Ember,
    toujours utilisé par les apps mobiles) : ne pas le régénérer via
-   `pnpm tokens:css` sous peine d'écraser le thème Wise.
+   `pnpm tokens:css` sous peine d'écraser le thème.
 
    Le mode sombre est défini deux fois : pour le choix explicite
    (`[data-theme="dark"]`) et pour la préférence système, sans que l'un
-   n'écrase l'autre.
+   n'écrase l'autre. Uber Eats n'a pas de thème sombre — la vitrine reste donc
+   claire, et le sombre du dashboard est une transposition monochrome de la
+   même charte (l'encre et le papier s'échangent, le vert ne bouge pas).
 --------------------------------------------------------------------------- */
 :root {
   /* Les selects, scrollbars et champs natifs suivent le thème de la page. */
   color-scheme: light;
 
-  --color-background: #ffffff;
-  --color-surface: #ffffff;
-  --color-surface-raised: #ffffff;
-  /* Neutre Wise : rgba(22,51,0,0.08) aplati sur blanc. */
-  --color-surface-sunken: #f2f4ef;
-  --color-surface-inverse: #0e0f0c;
-  --color-scrim: rgba(14, 15, 12, 0.55);
+  --color-background: var(--ue-surface);
+  --color-surface: var(--ue-surface);
+  --color-surface-raised: var(--ue-surface);
+  --color-surface-sunken: var(--ue-surface-sunken);
+  /* Un cran plus soutenu que `sunken` : le fond des boutons secondaires et
+     des puces sélectionnées chez Uber. */
+  --color-surface-muted: var(--ue-surface-muted);
+  --color-surface-inverse: var(--ue-ink);
+  --color-scrim: rgba(0, 0, 0, 0.55);
 
-  --color-text: #0e0f0c;
-  --color-text-secondary: #454745;
-  --color-text-muted: #6a6c6a;
-  --color-text-inverse: #ffffff;
-  --color-text-on-primary: #ffffff;
-  --color-text-on-accent: #163300;
+  --color-text: var(--ue-ink);
+  --color-text-secondary: var(--ue-ink-secondary);
+  --color-text-muted: var(--ue-ink-tertiary);
+  --color-text-inverse: var(--ue-ink-inverse);
+  --color-text-on-primary: var(--ue-ink-inverse);
+  --color-text-on-accent: var(--ue-ink);
 
-  /* Vert forêt Wise : boutons pleins, liens, état actif. */
-  --color-primary: #163300;
-  --color-primary-pressed: #0d1f00;
-  --color-primary-soft: #e2f6d5;
-  --color-on-primary-soft: #163300;
+  /* Le primaire est le noir de marque, pas le vert : chez Uber le bouton
+     plein, la puce active et l'onglet sélectionné sont noirs. Le vert est
+     réservé aux signaux positifs, jamais à une surface d'action. */
+  --color-primary: var(--ue-ink);
+  --color-primary-pressed: #333333;
+  /* Fond d'état actif (entrée de nav, avatar) : le gris de puce sélectionnée
+     d'Uber, pas un pastel teinté — il n'y a pas de « noir clair ». Un cran
+     plus soutenu que `sunken`, qui sert déjà au survol : sans cet écart,
+     l'entrée active et l'entrée survolée seraient le même gris. */
+  --color-primary-soft: var(--ue-surface-muted);
+  --color-on-primary-soft: var(--ue-ink);
 
-  /* Vert vif Wise : le CTA signature, toujours avec de l'encre dessus. */
-  --color-accent: #9fe870;
-  --color-accent-soft: #ecffe0;
-  --color-on-accent-soft: #163300;
+  --color-accent: var(--ue-green);
+  --color-accent-soft: var(--ue-green-soft);
+  --color-on-accent-soft: var(--ue-green-text);
 
-  --color-success: #054d28;
-  --color-success-soft: #e2f6d5;
-  --color-warning: #9a6500;
-  --color-warning-soft: #fff7d7;
-  --color-danger: #cb272f;
+  /* Vert de *texte* et non vert de marque : #06C167 sur blanc ne passe pas AA
+     en corps de texte (c'est la distinction que fait Uber lui-même). */
+  --color-success: var(--ue-green-text);
+  --color-success-soft: var(--ue-green-soft);
+  --color-danger: var(--ue-promo);
+  --color-danger-pressed: #a72027;
   --color-danger-soft: #fbeaea;
-  --color-info: #0077a5;
-  --color-info-soft: #ebfaff;
+  /* Le bleu profond des bandeaux Uber tient le rôle d'« information » : c'est
+     la seule couleur froide de la palette. */
+  --color-info: var(--ue-deep);
+  --color-info-soft: #e7edee;
+  /* Uber n'a pas d'ambre — ce couple est ajouté pour les statuts « en
+     attente », en neutres chauds pour ne pas jurer avec le reste. */
+  --color-warning: #8a6200;
+  --color-warning-soft: #fdf3d9;
 
-  /* Texte posé sur les fonds *-soft : paires contrastes issues de Wise
-     (sentiment-*-content), toutes ≥ 4.5:1. */
-  --color-on-success-soft: #054d28;
-  --color-on-warning-soft: #4a3b1c;
+  /* Texte posé sur les fonds *-soft : toutes les paires tiennent 4.5:1. */
+  --color-on-success-soft: var(--ue-green-text);
+  --color-on-warning-soft: #6b4a00;
   --color-on-danger-soft: #a72027;
-  --color-on-info-soft: #006286;
+  --color-on-info-soft: var(--ue-deep);
 
-  /* Anneau de focus dédié : un anneau vert forêt serait invisible sur les
-     boutons primaires (même couleur que le fond). */
-  --color-focus-ring: #0077a5;
+  /* Anneau de focus : l'encre, comme sur la vitrine. Elle serait invisible
+     sur un bouton primaire (même couleur) sans le `outline-offset: 2px` plus
+     bas, qui la pose sur le fond de page. */
+  --color-focus-ring: var(--ue-ink);
 
-  /* Bordures Wise : rgba(14,15,12,0.12) aplati sur blanc. */
-  --color-border: #e2e2e1;
-  --color-border-strong: #c8c9c6;
-  --color-divider: #f0f1ef;
-  --color-skeleton: #f0f1ef;
+  --color-border: var(--ue-border);
+  --color-border-strong: #c9c9c9;
+  --color-divider: var(--ue-border-subtle);
+  /* Même gris que `.ue-skeleton` de la vitrine. */
+  --color-skeleton: var(--ue-surface-muted);
 
-  --color-disabled: #f0f1ef;
-  --color-disabled-text: #a8aaa6;
-  --color-overlay: rgba(14, 15, 12, 0.45);
+  --color-disabled: var(--ue-surface-muted);
+  --color-disabled-text: #a6a6a6;
+  --color-overlay: rgba(0, 0, 0, 0.45);
 
-  /* Échelle de rayons Wise : small 10, medium 16, large 24, xlarge 32. */
-  --radius-sm: 10px;
-  --radius-md: 16px;
-  --radius-lg: 24px;
-  --radius-xl: 32px;
+  /* Échelle de rayons Uber : il n'y en a qu'un. Toute la gamme Tailwind
+     (`rounded-md` … `rounded-4xl`) est écrasée sur 8 px — un 12 ou un 24 px
+     égaré au milieu trahit immédiatement la copie. Les pilules passent par
+     `rounded-full`, qui reste intact. */
+  --radius-xs: var(--ue-radius);
+  --radius-sm: var(--ue-radius);
+  --radius-md: var(--ue-radius);
+  --radius-lg: var(--ue-radius);
+  --radius-xl: var(--ue-radius);
+  --radius-2xl: var(--ue-radius);
+  --radius-3xl: var(--ue-radius);
+  --radius-4xl: var(--ue-radius);
 
-  /* Ombres neutres et discrètes : le design Wise est essentiellement plat. */
-  --shadow-1: 0 1px 4px rgba(14, 15, 12, 0.06);
-  --shadow-2: 0 2px 10px rgba(14, 15, 12, 0.1);
-  --shadow-3: 0 12px 28px rgba(14, 15, 12, 0.18);
+  /* Ombres Uber : une carte est portée par son ombre, pas par une bordure. */
+  --shadow-1: var(--ue-shadow-card);
+  --shadow-2: var(--ue-shadow-pop);
+  --shadow-3: var(--ue-shadow-pop);
+
+  /* Une seule police de titre pour les deux surfaces : Figtree, qui tient le
+     rôle d'UberMove. Le dashboard tournait avant sur Inter Tight — deux
+     grotesques proches mais pas identiques, ce qui se voyait précisément là
+     où le gérant compare, sur le nom du restaurant. */
+  --font-display: var(--ue-font-display);
 }
 
 /* Les deux blocs sombres ci-dessous doivent rester identiques : l'un couvre
@@ -98,117 +134,129 @@
 :root[data-theme='dark'] {
   color-scheme: dark;
 
-  /* Encre Wise (#121511 = leur token --color-dark). */
-  --color-background: #121511;
-  --color-surface: #1b1e19;
-  --color-surface-raised: #262a24;
-  --color-surface-sunken: #0b0d0a;
-  --color-surface-inverse: #f2f3f0;
+  /* Pas de noir pur en fond : sur un écran de cuisine allumé huit heures, le
+     #000 fait vibrer le texte blanc. #121212 garde le rendu monochrome sans
+     l'éblouissement. */
+  --color-background: #121212;
+  --color-surface: #1c1c1c;
+  --color-surface-raised: #242424;
+  --color-surface-sunken: #0a0a0a;
+  --color-surface-muted: #2e2e2e;
+  --color-surface-inverse: #ffffff;
   --color-scrim: rgba(0, 0, 0, 0.65);
 
-  --color-text: #f2f3f0;
-  --color-text-secondary: #c3c5c1;
-  --color-text-muted: #969893;
-  --color-text-inverse: #121511;
-  /* En sombre le primaire devient le vert vif : encre dessus, jamais de blanc. */
-  --color-text-on-primary: #163300;
-  --color-text-on-accent: #163300;
+  --color-text: #ffffff;
+  --color-text-secondary: #c7c7c7;
+  --color-text-muted: #9a9a9a;
+  --color-text-inverse: #121212;
+  /* L'encre et le papier s'échangent : le bouton plein devient blanc, avec du
+     noir dessus. C'est le même bouton, retourné. */
+  --color-text-on-primary: var(--ue-ink);
+  --color-text-on-accent: var(--ue-ink);
 
-  --color-primary: #9fe870;
-  --color-primary-pressed: #80e142;
-  --color-primary-soft: rgba(159, 232, 112, 0.16);
-  --color-on-primary-soft: #9fe870;
+  --color-primary: #ffffff;
+  --color-primary-pressed: #e0e0e0;
+  --color-primary-soft: #262626;
+  --color-on-primary-soft: #ffffff;
 
-  --color-accent: #9fe870;
-  --color-accent-soft: rgba(159, 232, 112, 0.16);
-  --color-on-accent-soft: #b9efa0;
+  /* Le vert de marque ne bouge pas d'un thème à l'autre : c'est le seul
+     repère de couleur, il doit rester le même des deux côtés. */
+  --color-accent: var(--ue-green);
+  --color-accent-soft: rgba(6, 193, 103, 0.16);
+  --color-on-accent-soft: #4fd992;
 
-  --color-success: #8ed4a2;
-  --color-success-soft: rgba(142, 212, 162, 0.16);
-  --color-warning: #ffd11a;
-  --color-warning-soft: rgba(255, 209, 26, 0.14);
+  --color-success: #4fd992;
+  --color-success-soft: rgba(6, 193, 103, 0.16);
+  --color-warning: #ffc94d;
+  --color-warning-soft: rgba(255, 201, 77, 0.14);
   --color-danger: #ff8787;
+  --color-danger-pressed: #ffa9a9;
   --color-danger-soft: rgba(255, 135, 135, 0.16);
-  --color-info: #38c8ff;
-  --color-info-soft: rgba(56, 200, 255, 0.14);
+  --color-info: #8fc7d6;
+  --color-info-soft: rgba(143, 199, 214, 0.14);
 
   /* En sombre, la couleur pleine suffit : le fond soft est déjà très sombre. */
-  --color-on-success-soft: #8ed4a2;
-  --color-on-warning-soft: #ffd11a;
+  --color-on-success-soft: #4fd992;
+  --color-on-warning-soft: #ffc94d;
   --color-on-danger-soft: #ff8787;
-  --color-on-info-soft: #38c8ff;
+  --color-on-info-soft: #8fc7d6;
 
-  --color-focus-ring: #38c8ff;
+  /* L'anneau d'encre du thème clair serait invisible ici. */
+  --color-focus-ring: #ffffff;
 
-  --color-border: #2b2e29;
-  --color-border-strong: #41443f;
-  --color-divider: #1e211c;
-  --color-skeleton: #1e211c;
+  --color-border: #2e2e2e;
+  --color-border-strong: #4a4a4a;
+  --color-divider: #232323;
+  --color-skeleton: #232323;
 
-  --color-disabled: #1e211c;
-  --color-disabled-text: #6f716c;
+  --color-disabled: #232323;
+  --color-disabled-text: #6d6d6d;
   --color-overlay: rgba(0, 0, 0, 0.6);
 
-  --shadow-1: 0 2px 8px rgba(0, 0, 0, 0.4);
-  --shadow-2: 0 6px 16px rgba(0, 0, 0, 0.5);
-  --shadow-3: 0 12px 28px rgba(0, 0, 0, 0.6);
+  /* L'ombre douce d'Uber ne se voit pas sur fond sombre : on retombe sur des
+     ombres franches, seule façon de détacher une carte. */
+  --shadow-1: 0 1px 3px rgba(0, 0, 0, 0.5);
+  --shadow-2: 0 6px 16px rgba(0, 0, 0, 0.55);
+  --shadow-3: 0 12px 28px rgba(0, 0, 0, 0.65);
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
     color-scheme: dark;
 
-    --color-background: #121511;
-    --color-surface: #1b1e19;
-    --color-surface-raised: #262a24;
-    --color-surface-sunken: #0b0d0a;
-    --color-surface-inverse: #f2f3f0;
+    --color-background: #121212;
+    --color-surface: #1c1c1c;
+    --color-surface-raised: #242424;
+    --color-surface-sunken: #0a0a0a;
+    --color-surface-muted: #2e2e2e;
+    --color-surface-inverse: #ffffff;
     --color-scrim: rgba(0, 0, 0, 0.65);
 
-    --color-text: #f2f3f0;
-    --color-text-secondary: #c3c5c1;
-    --color-text-muted: #969893;
-    --color-text-inverse: #121511;
-    --color-text-on-primary: #163300;
-    --color-text-on-accent: #163300;
+    --color-text: #ffffff;
+    --color-text-secondary: #c7c7c7;
+    --color-text-muted: #9a9a9a;
+    --color-text-inverse: #121212;
+    --color-text-on-primary: var(--ue-ink);
+    --color-text-on-accent: var(--ue-ink);
 
-    --color-primary: #9fe870;
-    --color-primary-pressed: #80e142;
-    --color-primary-soft: rgba(159, 232, 112, 0.16);
-    --color-on-primary-soft: #9fe870;
+    --color-primary: #ffffff;
+    --color-primary-pressed: #e0e0e0;
+    --color-primary-soft: #262626;
+    --color-on-primary-soft: #ffffff;
 
-    --color-accent: #9fe870;
-    --color-accent-soft: rgba(159, 232, 112, 0.16);
-    --color-on-accent-soft: #b9efa0;
+    --color-accent: var(--ue-green);
+    --color-accent-soft: rgba(6, 193, 103, 0.16);
+    --color-on-accent-soft: #4fd992;
 
-    --color-success: #8ed4a2;
-    --color-success-soft: rgba(142, 212, 162, 0.16);
-    --color-warning: #ffd11a;
-    --color-warning-soft: rgba(255, 209, 26, 0.14);
+    --color-success: #4fd992;
+    --color-success-soft: rgba(6, 193, 103, 0.16);
+    --color-warning: #ffc94d;
+    --color-warning-soft: rgba(255, 201, 77, 0.14);
     --color-danger: #ff8787;
+    --color-danger-pressed: #ffa9a9;
     --color-danger-soft: rgba(255, 135, 135, 0.16);
-    --color-info: #38c8ff;
-    --color-info-soft: rgba(56, 200, 255, 0.14);
+    --color-info: #8fc7d6;
+    --color-info-soft: rgba(143, 199, 214, 0.14);
 
-    --color-on-success-soft: #8ed4a2;
-    --color-on-warning-soft: #ffd11a;
+    --color-on-success-soft: #4fd992;
+    --color-on-warning-soft: #ffc94d;
     --color-on-danger-soft: #ff8787;
-    --color-on-info-soft: #38c8ff;
+    --color-on-info-soft: #8fc7d6;
 
-    --color-focus-ring: #38c8ff;
+    --color-focus-ring: #ffffff;
 
-    --color-border: #2b2e29;
-    --color-border-strong: #41443f;
-    --color-divider: #1e211c;
-    --color-skeleton: #1e211c;
+    --color-border: #2e2e2e;
+    --color-border-strong: #4a4a4a;
+    --color-divider: #232323;
+    --color-skeleton: #232323;
 
-    --color-disabled: #1e211c;
-    --color-disabled-text: #6f716c;
+    --color-disabled: #232323;
+    --color-disabled-text: #6d6d6d;
     --color-overlay: rgba(0, 0, 0, 0.6);
 
-    --shadow-1: 0 2px 8px rgba(0, 0, 0, 0.4);
-    --shadow-2: 0 6px 16px rgba(0, 0, 0, 0.5);
-    --shadow-3: 0 12px 28px rgba(0, 0, 0, 0.6);
+    --shadow-1: 0 1px 3px rgba(0, 0, 0, 0.5);
+    --shadow-2: 0 6px 16px rgba(0, 0, 0, 0.55);
+    --shadow-3: 0 12px 28px rgba(0, 0, 0, 0.65);
   }
 }
 
@@ -227,8 +275,16 @@
    mais cela dédoublerait la palette pour un gain cosmétique.
 --------------------------------------------------------------------------- */
 
-* {
-  border-color: var(--color-border);
+/* Couleur de bordure par défaut, dans `@layer base` et non hors couche.
+   Hors couche, cette règle battait *toutes* les classes `border-*` de
+   Tailwind — le CSS sans couche l'emporte sur `@layer utilities`, quelle que
+   soit la spécificité. Un `border-transparent` ou un
+   `aria-[invalid=true]:border-[…]` n'avait donc aucun effet. Dans `base`,
+   elle reste le défaut et les utilitaires reprennent la main. */
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
 }
 
 html,
@@ -238,6 +294,20 @@ body {
   /* --font-inter est injectée par next/font dans app/layout.tsx. */
   font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
+}
+
+@layer components {
+  /* Titres et grands chiffres du dashboard.
+     Pendant de `.ue-h1`/`.ue-h2`/`.ue-h3` côté vitrine : même police, même
+     graisse 700, même resserrement — Figtree est plus large qu'UberMove et le
+     rattrapage se voit dès qu'un titre dépasse 18 px. Seule la taille reste à
+     la charge de l'appelant (`display text-2xl`), le backoffice ayant sa
+     propre densité. */
+  .display {
+    font-family: var(--font-display);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
 }
 
 /* Les chiffres d'un tableau ou d'un KPI ne doivent jamais faire sauter la

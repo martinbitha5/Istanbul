@@ -17,9 +17,11 @@ import type { StatusTone } from '@istanbul/types';
 /**
  * Primitives du dashboard.
  *
- * Volontairement minimalistes : le dashboard est un outil de travail utilisé
- * huit heures par jour dans un restaurant, pas une vitrine. Densité élevée,
- * contraste franc, zéro fioriture.
+ * Même charte que la vitrine (voir store.css) : encre et papier, rayon de
+ * 8 px, boutons pilule, accent vert réservé aux signaux positifs. Ce qui
+ * change côté backoffice, c'est la densité — le gérant passe huit heures
+ * dessus, les tailles et les espacements sont plus serrés que sur la
+ * vitrine, où chaque plat a droit à sa photo.
  */
 
 // ---------------------------------------------------------------------------
@@ -34,8 +36,11 @@ export function Card({
   padded?: boolean;
 }) {
   return (
+    // Une carte Uber tient par son ombre, pas par un cadre : le filet reste
+    // sur `divider` (#EEE, leur trait de séparation) et non sur `border`, qui
+    // redessinerait la boîte que l'ombre suffit à poser.
     <div
-      className={`rounded-3xl border border-[var(--color-border)] bg-[var(--color-surface)] ${
+      className={`rounded-lg border border-[var(--color-divider)] bg-[var(--color-surface)] ${
         padded ? 'p-5' : ''
       } ${className}`}
       style={{ boxShadow: 'var(--shadow-1)' }}
@@ -60,9 +65,11 @@ export function SectionTitle({
   return (
     <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
       <div>
+        {/* 700 et -0.02em : la tenue des titres de la vitrine (`.ue-h3`),
+            Figtree étant plus large qu'UberMove sans ce resserrement. */}
         <Heading
-          className="text-xl font-semibold tracking-tight"
-          style={{ fontFamily: 'var(--font-display)' }}
+          className="text-xl font-bold"
+          style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.02em' }}
         >
           {title}
         </Heading>
@@ -135,30 +142,36 @@ export function Button({
   className?: string;
   title?: string;
 }) {
-  const styles: Record<ButtonVariant, string> = {
-    primary: '',
-    secondary: 'border',
-    ghost: '',
-    danger: '',
-  };
-
-  const backgrounds: Record<ButtonVariant, string> = {
-    primary: 'var(--color-primary)',
-    secondary: 'transparent',
-    ghost: 'transparent',
-    danger: 'var(--color-danger)',
-  };
-
-  // text-on-primary et non blanc en dur : en sombre c'est de l'encre
-  // (le blanc sur orange clair ne tenait pas le contraste).
-  const colors: Record<ButtonVariant, string> = {
-    primary: 'var(--color-text-on-primary)',
-    secondary: 'var(--color-text)',
-    ghost: 'var(--color-primary)',
-    danger: 'var(--color-text-on-primary)',
+  // Les quatre boutons d'Uber : encre plein, gris plein, fantôme, et le rouge
+  // des actions destructrices. Le fond au repos et le fond au survol passent
+  // par deux variables CSS plutôt que par `style={{ background }}` : une
+  // valeur inline l'emporterait sur `hover:`, et on retomberait sur le
+  // `opacity-90` d'avant, qui délavait le texte en même temps que le fond.
+  const VARIANTS: Record<ButtonVariant, { bg: string; hover: string; fg: string }> = {
+    primary: {
+      bg: 'var(--color-primary)',
+      hover: 'var(--color-primary-pressed)',
+      fg: 'var(--color-text-on-primary)',
+    },
+    secondary: {
+      bg: 'var(--color-surface-muted)',
+      hover: 'var(--color-border-strong)',
+      fg: 'var(--color-text)',
+    },
+    ghost: {
+      bg: 'transparent',
+      hover: 'var(--color-surface-sunken)',
+      fg: 'var(--color-text)',
+    },
+    danger: {
+      bg: 'var(--color-danger)',
+      hover: 'var(--color-danger-pressed)',
+      fg: 'var(--color-text-inverse)',
+    },
   };
 
   const inactive = disabled || loading;
+  const { bg, hover, fg } = VARIANTS[variant];
 
   return (
     <button
@@ -167,14 +180,19 @@ export function Button({
       disabled={inactive}
       title={title}
       aria-busy={loading}
-      className={`inline-flex cursor-pointer items-center justify-center gap-2 rounded-full font-semibold transition-[opacity,transform] duration-150 hover:opacity-90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:opacity-45 ${
-        size === 'sm' ? 'h-9 px-3.5 text-sm' : 'h-11 px-5 text-sm'
-      } ${styles[variant]} ${className}`}
-      style={{
-        background: inactive && variant !== 'ghost' ? 'var(--color-disabled)' : backgrounds[variant],
-        color: inactive ? 'var(--color-disabled-text)' : colors[variant],
-        borderColor: 'var(--color-border-strong)',
-      }}
+      // 200ms sur le seul fond, comme `.ue-btn` : pas de fondu d'opacité, pas
+      // de changement de taille. Le poids reste sur 500 (font-medium), la
+      // graisse des boutons Uber.
+      className={`inline-flex cursor-pointer items-center justify-center gap-2 rounded-full bg-[var(--btn-bg)] font-medium transition-colors duration-200 hover:bg-[var(--btn-hover)] disabled:cursor-not-allowed ${
+        size === 'sm' ? 'h-9 px-4 text-sm' : 'h-11 px-5 text-sm'
+      } ${className}`}
+      style={
+        {
+          '--btn-bg': inactive && variant !== 'ghost' ? 'var(--color-disabled)' : bg,
+          '--btn-hover': inactive ? 'var(--color-disabled)' : hover,
+          color: inactive ? 'var(--color-disabled-text)' : fg,
+        } as React.CSSProperties
+      }
     >
       {loading ? <Spinner /> : children}
     </button>
@@ -255,14 +273,19 @@ export function Field({
 }
 
 export const inputClass =
+  // Le champ d'Uber : fond gris, aucun cadre au repos, rayon 8. La bordure
+  // n'est pas absente mais transparente — sans elle, l'apparition du filet
+  // noir au focus décalerait le contenu d'un pixel.
+  //
   // `min-h-11` : 44 px, la cible tactile minimale — et sur iOS un champ de
   // moins de 16 px de texte déclenche un zoom automatique, d'où `text-base`
   // sous 640 px.
-  'w-full min-h-11 rounded-xl border bg-[var(--color-surface)] px-3.5 py-2.5 text-base sm:text-sm ' +
-  'outline-none transition-colors duration-150 border-[var(--color-border)] ' +
-  'hover:border-[var(--color-border-strong)] focus:border-[var(--color-primary)] ' +
+  'w-full min-h-11 rounded-lg border border-transparent bg-[var(--color-surface-sunken)] px-4 py-2.5 text-base sm:text-sm ' +
+  'outline-none transition-colors duration-200 ' +
+  'placeholder:text-[var(--color-text-secondary)] ' +
+  'hover:bg-[var(--color-surface-muted)] focus:border-[var(--color-text)] focus:bg-[var(--color-surface)] ' +
   'disabled:cursor-not-allowed disabled:bg-[var(--color-disabled)] disabled:text-[var(--color-disabled-text)] ' +
-  'read-only:bg-[var(--color-surface-sunken)] ' +
+  'read-only:bg-[var(--color-disabled)] ' +
   'aria-[invalid=true]:border-[var(--color-danger)]';
 
 // ---------------------------------------------------------------------------
@@ -456,7 +479,10 @@ export function EmptyState({
 }) {
   return (
     <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
-      <h3 className="text-lg font-semibold" style={{ fontFamily: 'var(--font-display)' }}>
+      <h3
+        className="text-lg font-bold"
+        style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.02em' }}
+      >
         {title}
       </h3>
       {description ? (
@@ -611,18 +637,21 @@ export function Modal({
         <div className="mb-5 flex items-start justify-between gap-4">
           <h2
             id={titleId}
-            className="text-lg font-semibold"
-            style={{ fontFamily: 'var(--font-display)' }}
+            className="text-lg font-bold"
+            style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.02em' }}
           >
             {title}
           </h2>
           {/* Icône vectorielle et non le caractère « ✕ » : le glyphe dépend
               de la police installée et se rendait différemment d'un poste à
               l'autre, sans jamais s'aligner sur le titre. */}
+          {/* Le bouton rond gris des modales Uber (`.ue-close`). Il reste à
+              droite et non à gauche comme chez eux : dix écrans du dashboard
+              ferment déjà de ce côté. */}
           <button
             onClick={onClose}
             aria-label="Fermer"
-            className="-m-1.5 cursor-pointer rounded-full p-3 text-[var(--color-text-muted)] transition-colors duration-150 hover:bg-[var(--color-surface-sunken)]"
+            className="-m-1 grid h-10 w-10 shrink-0 cursor-pointer place-items-center rounded-full bg-[var(--color-surface-sunken)] text-[var(--color-text)] transition-colors duration-200 hover:bg-[var(--color-surface-muted)]"
           >
             <X size={18} aria-hidden />
           </button>

@@ -1,28 +1,24 @@
 import type { Metadata, Viewport } from 'next';
-import { Figtree, Inter, Inter_Tight } from 'next/font/google';
+import { Figtree, Inter } from 'next/font/google';
 import { Providers } from './providers';
 import './globals.css';
 
-// Typographie Wise : Inter pour le corps (leur police officielle), et pour
-// les titres une approximation de « Wise Sans » (propriétaire, non
-// distribuable) avec Inter Tight en graisses fortes.
+// Deux polices pour tout le site, vitrine et backoffice confondus.
+//
+// Inter pour le corps de texte : c'est le sosie le plus proche d'UberMoveText.
 const inter = Inter({
   subsets: ['latin'],
   variable: '--font-inter',
   display: 'swap',
 });
 
-const interTight = Inter_Tight({
-  subsets: ['latin'],
-  weight: ['600', '700', '800'],
-  variable: '--font-display',
-  display: 'swap',
-});
-
-// Typographie de la vitrine : Figtree tient le rôle d'UberMove, propriétaire
-// et non redistribuable. Même grotesque géométrique légèrement arrondie, même
-// tenue en 700. Le texte courant reste sur Inter (≈ UberMoveText), déjà
-// chargée ci-dessus : la vitrine n'ajoute donc qu'une seule police.
+// Figtree pour les titres : elle tient le rôle d'UberMove, propriétaire et non
+// redistribuable. Même grotesque géométrique légèrement arrondie, même tenue
+// en 700.
+//
+// Le dashboard chargeait en plus Inter Tight pour ses titres, du temps où il
+// avait sa propre charte. Elle est retirée : une police de titre commune
+// suffit, et c'est une requête réseau de moins sur chaque page.
 const figtree = Figtree({
   subsets: ['latin'],
   weight: ['500', '700', '800'],
@@ -44,10 +40,10 @@ export const viewport: Viewport = {
   initialScale: 1,
   themeColor: [
     // Littéraux imposés par l'API themeColor (pas de var() possible ici).
-    // Provenance : tokens --color-background clair/sombre du thème Wise —
-    // à tenir en phase avec globals.css.
+    // Provenance : tokens --color-background clair/sombre de globals.css —
+    // à tenir en phase avec lui.
     { media: '(prefers-color-scheme: light)', color: '#FFFFFF' },
-    { media: '(prefers-color-scheme: dark)', color: '#121511' },
+    { media: '(prefers-color-scheme: dark)', color: '#121212' },
   ],
 };
 
@@ -64,7 +60,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     // script inline, le serveur ne peut pas le connaître.
     <html
       lang="fr"
-      className={`${inter.variable} ${interTight.variable} ${figtree.variable}`}
+      className={`${inter.variable} ${figtree.variable}`}
       suppressHydrationWarning
     >
       <body>

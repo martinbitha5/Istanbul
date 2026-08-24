@@ -1,5 +1,5 @@
 /* ---------------------------------------------------------------------------
-   Tokens de la vitrine publique — design relevé sur Uber Eats.
+   Palette Uber Eats — primitives partagées par la vitrine *et* le backoffice.
 
    Provenance : les deux pages sauvegardées sur le bureau (accueil et feed).
    Uber sert son CSS en classes atomiques inlinées dans le HTML ; les valeurs
@@ -14,18 +14,19 @@
      ombres    0 0 8px rgba(0,0,0,.1) + 0 4px 4px rgba(0,0,0,.04)
      entête    64px de haut, 56px en mobile · conteneur 1280px, gouttière 40px
 
-   Ce bloc est volontairement séparé de globals.css : le backoffice garde son
-   thème Wise (vert forêt, rayons 16/24, pilules), la vitrine prend le thème
-   Uber (noir et blanc, rayon 8, accent vert). Les deux cohabitent sans se
-   marcher dessus parce que tout est porté par `[data-surface='store']`.
+   Ces primitives vivent sur `:root` et non sur `[data-surface='store']` :
+   depuis le passage du backoffice au même design, globals.css y branche ses
+   tokens sémantiques (`--color-primary: var(--ue-ink)`, …). Une seule
+   définition de la palette, deux surfaces qui la consomment — retoucher un
+   gris ici le retouche des deux côtés, ce qui est exactement le but.
+
+   Ce qui reste porté par `[data-surface='store']` plus bas, c'est
+   l'*application* : fond de page, échelle typographique et composants de la
+   vitrine (`.ue-btn`, `.ue-chip`, …). Le dashboard n'en hérite pas, il a ses
+   propres primitives dans components/ui.tsx.
 --------------------------------------------------------------------------- */
 
-[data-surface='store'] {
-  /* Uber Eats n'a pas de mode sombre : la vitrine est claire, point.
-     Sans ce `color-scheme`, un visiteur en préférence sombre récupérait des
-     champs de formulaire et des scrollbars noirs sur fond blanc. */
-  color-scheme: light;
-
+:root {
   /* --- Couleurs ---------------------------------------------------------
      `ink` est le noir de marque : Uber l'utilise pour le texte *et* pour les
      boutons primaires. L'accent vert (#06C167) ne sert qu'aux signaux
@@ -80,17 +81,24 @@
     sans-serif;
   --ue-font-text: var(--font-inter), system-ui, 'Helvetica Neue', Helvetica,
     Arial, sans-serif;
-
-  background: var(--ue-surface);
-  color: var(--ue-ink);
-  font-family: var(--ue-font-text);
 }
 
 @media (max-width: 767px) {
-  [data-surface='store'] {
+  :root {
     --ue-header-height: 56px;
     --ue-gutter: 16px;
   }
+}
+
+/* Application à la vitrine. Uber Eats n'a pas de mode sombre : la vitrine est
+   claire, point. Sans ce `color-scheme`, un visiteur en préférence sombre
+   récupérait des champs de formulaire et des scrollbars noirs sur fond blanc.
+   Le backoffice, lui, garde ses deux thèmes (voir globals.css). */
+[data-surface='store'] {
+  color-scheme: light;
+  background: var(--ue-surface);
+  color: var(--ue-ink);
+  font-family: var(--ue-font-text);
 }
 
 @layer components {

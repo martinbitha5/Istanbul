@@ -51,7 +51,7 @@ function Notice({ title, children }: { title: string; children: React.ReactNode 
   return (
     <main className="flex min-h-dvh items-center justify-center p-6 text-center">
       <div className="max-w-md">
-        <h1 className="text-2xl font-semibold" style={{ fontFamily: 'var(--font-display)' }}>
+        <h1 className="display text-2xl">
           {title}
         </h1>
         <p className="mt-3 text-sm leading-relaxed text-[var(--color-text-secondary)]">
