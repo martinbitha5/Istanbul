@@ -329,11 +329,24 @@ export function Table({
   );
 }
 
+/**
+ * Gouttière des cellules.
+ *
+ * Sans elle, une colonne alignée à droite colle à la colonne alignée à gauche
+ * qui la suit : sur la page Livreurs, « 15,00 $US » et « il y a 3 h » se
+ * lisaient comme un seul mot. Les bords extérieurs restent à zéro pour que la
+ * première et la dernière colonne s'alignent sur le reste de la carte.
+ *
+ * En mode carte (< 768 px), la règle `.rt-cards td` de globals.css impose son
+ * propre `padding` et reprend la main.
+ */
+const CELL_GUTTER = 'px-3 first:pl-0 last:pr-0';
+
 export function Th({ children, align = 'left' }: { children: ReactNode; align?: 'left' | 'right' }) {
   return (
     <th
       scope="col"
-      className={`border-b border-[var(--color-border)] pb-2.5 pt-1 text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)] ${
+      className={`border-b border-[var(--color-border)] ${CELL_GUTTER} pb-2.5 pt-1 text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)] ${
         align === 'right' ? 'text-right' : 'text-left'
       }`}
     >
@@ -374,7 +387,7 @@ export function SortableTh<K extends string>({
     <th
       scope="col"
       aria-sort={active ? (direction === 'asc' ? 'ascending' : 'descending') : 'none'}
-      className={`border-b border-[var(--color-border)] pb-2.5 pt-1 text-xs font-semibold uppercase tracking-wide ${
+      className={`border-b border-[var(--color-border)] ${CELL_GUTTER} pb-2.5 pt-1 text-xs font-semibold uppercase tracking-wide ${
         align === 'right' ? 'text-right' : 'text-left'
       }`}
       style={{ color: active ? 'var(--color-text)' : 'var(--color-text-muted)' }}
@@ -457,7 +470,7 @@ export function Td({
   return (
     <td
       data-label={label}
-      className={`border-b border-[var(--color-divider)] py-3 ${
+      className={`border-b border-[var(--color-divider)] ${CELL_GUTTER} py-3 ${
         align === 'right' ? 'text-right' : 'text-left'
       } ${className}`}
     >

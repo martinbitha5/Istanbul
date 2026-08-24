@@ -23,10 +23,11 @@ export default function Index() {
 
   if (isLoading) return <SplashView />;
   if (!session) return <Redirect href="/sign-in" />;
-  if (driverLoading) return <SplashView />;
 
   // Erreur réseau ≠ compte inconnu : afficher « Compte non reconnu » sur une
   // simple coupure 3G pousserait un vrai livreur à se déconnecter pour rien.
+  // Se teste avant l'attente ci-dessous, qui laisserait sinon le splash à
+  // l'écran indéfiniment (`data` reste `undefined` quand la requête échoue).
   if (driverError) {
     return (
       <Screen padded edges={['top', 'bottom', 'left', 'right']}>
@@ -36,6 +37,12 @@ export default function Index() {
       </Screen>
     );
   }
+
+  // `undefined` = pas encore chargé, `null` = chargé et sans fiche. Ne pas
+  // confondre les deux : `driverLoading` retombe à false sur le rendu où la
+  // requête vient d'être activée mais n'a pas encore démarré, et le portier
+  // annonçait « Compte non reconnu » à un livreur enregistré.
+  if (driverLoading || driver === undefined) return <SplashView />;
 
   if (!driver) return <NotADriver />;
   if (!driver.is_approved) return <PendingApproval />;

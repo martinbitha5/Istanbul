@@ -16,11 +16,29 @@ import {
   setDriverAvailability,
 } from '../api/delivery';
 import { queryKeys } from '../query/keys';
+import { useSession } from './useSession';
 
+/**
+ * Fiche livreur de l'utilisateur connecté.
+ *
+ * `enabled` n'est pas une optimisation : sans lui, la requête partait au
+ * montage de l'app livreur, avant que Supabase ait fini de relire la session
+ * dans le stockage. `fetchMyDriverProfile` ne trouvait alors aucun utilisateur
+ * et renvoyait `null` — un *succès*, mis en cache pour 60 s. La session
+ * arrivait une fraction de seconde plus tard, le portier voyait
+ * `session` non nul et `driver` nul, et affichait « Compte non reconnu » à un
+ * livreur parfaitement enregistré.
+ *
+ * L'invalidation sur `SIGNED_IN` (voir useSession) ferme l'autre moitié du
+ * piège : celle où la connexion arrive après que le `null` a été mis en cache.
+ */
 export function useDriverProfile() {
+  const { session } = useSession();
+
   return useQuery({
     queryKey: queryKeys.driverProfile(),
     queryFn: fetchMyDriverProfile,
+    enabled: !!session,
     staleTime: 60_000,
   });
 }

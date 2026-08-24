@@ -53,9 +53,15 @@ function ensureStarted() {
       // Purge totale : rien de l'utilisateur précédent ne doit survivre.
       boundClients.forEach((client) => client.clear());
     } else if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
-      boundClients.forEach((client) =>
-        client.invalidateQueries({ queryKey: queryKeys.profile() }),
-      );
+      // Toutes les requêtes, pas seulement le profil.
+      //
+      // Ce qui a été lu avant l'arrivée de la session a été lu en anonyme :
+      // la RLS n'a rien renvoyé, et React Query a mis ce vide en cache comme
+      // un succès. C'est ce qui affichait « Compte non reconnu » à un livreur
+      // enregistré — sa fiche avait été demandée une fraction de seconde trop
+      // tôt, et le `null` tenait 60 s. Invalider la seule clé `profile`
+      // laissait le piège ouvert pour toutes les autres.
+      boundClients.forEach((client) => client.invalidateQueries());
     }
   });
 }
