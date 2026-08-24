@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import {
   AppleLogo,
@@ -12,6 +13,8 @@ import {
   ShoppingCart,
   X,
 } from '@phosphor-icons/react';
+import { selectItemCount, useCartStore, useSession } from '@istanbul/core';
+import { setDeliveryPrefs, useDeliveryPrefs } from '@/lib/delivery-prefs';
 
 /**
  * Barre de navigation de la vitrine.
@@ -26,27 +29,30 @@ import {
  *
  * Hauteur 64 px (56 en mobile) et `inset 0 -1px 0 #F3F3F3` en guise de
  * séparateur : deux valeurs relevées telles quelles sur le site d'origine.
+ *
+ * L'adresse et le mode viennent du magasin `delivery-prefs`, pas de props :
+ * l'entête, la modale de livraison et le panier doivent afficher la même
+ * chose quel que soit l'endroit où elle a été changée.
  */
 export function StoreHeader({
   variant = 'landing',
-  address,
-  mode = 'delivery',
-  onModeChange,
   search,
   onSearchChange,
-  cartCount = 0,
+  onCartClick,
+  onAddressClick,
 }: {
   variant?: 'landing' | 'feed';
-  address?: string | null;
-  mode?: 'delivery' | 'pickup';
-  onModeChange?: (mode: 'delivery' | 'pickup') => void;
   search?: string;
   onSearchChange?: (value: string) => void;
-  cartCount?: number;
+  onCartClick?: () => void;
+  onAddressClick?: () => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   // Sur l'accueil, l'adresse migre du héros vers l'entête au défilement.
   const [scrolled, setScrolled] = useState(false);
+
+  const prefs = useDeliveryPrefs();
+  const itemCount = useCartStore(selectItemCount);
 
   useEffect(() => {
     if (variant !== 'landing') return;
@@ -84,9 +90,12 @@ export function StoreHeader({
 
           {isFeed ? (
             <>
-              <ModeToggle mode={mode} onChange={onModeChange} />
+              <ModeToggle
+                mode={prefs.mode}
+                onChange={(mode) => setDeliveryPrefs({ mode })}
+              />
               <div className="hidden md:block">
-                <AddressPill address={address} />
+                <AddressPill address={prefs.address} onClick={onAddressClick} />
               </div>
 
               <div className="ml-auto flex min-w-0 flex-1 items-center justify-end gap-2 md:ml-4 md:gap-3">
@@ -94,12 +103,7 @@ export function StoreHeader({
                   <SearchField value={search} onChange={onSearchChange} />
                 </div>
 
-                <button type="button" className="ue-btn ue-btn-secondary relative shrink-0">
-                  <ShoppingCart size={20} aria-hidden />
-                  <span className="tabular-nums">{cartCount}</span>
-                  <span className="sr-only">article(s) dans le panier</span>
-                </button>
-
+                <CartButton count={itemCount} onClick={onCartClick} />
                 <AuthButtons compact />
               </div>
             </>
@@ -114,7 +118,7 @@ export function StoreHeader({
                   visibility: scrolled ? 'visible' : 'hidden',
                 }}
               >
-                <AddressPill address={address} />
+                <AddressPill address={prefs.address} onClick={onAddressClick} />
               </div>
 
               <div className="ml-auto flex items-center gap-2 md:gap-3">
@@ -124,6 +128,7 @@ export function StoreHeader({
                 >
                   Voir la carte
                 </Link>
+                {itemCount > 0 ? <CartButton count={itemCount} onClick={onCartClick} /> : null}
                 <AuthButtons />
               </div>
             </>
@@ -137,10 +142,8 @@ export function StoreHeader({
             utilise le plus sur ce téléphone posé à côté de l'assiette. */}
         {isFeed ? (
           <div className="flex items-center gap-2 px-4 pb-3 lg:hidden">
-            {/* Moitié de la largeur au maximum : au-delà, l'adresse mangeait
-                le champ de recherche jusqu'à le réduire à sa loupe. */}
             <div className="min-w-0 max-w-[50%] md:hidden">
-              <AddressPill address={address} className="!px-2.5" />
+              <AddressPill address={prefs.address} onClick={onAddressClick} className="!px-2.5" />
             </div>
             <div className="min-w-0 flex-1">
               <SearchField value={search} onChange={onSearchChange} />
@@ -177,6 +180,22 @@ function Wordmark() {
   );
 }
 
+function CartButton({ count, onClick }: { count: number; onClick?: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="ue-btn ue-btn-secondary relative shrink-0"
+      aria-label={`Panier, ${count} article${count > 1 ? 's' : ''}`}
+    >
+      <ShoppingCart size={20} aria-hidden />
+      <span className="tabular-nums" aria-hidden>
+        {count}
+      </span>
+    </button>
+  );
+}
+
 function SearchField({
   value,
   onChange,
@@ -202,25 +221,47 @@ function SearchField({
   );
 }
 
+/**
+ * La pilule d'adresse.
+ *
+ * Bouton quand une modale peut s'ouvrir (sur le feed), lien vers l'accueil
+ * sinon : sur la page de commande il n'y a pas de modale à appeler, et un
+ * bouton qui ne fait rien est pire qu'un lien.
+ */
 function AddressPill({
   address,
+  onClick,
   className = '',
 }: {
-  address?: string | null;
+  address: string | null;
+  onClick?: () => void;
   className?: string;
 }) {
-  return (
-    <Link
-      href="/"
-      className={`ue-btn ue-btn-ghost w-full min-w-0 max-w-[280px] !justify-start !px-3 text-sm ${className}`}
-      title={address ?? 'Choisir une adresse de livraison'}
-    >
+  const content = (
+    <>
       <MapPin size={18} weight="fill" aria-hidden className="shrink-0" />
       <span className="truncate">{address || 'Ajouter une adresse'}</span>
       <span className="hidden shrink-0 text-[var(--ue-ink-secondary)] md:inline">
         • Maintenant
       </span>
       <CaretDown size={14} aria-hidden className="shrink-0" />
+    </>
+  );
+
+  const classes = `ue-btn ue-btn-ghost w-full min-w-0 max-w-[280px] !justify-start !px-3 text-sm ${className}`;
+  const title = address ?? 'Choisir une adresse de livraison';
+
+  if (onClick) {
+    return (
+      <button type="button" onClick={onClick} className={classes} title={title}>
+        {content}
+      </button>
+    );
+  }
+
+  return (
+    <Link href="/" className={classes} title={title}>
+      {content}
     </Link>
   );
 }
@@ -231,7 +272,7 @@ function ModeToggle({
   onChange,
 }: {
   mode: 'delivery' | 'pickup';
-  onChange?: (mode: 'delivery' | 'pickup') => void;
+  onChange: (mode: 'delivery' | 'pickup') => void;
 }) {
   return (
     <div
@@ -251,7 +292,7 @@ function ModeToggle({
             key={value}
             type="button"
             aria-pressed={active}
-            onClick={() => onChange?.(value)}
+            onClick={() => onChange(value)}
             className="cursor-pointer rounded-[var(--ue-pill)] px-4 py-2 text-sm font-medium transition-colors duration-200"
             style={{
               background: active ? 'var(--ue-surface)' : 'transparent',
@@ -266,17 +307,39 @@ function ModeToggle({
   );
 }
 
+/**
+ * Connexion / inscription — un seul parcours derrière deux libellés.
+ *
+ * `/connexion` sert les deux : le compte est créé s'il n'existe pas. Les deux
+ * boutons restent parce que le client cherche l'un ou l'autre selon qu'il se
+ * croit déjà inscrit.
+ */
 function AuthButtons({ compact = false }: { compact?: boolean }) {
+  const { session, isLoading } = useSession();
+
+  if (isLoading) return null;
+
+  if (session) {
+    return (
+      <Link
+        href="/commande"
+        className={`ue-btn ue-btn-secondary ${compact ? 'hidden lg:inline-flex' : ''}`}
+      >
+        Mon compte
+      </Link>
+    );
+  }
+
   return (
     <>
       <Link
-        href="/admin/login"
+        href="/connexion"
         className={`ue-btn ue-btn-secondary ${compact ? 'hidden xl:inline-flex' : 'hidden sm:inline-flex'}`}
       >
         Se connecter
       </Link>
       <Link
-        href="/admin/login"
+        href="/connexion"
         className={`ue-btn ue-btn-primary ${compact ? 'hidden lg:inline-flex' : ''}`}
       >
         S’inscrire
@@ -341,8 +404,11 @@ function StoreDrawer({ open, onClose }: { open: boolean; onClose: () => void }) 
     }
   };
 
-  return (
+  return createPortal(
     <div
+      // Même raison que dans StoreModal : le portal sort du scope du thème,
+      // il faut le reposer sur la racine du tiroir.
+      data-surface="store"
       className="fixed inset-0 z-50"
       role="dialog"
       aria-modal="true"
@@ -365,19 +431,15 @@ function StoreDrawer({ open, onClose }: { open: boolean; onClose: () => void }) 
           type="button"
           onClick={onClose}
           aria-label="Fermer le menu"
-          className="ue-btn ue-btn-ghost mb-4 -ml-2 self-start !p-2"
+          className="ue-close mb-4"
         >
-          <X size={22} aria-hidden />
+          <X size={20} aria-hidden />
         </button>
 
-        <Link href="/admin/login" onClick={onClose} className="ue-btn ue-btn-primary w-full">
+        <Link href="/connexion" onClick={onClose} className="ue-btn ue-btn-primary w-full">
           S’inscrire
         </Link>
-        <Link
-          href="/admin/login"
-          onClick={onClose}
-          className="ue-btn ue-btn-secondary mt-3 w-full"
-        >
+        <Link href="/connexion" onClick={onClose} className="ue-btn ue-btn-secondary mt-3 w-full">
           Se connecter
         </Link>
 
@@ -409,9 +471,7 @@ function StoreDrawer({ open, onClose }: { open: boolean; onClose: () => void }) 
             >
               IF
             </span>
-            <p className="text-base font-medium leading-snug">
-              Encore mieux dans l’application.
-            </p>
+            <p className="text-base font-medium leading-snug">Encore mieux dans l’application.</p>
           </div>
           <div className="mt-4 flex gap-2">
             <span className="ue-btn ue-btn-secondary !px-3 !text-sm">
@@ -425,6 +485,7 @@ function StoreDrawer({ open, onClose }: { open: boolean; onClose: () => void }) 
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

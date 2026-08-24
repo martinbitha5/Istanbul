@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { QueryClientProvider } from '@tanstack/react-query';
-import { createQueryClient } from '@istanbul/core';
+import { configureCartStorage, createQueryClient } from '@istanbul/core';
 import { getBrowserClient } from '@/lib/supabase/client';
 import { ToastProvider, toastRef } from '@/components/Toaster';
 
@@ -16,6 +16,13 @@ export function Providers({ children }: { children: React.ReactNode }) {
     // serveur, aucune requête ne part de toute façon.
     if (typeof window !== 'undefined') {
       getBrowserClient();
+
+      // Le panier de @istanbul/core est persistant, mais son stockage est
+      // injecté par l'application : AsyncStorage sur mobile, localStorage
+      // ici. Sans cet appel, il retomberait sur le stockage mémoire et le
+      // panier serait vide à chaque rechargement — précisément ce que le
+      // parcours « je remplis mon panier avant de me connecter » interdit.
+      configureCartStorage(window.localStorage);
     }
 
     return createQueryClient({

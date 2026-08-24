@@ -31,7 +31,9 @@
      boutons primaires. L'accent vert (#06C167) ne sert qu'aux signaux
      positifs (badge « ouvert », prix promo), jamais comme fond de bouton. */
   --ue-ink: #000000;
-  --ue-ink-secondary: #545454;
+  /* #4B4B4B est relevé sur la page boutique (descriptions de plats) ; c'est
+     le gris de texte secondaire d'Uber, pas une approximation. */
+  --ue-ink-secondary: #4b4b4b;
   --ue-ink-tertiary: #757575;
   --ue-ink-inverse: #ffffff;
 
@@ -48,7 +50,13 @@
   --ue-green: #06c167;
   --ue-green-pressed: #048a4a;
   --ue-green-soft: #e6f8ee;
+  /* Vert de *texte*, plus sombre que le vert de marque : c'est celui d'Uber
+     pour « Frais de livraison à 0,00 € ». Le #06C167 sur blanc ne passe pas
+     le contraste AA en corps de texte. */
+  --ue-green-text: #0e8345;
   --ue-deep: #142328;
+  /* Rouge des bandeaux de promotion du panier. */
+  --ue-promo: #cb2b2b;
 
   /* --- Rayons -----------------------------------------------------------
      Uber n'en a que deux. Pas de 12px, pas de 16px : une carte fait 8, une
@@ -279,5 +287,84 @@
     outline: 2px solid var(--ue-ink);
     outline-offset: 2px;
     border-radius: 4px;
+  }
+
+  /* -------------------------------------------------------------------------
+     Formulaires et modales — relevés sur la page KFC et sur auth.uber.com.
+
+     Attention au rayon : les boutons de la page de connexion ne sont **pas**
+     des pilules. Uber y passe en rayon 8, comme les champs, pour que la
+     colonne forme un bloc. Reprendre `.ue-btn` tel quel donnerait des gélules
+     empilées, très loin de l'original.
+  ------------------------------------------------------------------------- */
+  [data-surface='store'] .ue-field {
+    width: 100%;
+    height: 56px;
+    border: none;
+    border-radius: var(--ue-radius);
+    background: var(--ue-surface-sunken);
+    padding: 0 16px;
+    font-family: var(--ue-font-text);
+    font-size: 16px;
+    line-height: 24px;
+    color: var(--ue-ink);
+    outline: none;
+  }
+
+  [data-surface='store'] .ue-field::placeholder {
+    color: var(--ue-ink-secondary);
+  }
+
+  [data-surface='store'] .ue-btn-square {
+    border-radius: var(--ue-radius);
+  }
+
+  [data-surface='store'] .ue-btn-lg {
+    width: 100%;
+    height: 56px;
+    padding: 0 16px;
+    font-size: 16px;
+    line-height: 24px;
+  }
+
+  /* Séparateur « ou » : deux filets et un mot, sans conteneur intermédiaire. */
+  [data-surface='store'] .ue-or {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    color: var(--ue-ink-secondary);
+    font-size: 16px;
+  }
+
+  [data-surface='store'] .ue-or::before,
+  [data-surface='store'] .ue-or::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--ue-border);
+  }
+
+  [data-surface='store'] .ue-modal {
+    background: var(--ue-surface);
+    border-radius: var(--ue-radius);
+    box-shadow: var(--ue-shadow-pop);
+  }
+
+  /* Le bouton de fermeture rond et gris posé en haut à gauche des modales. */
+  [data-surface='store'] .ue-close {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    border: none;
+    border-radius: 500px;
+    background: var(--ue-surface-sunken);
+    color: var(--ue-ink);
+    cursor: pointer;
+    transition: background-color 200ms cubic-bezier(0, 0, 1, 1);
+  }
+
+  [data-surface='store'] .ue-close:hover {
+    background: var(--ue-surface-muted);
   }
 }

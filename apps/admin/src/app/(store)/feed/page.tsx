@@ -49,10 +49,8 @@ export default async function FeedPage({
       products={storefront.products}
       promotions={storefront.promotions}
       zones={storefront.zones}
-      initialAddress={first(params.adresse)}
       initialCategorySlug={first(params.categorie)}
       initialFilter={first(params.filtre)}
-      initialMode={first(params.mode) === 'retrait' ? 'pickup' : 'delivery'}
     />
   );
 }

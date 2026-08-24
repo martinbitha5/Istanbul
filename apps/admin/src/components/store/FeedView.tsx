@@ -1,40 +1,48 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import Link from 'next/link';
+import Image from 'next/image';
 import {
   CaretDown,
   CaretLeft,
   CaretRight,
+  Clock,
   ForkKnife,
   Medal,
-  Percent,
+  Plus,
   Tag,
   X,
 } from '@phosphor-icons/react';
-import { formatMoney, formatPercent } from '@istanbul/core';
+import { formatMoney, formatPercent, selectProductQuantity, useCartStore } from '@istanbul/core';
 import type { Category, DeliveryZone, Product, Promotion, Restaurant } from '@istanbul/types';
 import { StoreHeader } from '@/components/store/StoreHeader';
 import { StoreFooter } from '@/components/store/StoreFooter';
 import { ProductCard } from '@/components/store/ProductCard';
 import { CategoryIcon } from '@/components/store/CategoryIcon';
-import { ADDRESS_STORAGE_KEY } from '@/components/store/AddressSearch';
+import { ProductModal } from '@/components/store/ProductModal';
+import { CartPanel } from '@/components/store/CartPanel';
+import { DeliveryDetailsModal } from '@/components/store/DeliveryDetailsModal';
+import { COVERAGE_CITY, isInCoverage } from '@/lib/coverage';
+import { useDeliveryPrefs } from '@/lib/delivery-prefs';
 
 type SortKey = 'recommended' | 'rating' | 'price-asc';
 
 /**
- * Le feed — la page sur laquelle on atterrit après avoir saisi son adresse.
+ * La carte — la page sur laquelle on atterrit après avoir saisi son adresse.
  *
- * Structure reprise d'Uber Eats, de haut en bas : entête de travail
- * (Livraison/À emporter, adresse, recherche, panier), colonne de navigation à
- * gauche au-delà de 1024 px, rail de catégories en pastilles rondes, puis
- * puces de filtre, carrousel promotionnel et sections de cartes.
+ * Elle enchaîne trois états, dans cet ordre :
  *
- * Ce qu'un marché multi-restaurants remplit avec des enseignes, un
- * établissement unique le remplit avec ses plats : le rail liste les
- * catégories de la carte, les cartes sont des produits, et le bandeau
- * « $0 Delivery Fee with Uber One » devient le seuil de livraison offerte de
- * la zone la plus généreuse.
+ *   1. aucune adresse    → la modale de livraison s'ouvre et ne se ferme pas.
+ *                          Rien n'est présenté avant de savoir où livrer.
+ *   2. adresse hors zone → l'écran « bientôt chez vous », comme Uber Eats sur
+ *                          une ville qu'il ne dessert pas encore.
+ *   3. adresse à Kinshasa → la carte complète.
+ *
+ * Les rayons thématiques (offres, plus commandés) gardent la carte visuelle du
+ * feed Uber ; « Toute la carte » adopte la mise en page de la page boutique —
+ * navigation de sections à gauche, plats en lignes avec vignette à droite.
+ * Deux références différentes, deux usages différents : on découvre en
+ * images, on commande en liste.
  */
 export function FeedView({
   restaurant,
@@ -42,40 +50,37 @@ export function FeedView({
   products,
   promotions,
   zones,
-  initialAddress,
   initialCategorySlug,
   initialFilter,
-  initialMode,
 }: {
   restaurant: Restaurant;
   categories: Category[];
   products: Product[];
   promotions: Promotion[];
   zones: DeliveryZone[];
-  initialAddress: string | null;
   initialCategorySlug: string | null;
   initialFilter: string | null;
-  initialMode: 'delivery' | 'pickup';
 }) {
-  const [address, setAddress] = useState(initialAddress);
-  const [mode, setMode] = useState<'delivery' | 'pickup'>(initialMode);
+  const prefs = useDeliveryPrefs();
+
   const [search, setSearch] = useState('');
   const [categorySlug, setCategorySlug] = useState(initialCategorySlug);
   const [offersOnly, setOffersOnly] = useState(initialFilter === 'offres');
   const [popularOnly, setPopularOnly] = useState(initialFilter === 'populaires');
   const [sort, setSort] = useState<SortKey>('recommended');
 
-  // L'adresse n'est pas toujours dans l'URL : quand on arrive par un lien
-  // direct ou un favori, elle vient du choix précédent conservé localement.
-  useEffect(() => {
-    if (initialAddress) return;
-    try {
-      setAddress(window.localStorage.getItem(ADDRESS_STORAGE_KEY));
-    } catch {
-      // Stockage refusé : l'entête affichera « Ajouter une adresse ».
-    }
-  }, [initialAddress]);
+  const [addressOpen, setAddressOpen] = useState(false);
+  const [cartOpen, setCartOpen] = useState(false);
+  const [productId, setProductId] = useState<string | null>(null);
 
+  // `useDeliveryPrefs` renvoie l'état vide au rendu serveur puis l'adresse
+  // réelle au premier rendu client. Sans ce drapeau, un client qui a déjà son
+  // adresse verrait la modale clignoter à chaque chargement.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  const hasAddress = Boolean(prefs.address);
+  const covered = prefs.mode === 'pickup' || isInCoverage(prefs.address);
   const currency = restaurant.currency;
 
   const activeCategory = categories.find((category) => category.slug === categorySlug) ?? null;
@@ -113,13 +118,12 @@ export function FeedView({
   }, [products, activeCategory, popularOnly, offersOnly, search, sort]);
 
   // Une sélection active (catégorie, recherche, filtre) remplace les rayons
-  // thématiques par une grille unique : empiler « Populaires » et « Tout »
+  // thématiques par une liste unique : empiler « Populaires » et « Tout »
   // après un filtre donnerait deux fois les mêmes plats.
   const isFiltered =
     activeCategory !== null || search.trim().length > 0 || offersOnly || popularOnly;
 
   const popular = products.filter((product) => product.is_popular).slice(0, 8);
-  const recommended = products.filter((product) => product.is_recommended).slice(0, 8);
   const deals = products
     .filter(
       (product) =>
@@ -127,21 +131,80 @@ export function FeedView({
     )
     .slice(0, 8);
 
+  const cheapestZone = zones.reduce<DeliveryZone | null>(
+    (best, zone) => (best === null || zone.fee_amount < best.fee_amount ? zone : best),
+    null,
+  );
+
   const freeAbove = zones.reduce<number | null>((best, zone) => {
     if (zone.free_above === null) return best;
     return best === null || zone.free_above < best ? zone.free_above : best;
   }, null);
 
+  const header = (
+    <StoreHeader
+      variant="feed"
+      search={search}
+      onSearchChange={setSearch}
+      onCartClick={() => setCartOpen(true)}
+      onAddressClick={() => setAddressOpen(true)}
+    />
+  );
+
+  const modals = (
+    <>
+      <DeliveryDetailsModal
+        open={addressOpen || (mounted && !hasAddress)}
+        onClose={() => setAddressOpen(false)}
+        required={mounted && !hasAddress}
+      />
+      <ProductModal
+        productId={productId}
+        currency={currency}
+        onClose={() => setProductId(null)}
+      />
+      <CartPanel
+        open={cartOpen}
+        onClose={() => setCartOpen(false)}
+        restaurant={restaurant}
+        products={products}
+      />
+    </>
+  );
+
+  // --- 1. Pas encore d'adresse -------------------------------------------
+  if (mounted && !hasAddress) {
+    return (
+      <>
+        {header}
+        <main className="ue-container flex min-h-[50dvh] flex-col items-center justify-center py-20 text-center">
+          <h1 className="ue-h1">Où livrons-nous ?</h1>
+          <p className="mt-3 max-w-[42ch] text-base text-[var(--ue-ink-secondary)]">
+            Indiquez votre adresse pour découvrir la carte, les prix et le délai de livraison
+            chez vous.
+          </p>
+        </main>
+        {modals}
+      </>
+    );
+  }
+
+  // --- 2. Adresse hors de Kinshasa ---------------------------------------
+  if (mounted && !covered) {
+    return (
+      <>
+        {header}
+        <OutOfCoverage address={prefs.address} onChangeAddress={() => setAddressOpen(true)} />
+        <StoreFooter phone={restaurant.phone} city={restaurant.city} />
+        {modals}
+      </>
+    );
+  }
+
+  // --- 3. Carte complète --------------------------------------------------
   return (
     <>
-      <StoreHeader
-        variant="feed"
-        address={address}
-        mode={mode}
-        onModeChange={setMode}
-        search={search}
-        onSearchChange={setSearch}
-      />
+      {header}
 
       <div className="flex">
         <FeedSidebar
@@ -155,14 +218,19 @@ export function FeedView({
         />
 
         <main className="min-w-0 flex-1 px-4 pb-16 pt-6 md:px-6">
-          {/* --- Rail de catégories ------------------------------------- */}
+          <ServiceBar
+            restaurant={restaurant}
+            zone={cheapestZone}
+            mode={prefs.mode}
+            slot={prefs.slot}
+          />
+
           <CategoryRail
             categories={categories}
             activeSlug={categorySlug}
             onSelect={(slug) => setCategorySlug(slug === categorySlug ? null : slug)}
           />
 
-          {/* --- Puces de filtre ---------------------------------------- */}
           <div className="ue-rail mt-6 gap-2 pb-1">
             <button
               type="button"
@@ -214,21 +282,12 @@ export function FeedView({
             ) : null}
           </div>
 
-          <p className="mt-4 border-t border-[var(--ue-border-subtle)] pt-3 text-sm text-[var(--ue-ink-secondary)]">
-            Prix affichés taxes comprises.{' '}
-            {mode === 'pickup'
-              ? 'Retrait sur place, sans frais de livraison.'
-              : `Frais de livraison calculés à la commande selon votre zone.`}
-          </p>
-
-          {/* --- Carrousel promotionnel --------------------------------- */}
           {!isFiltered && promotions.length > 0 ? (
             <PromoCarousel promotions={promotions} currency={currency} />
           ) : null}
 
-          {/* --- Grilles ------------------------------------------------ */}
           {isFiltered ? (
-            <Section
+            <MenuSection
               title={
                 activeCategory
                   ? activeCategory.name
@@ -240,44 +299,178 @@ export function FeedView({
               }
               products={filtered}
               currency={currency}
+              onOpen={setProductId}
             />
           ) : (
             <>
               {deals.length > 0 ? (
-                <Section
+                <CardSection
                   title="Offres du moment"
                   products={deals}
                   currency={currency}
                   promoLabel="Prix réduit"
+                  onOpen={setProductId}
                 />
               ) : null}
               {popular.length > 0 ? (
-                <Section title="Les plus commandés" products={popular} currency={currency} />
+                <CardSection
+                  title="Les plus commandés"
+                  products={popular}
+                  currency={currency}
+                  onOpen={setProductId}
+                />
               ) : null}
-              {recommended.length > 0 ? (
-                <Section title="La sélection du chef" products={recommended} currency={currency} />
-              ) : null}
-              <Section title="Toute la carte" products={filtered} currency={currency} />
+
+              {/* La carte, catégorie par catégorie — mise en page de la page
+                  boutique. Chaque section porte l'ancre visée par la colonne
+                  de gauche. */}
+              {categories.map((category) => {
+                const items = products.filter(
+                  (product) => product.category_id === category.id,
+                );
+                if (items.length === 0) return null;
+
+                return (
+                  <MenuSection
+                    key={category.id}
+                    id={`categorie-${category.slug}`}
+                    title={category.name}
+                    products={items}
+                    currency={currency}
+                    onOpen={setProductId}
+                  />
+                );
+              })}
             </>
           )}
         </main>
       </div>
 
-      {freeAbove !== null && mode === 'delivery' ? (
+      {freeAbove !== null && prefs.mode === 'delivery' ? (
         <FreeDeliveryBanner amount={formatMoney(freeAbove, currency)} />
       ) : null}
 
       <StoreFooter phone={restaurant.phone} city={restaurant.city} />
+      {modals}
     </>
+  );
+}
+
+/**
+ * « Nous vous proposerons bientôt nos services ».
+ *
+ * L'écran qu'Uber Eats sert sur une ville hors couverture, transposé : on ne
+ * livre qu'à Kinshasa aujourd'hui, et une adresse ailleurs mérite une réponse
+ * claire plutôt qu'une carte qu'on ne pourra pas honorer.
+ */
+function OutOfCoverage({
+  address,
+  onChangeAddress,
+}: {
+  address: string | null;
+  onChangeAddress: () => void;
+}) {
+  return (
+    <main className="ue-container flex min-h-[60dvh] flex-col items-center justify-center py-20 text-center">
+      <UnavailableIllustration />
+
+      <h1 className="ue-h2 mt-8">Nous vous proposerons bientôt nos services</h1>
+      <p className="mt-3 max-w-[46ch] text-base text-[var(--ue-ink-secondary)]">
+        Nous ne livrons qu’à {COVERAGE_CITY} pour le moment, et nous élargissons la zone peu à
+        peu. Revenez nous voir prochainement.
+      </p>
+
+      {address ? (
+        <p className="mt-4 text-sm text-[var(--ue-ink-secondary)]">
+          Adresse saisie : <span className="font-medium">{address}</span>
+        </p>
+      ) : null}
+
+      <button type="button" onClick={onChangeAddress} className="ue-btn ue-btn-primary mt-8">
+        Changer d’adresse
+      </button>
+    </main>
+  );
+}
+
+/**
+ * L'illustration de l'écran vide.
+ *
+ * Dessinée ici plutôt que reprise : le visuel d'Uber Eats est une œuvre
+ * graphique qui leur appartient. Mêmes teintes que le reste de la vitrine, et
+ * `aria-hidden` — le message est porté par le texte à côté.
+ */
+function UnavailableIllustration() {
+  return (
+    <svg width="160" height="120" viewBox="0 0 160 120" fill="none" aria-hidden>
+      <rect x="18" y="46" width="34" height="56" rx="6" fill="#e8e8e8" />
+      <rect x="24" y="36" width="22" height="14" rx="4" fill="var(--ue-green)" />
+      <path d="M70 92 L116 60 L146 92 Z" fill="#d9a6a0" />
+      <rect x="66" y="90" width="84" height="12" rx="6" fill="#8c4f4a" />
+      <circle cx="112" cy="72" r="4" fill="#ffffff" />
+      <circle cx="60" cy="106" r="3" fill="#e8e8e8" />
+      <circle cx="76" cy="112" r="3" fill="#e8e8e8" />
+      <circle cx="132" cy="108" r="3" fill="#e8e8e8" />
+    </svg>
+  );
+}
+
+/**
+ * La barre d'informations de service, reprise de la page boutique : mode,
+ * frais de livraison et délai, sur une ligne encadrée.
+ */
+function ServiceBar({
+  restaurant,
+  zone,
+  mode,
+  slot,
+}: {
+  restaurant: Restaurant;
+  zone: DeliveryZone | null;
+  mode: 'delivery' | 'pickup';
+  slot: string | null;
+}) {
+  const eta = zone?.eta_minutes ?? restaurant.avg_prep_minutes;
+
+  return (
+    <div className="flex flex-wrap items-center gap-x-8 gap-y-3 rounded-[var(--ue-radius)] border border-[var(--ue-border)] px-5 py-4">
+      <p className="text-base font-medium">
+        {mode === 'pickup' ? 'À emporter' : 'Livraison'}
+      </p>
+
+      {mode === 'delivery' ? (
+        <p className="text-base" style={{ color: 'var(--ue-green-text)' }}>
+          {zone && zone.fee_amount === 0
+            ? 'Livraison offerte'
+            : `Frais de livraison dès ${formatMoney(zone?.fee_amount ?? 0, restaurant.currency)}`}
+        </p>
+      ) : (
+        <p className="text-base text-[var(--ue-ink-secondary)]">
+          {restaurant.address_line}
+        </p>
+      )}
+
+      <p className="flex items-center gap-2 text-base text-[var(--ue-ink-secondary)]">
+        <Clock size={18} aria-hidden />
+        {slot ?? `${eta} min`}
+      </p>
+
+      {!restaurant.is_accepting_orders || !restaurant.is_open ? (
+        <p className="text-base font-medium" style={{ color: 'var(--ue-promo)' }}>
+          Commandes fermées pour le moment
+        </p>
+      ) : null}
+    </div>
   );
 }
 
 /**
  * Colonne de gauche, au-delà de 1024 px.
  *
- * Uber y range ses verticales (Grocery, Convenience, Alcohol…). Pour un
- * établissement unique, ce sont les catégories de la carte — c'est le même
- * geste : un accès permanent, qui ne défile pas avec le contenu.
+ * Uber y range ses verticales (Grocery, Convenience, Alcohol…) sur le feed, et
+ * les sections de la carte sur une page boutique. Pour un établissement
+ * unique, c'est le second usage qui sert : ce sont les catégories de la carte,
+ * et un clic filtre la liste.
  */
 function FeedSidebar({
   categories,
@@ -333,12 +526,9 @@ function FeedSidebar({
       <div className="my-3 border-t border-[var(--ue-border-subtle)]" />
 
       <button type="button" className={item} onClick={onOffers}>
-        <Percent size={22} aria-hidden />
+        <Tag size={22} aria-hidden />
         Offres
       </button>
-      <Link href="/admin/login" className={item}>
-        Se connecter
-      </Link>
     </aside>
   );
 }
@@ -346,8 +536,8 @@ function FeedSidebar({
 /**
  * Rail de catégories en pastilles rondes, avec les flèches d'Uber.
  *
- * Les flèches ne sont pas décoratives : au clavier et à la souris sans
- * molette horizontale, un rail sans commande est inatteignable.
+ * Les flèches ne sont pas décoratives : à la souris sans molette horizontale,
+ * un rail sans commande est inatteignable.
  */
 function CategoryRail({
   categories,
@@ -367,7 +557,7 @@ function CategoryRail({
   };
 
   return (
-    <div className="relative">
+    <div className="relative mt-6">
       <div ref={railRef} className="ue-rail gap-6 py-2">
         {categories.map((category) => {
           const active = category.slug === activeSlug;
@@ -420,11 +610,7 @@ function RailArrow({ side, onClick }: { side: 'left' | 'right'; onClick: () => v
         boxShadow: 'var(--ue-shadow-pop)',
       }}
     >
-      {side === 'left' ? (
-        <CaretLeft size={18} aria-hidden />
-      ) : (
-        <CaretRight size={18} aria-hidden />
-      )}
+      {side === 'left' ? <CaretLeft size={18} aria-hidden /> : <CaretRight size={18} aria-hidden />}
     </button>
   );
 }
@@ -432,18 +618,11 @@ function RailArrow({ side, onClick }: { side: 'left' | 'right'; onClick: () => v
 /**
  * Carrousel promotionnel.
  *
- * Uber alterne des aplats colorés portant un titre, une accroche et un lien.
- * Les teintes tournent sur une petite palette pour que deux cartes voisines
- * ne soient jamais identiques — leurs bannières sont des visuels de marque,
- * ici ce sont nos promotions réelles.
+ * Uber alterne des aplats colorés portant un titre, une accroche et un
+ * visuel à droite. Les teintes tournent sur une petite palette pour que deux
+ * cartes voisines ne soient jamais identiques.
  */
-function PromoCarousel({
-  promotions,
-  currency,
-}: {
-  promotions: Promotion[];
-  currency: string;
-}) {
+function PromoCarousel({ promotions, currency }: { promotions: Promotion[]; currency: string }) {
   const tints = ['#fdf1e3', '#e6f8ee', '#f1efff', '#fdeceb'];
 
   return (
@@ -474,7 +653,6 @@ function PromoCarousel({
             </p>
           </div>
 
-          {/* Visuel à droite, comme les bannières partenaires d'Uber Eats. */}
           {promotion.image_url ? (
             <div
               aria-hidden
@@ -498,26 +676,70 @@ function PromoCarousel({
 function promoBadge(promotion: Promotion, currency: string): string {
   if (promotion.type === 'FREE_DELIVERY') return 'Livraison offerte';
   if (promotion.value <= 0) return 'Nouveauté';
-  // `value` est en points de base pour une remise en pourcentage
-  // (2000 = 20 %) : `formatPercent` fait déjà la conversion, comme dans le
-  // backoffice.
+  // `value` est en points de base pour une remise en pourcentage (2000 = 20 %).
   if (promotion.type === 'PERCENTAGE') return `−${formatPercent(promotion.value)}`;
   return `−${formatMoney(promotion.value, currency)}`;
 }
 
-function Section({
+/** Rayon en cartes visuelles — la carte du feed Uber Eats. */
+function CardSection({
   title,
   products,
   currency,
   promoLabel,
+  onOpen,
 }: {
   title: string;
   products: Product[];
   currency: string;
   promoLabel?: string;
+  onOpen: (productId: string) => void;
 }) {
+  if (products.length === 0) return null;
+
   return (
     <section className="mt-10">
+      <h2 className="ue-h2">{title}</h2>
+
+      <div
+        // Progression calée sur celle d'Uber Eats, barre latérale déduite :
+        // trois colonnes à partir de 1280 px (cartes de ~360 px, leur
+        // largeur), quatre au-delà de 1536 px.
+        className="mt-5 grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
+      >
+        {products.map((product) => (
+          <ProductCard
+            key={product.id}
+            product={product}
+            currency={currency}
+            promoLabel={promoLabel}
+            onOpen={() => onOpen(product.id)}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/**
+ * Section de carte — la mise en page de la page boutique : deux colonnes de
+ * lignes, texte à gauche, vignette et bouton « + » à droite.
+ */
+function MenuSection({
+  id,
+  title,
+  products,
+  currency,
+  onOpen,
+}: {
+  id?: string;
+  title: string;
+  products: Product[];
+  currency: string;
+  onOpen: (productId: string) => void;
+}) {
+  return (
+    <section id={id} className="mt-10 scroll-mt-24">
       <h2 className="ue-h2">{title}</h2>
 
       {products.length === 0 ? (
@@ -525,25 +747,98 @@ function Section({
           Aucun plat ne correspond à cette sélection.
         </p>
       ) : (
-        <div
-          // Progression calée sur celle d'Uber Eats, barre latérale déduite :
-          // trois colonnes à partir de 1280 px (cartes de ~360 px, leur
-          // largeur), quatre seulement au-delà de 1536 px. Passer à quatre dès
-          // 1280 tombait à 226 px par carte — le visuel 16:9 devenait une
-          // vignette.
-          className="mt-5 grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
-        >
+        <div className="mt-5 grid gap-4 lg:grid-cols-2 lg:gap-x-6">
           {products.map((product) => (
-            <ProductCard
+            <MenuRow
               key={product.id}
               product={product}
               currency={currency}
-              promoLabel={promoLabel}
+              onOpen={() => onOpen(product.id)}
             />
           ))}
         </div>
       )}
     </section>
+  );
+}
+
+function MenuRow({
+  product,
+  currency,
+  onOpen,
+}: {
+  product: Product;
+  currency: string;
+  onOpen: () => void;
+}) {
+  const inCart = useCartStore(selectProductQuantity(product.id));
+  const discounted =
+    product.compare_at_price !== null && product.compare_at_price > product.base_price;
+
+  return (
+    <div
+      className="relative flex gap-4 rounded-[var(--ue-radius)] border border-[var(--ue-border)] p-4 transition-shadow duration-200 hover:shadow-[var(--ue-shadow-card)]"
+      style={{ opacity: product.is_available ? 1 : 0.6 }}
+    >
+      <div className="min-w-0 flex-1">
+        {/* Le titre porte le bouton étendu : toute la carte est cliquable,
+            mais un seul élément est annoncé au lecteur d'écran. */}
+        <button type="button" onClick={onOpen} className="text-left">
+          <span className="absolute inset-0" aria-hidden />
+          <span className="block text-base font-medium leading-6">{product.name}</span>
+        </button>
+
+        <p className="mt-1 flex items-baseline gap-2 text-base">
+          <span>{formatMoney(product.base_price, currency)}</span>
+          {discounted ? (
+            <span className="text-sm text-[var(--ue-ink-tertiary)] line-through">
+              {formatMoney(product.compare_at_price!, currency)}
+            </span>
+          ) : null}
+        </p>
+
+        {product.description ? (
+          <p className="mt-1 line-clamp-2 text-sm leading-5 text-[var(--ue-ink-secondary)]">
+            {product.description}
+          </p>
+        ) : null}
+
+        {!product.is_available ? (
+          <p className="mt-2 text-sm font-medium text-[var(--ue-ink-secondary)]">Épuisé</p>
+        ) : null}
+      </div>
+
+      <div className="relative h-[104px] w-[104px] shrink-0">
+        {product.image_url ? (
+          <Image
+            src={product.image_url}
+            alt=""
+            fill
+            sizes="104px"
+            className="rounded-[var(--ue-radius)] object-cover"
+          />
+        ) : (
+          <div className="ue-skeleton absolute inset-0 rounded-[var(--ue-radius)]" aria-hidden />
+        )}
+
+        {/* Au-dessus du lien étendu (`z-10`), sinon le clic sur « + » serait
+            capté par la carte et ouvrirait quand même la fiche. */}
+        <button
+          type="button"
+          onClick={onOpen}
+          disabled={!product.is_available}
+          aria-label={`Ajouter ${product.name}`}
+          className="absolute -bottom-2 -right-2 z-10 grid h-9 w-9 cursor-pointer place-items-center rounded-full bg-[var(--ue-surface)] text-base font-medium disabled:cursor-not-allowed"
+          style={{ boxShadow: 'var(--ue-shadow-card)' }}
+        >
+          {inCart > 0 ? (
+            <span className="tabular-nums">{inCart}</span>
+          ) : (
+            <Plus size={18} weight="bold" aria-hidden />
+          )}
+        </button>
+      </div>
+    </div>
   );
 }
 

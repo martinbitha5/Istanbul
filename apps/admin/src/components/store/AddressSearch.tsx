@@ -1,71 +1,53 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { CaretDown, Clock, MapPin } from '@phosphor-icons/react';
-
-/** Clé de persistance de l'adresse — relue par le feed au premier rendu. */
-export const ADDRESS_STORAGE_KEY = 'istanbul.store.address';
+import { KINSHASA_COMMUNES } from '@/lib/coverage';
+import { setDeliveryPrefs, useDeliveryPrefs } from '@/lib/delivery-prefs';
+import { SLOT_OPTIONS } from '@/components/store/slots';
 
 /**
  * Le bloc de recherche du héros : champ d'adresse, créneau, bouton.
  *
- * Uber le compose de trois blocs séparés par un filet et non d'un seul champ
- * segmenté — c'est ce qui lui donne son épaisseur (56 px) et permet au bouton
- * d'être noir plein sans écraser le reste. On reprend la même découpe, avec
- * un empilement vertical sous 640 px là où Uber conserve la ligne.
+ * Uber le compose de trois blocs séparés et non d'un seul champ segmenté —
+ * c'est ce qui lui donne son épaisseur (56 px) et permet au bouton d'être
+ * noir plein sans écraser le reste. On reprend la même découpe, avec un
+ * empilement vertical sous 1024 px.
  *
- * Pas de géocodage ici : l'adresse saisie sert à afficher le contexte et sera
- * confirmée au moment du devis de livraison (`fn_delivery_quote`), qui
- * travaille sur des coordonnées. Promettre une autocomplétion qu'on ne sait
- * pas encore honorer coûterait plus cher qu'un champ libre honnête.
+ * Pas de géocodage : l'adresse saisie est retenue telle quelle et sert à
+ * décider si l'on livre (voir `lib/coverage`). La position exacte est
+ * confirmée plus tard par `fn_delivery_quote`. Une liste des communes est
+ * proposée en `datalist` — sans autocomplétion géographique, c'est ce qui
+ * évite au client de se demander ce qu'on attend de lui.
  */
-export function AddressSearch({
-  defaultValue = '',
-  onDark = false,
-}: {
-  defaultValue?: string;
-  /** Posé sur le héros photographique : le lien « Se connecter » passe en blanc. */
-  onDark?: boolean;
-}) {
+export function AddressSearch() {
   const router = useRouter();
-  const [address, setAddress] = useState(defaultValue);
+  const prefs = useDeliveryPrefs();
+
+  // Champ non contrôlé par le magasin : on ne veut pas réécrire l'adresse
+  // mémorisée à chaque frappe, seulement à la validation.
+  const [address, setAddress] = useState<string | null>(null);
   const [slot, setSlot] = useState('now');
 
-  // L'adresse déjà choisie lors d'une visite précédente repeuple le champ.
-  useEffect(() => {
-    if (defaultValue) return;
-    try {
-      const stored = window.localStorage.getItem(ADDRESS_STORAGE_KEY);
-      if (stored) setAddress(stored);
-    } catch {
-      // Navigation privée, stockage refusé : le champ reste vide, sans plus.
-    }
-  }, [defaultValue]);
+  const value = address ?? prefs.address ?? '';
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
 
-    const trimmed = address.trim();
-    try {
-      if (trimmed) window.localStorage.setItem(ADDRESS_STORAGE_KEY, trimmed);
-    } catch {
-      // Idem : l'absence de stockage ne doit pas empêcher la navigation.
-    }
+    const trimmed = value.trim();
+    setDeliveryPrefs({
+      address: trimmed || null,
+      slot: slot === 'now' ? null : (SLOT_OPTIONS.find((s) => s.id === slot)?.label ?? null),
+    });
 
-    const params = new URLSearchParams();
-    if (trimmed) params.set('adresse', trimmed);
-    if (slot !== 'now') params.set('creneau', slot);
-
-    const query = params.toString();
-    router.push(`/feed${query ? `?${query}` : ''}`);
+    // On navigue même hors zone : c'est le feed qui annonce « bientôt chez
+    // vous », exactement comme Uber Eats, et le message y est partageable
+    // par URL.
+    router.push('/feed');
   };
 
-  // 940 px, comme le bloc d'origine : un champ d'adresse d'environ 565 px, le
-  // créneau et le bouton à sa droite. Réduit à 620, le champ tombait sous
-  // 250 px et tronquait son propre libellé. La ligne ne se forme qu'à partir
-  // de 1024 px ; en dessous les trois blocs s'empilent.
   return (
     <div className="w-full max-w-[940px]">
       <form
@@ -81,8 +63,9 @@ export function AddressSearch({
           />
           <span className="sr-only">Adresse de livraison</span>
           <input
-            value={address}
+            value={value}
             onChange={(event) => setAddress(event.target.value)}
+            list="communes-kinshasa"
             placeholder="Saisissez votre adresse de livraison"
             autoComplete="street-address"
             className="h-14 w-full rounded-[var(--ue-radius)] bg-transparent pl-12 pr-4 text-base outline-none placeholder:text-[var(--ue-ink-secondary)]"
@@ -102,9 +85,11 @@ export function AddressSearch({
             className="h-14 cursor-pointer appearance-none rounded-[var(--ue-radius)] bg-transparent pl-11 pr-10 text-base font-medium outline-none"
           >
             <option value="now">Livrer maintenant</option>
-            <option value="30">Dans 30 minutes</option>
-            <option value="60">Dans 1 heure</option>
-            <option value="evening">Ce soir</option>
+            {SLOT_OPTIONS.map((option) => (
+              <option key={option.id} value={option.id}>
+                {option.label}
+              </option>
+            ))}
           </select>
           <CaretDown
             size={16}
@@ -118,15 +103,25 @@ export function AddressSearch({
         </button>
       </form>
 
-      <p
-        className="mt-4 text-base"
-        style={{ color: onDark ? 'var(--ue-ink-inverse)' : 'var(--ue-ink)' }}
-      >
+      <CommunesDatalist />
+
+      <p className="mt-4 text-base">
         Ou{' '}
-        <Link href="/admin/login" className="font-medium underline underline-offset-2">
+        <Link href="/connexion" className="font-medium underline underline-offset-2">
           connectez-vous
         </Link>
       </p>
     </div>
+  );
+}
+
+/** Suggestions de communes, partagées par tous les champs d'adresse. */
+export function CommunesDatalist() {
+  return (
+    <datalist id="communes-kinshasa">
+      {KINSHASA_COMMUNES.map((commune) => (
+        <option key={commune} value={`${commune}, Kinshasa`} />
+      ))}
+    </datalist>
   );
 }

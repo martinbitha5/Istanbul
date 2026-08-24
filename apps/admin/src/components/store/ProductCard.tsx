@@ -21,10 +21,12 @@ export function ProductCard({
   product,
   currency,
   promoLabel,
+  onOpen,
 }: {
   product: Product;
   currency: string;
   promoLabel?: string | null;
+  onOpen: () => void;
 }) {
   const [liked, setLiked] = useState(false);
 
@@ -33,7 +35,7 @@ export function ProductCard({
     product.compare_at_price !== null && product.compare_at_price > product.base_price;
 
   return (
-    <article className="group">
+    <article className="group relative">
       <div className="relative overflow-hidden rounded-[var(--ue-radius)]">
         <div className="relative aspect-[16/9] w-full">
           {product.image_url ? (
@@ -67,19 +69,28 @@ export function ProductCard({
           </span>
         ) : null}
 
+        {/* `z-10` : le cœur est posé au-dessus du lien étendu du titre,
+            sinon un clic dessus ouvrirait la fiche produit. */}
         <button
           type="button"
           onClick={() => setLiked((value) => !value)}
           aria-pressed={liked}
           aria-label={liked ? `Retirer ${product.name} des favoris` : `Ajouter ${product.name} aux favoris`}
-          className="absolute right-3 top-3 grid h-8 w-8 cursor-pointer place-items-center rounded-full bg-[var(--ue-surface)]"
+          className="absolute right-3 top-3 z-10 grid h-8 w-8 cursor-pointer place-items-center rounded-full bg-[var(--ue-surface)]"
           style={{ boxShadow: 'var(--ue-shadow-card)' }}
         >
           <Heart size={18} weight={liked ? 'fill' : 'regular'} aria-hidden />
         </button>
       </div>
 
-      <h3 className="mt-3 text-base font-bold leading-6">{product.name}</h3>
+      {/* Toute la carte ouvre la fiche, mais un seul élément est annoncé :
+          le titre porte le bouton, étendu à la carte par un ::before absolu. */}
+      <h3 className="mt-3 text-base font-bold leading-6">
+        <button type="button" onClick={onOpen} className="text-left">
+          <span className="absolute inset-0" aria-hidden />
+          {product.name}
+        </button>
+      </h3>
 
       <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-sm leading-5 text-[var(--ue-ink-secondary)]">
         {rating !== null ? (
