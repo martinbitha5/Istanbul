@@ -54,6 +54,14 @@ import {
 import { RESTAURANT_ID as restaurantId } from '@/lib/restaurant';
 import { useIsOffline } from '@/providers/AppProviders';
 import { refillCartFromOrder } from '@/lib/reorder';
+import { goBack, useAndroidBack } from '@/lib/nav';
+
+/**
+ * Parent du suivi quand la pile est vide : on arrive ici depuis le checkout
+ * (`dismissAll` + `replace`) ou depuis une notification, sans historique.
+ * La liste des commandes est le parent naturel du détail d'une commande.
+ */
+const BACK_FALLBACK = '/(tabs)/orders' as const;
 
 /**
  * Suivi de commande.
@@ -70,6 +78,7 @@ export default function OrderTracking() {
 
   const { data: order, isLoading, isError, refetch } = useOrder(id ?? null);
   useOrderRealtime(id ?? null);
+  useAndroidBack(BACK_FALLBACK);
 
   const cancelOrder = useCancelOrder();
 
@@ -143,7 +152,7 @@ export default function OrderTracking() {
   if (isError || !order) {
     return (
       <Screen edges={['top', 'left', 'right']}>
-        <Header onBack={() => router.back()} />
+        <Header onBack={() => goBack(BACK_FALLBACK)} />
         <ErrorState onRetry={() => void refetch()} />
       </Screen>
     );
@@ -158,7 +167,7 @@ export default function OrderTracking() {
       <Header
         title={order.order_number}
         subtitle={formatDateTime(order.created_at)}
-        onBack={() => router.back()}
+        onBack={() => goBack(BACK_FALLBACK)}
       />
 
       {/* Écran temps réel : sans réseau, le suivi est gelé — il faut le dire. */}
@@ -609,7 +618,7 @@ function TrackingSkeleton() {
   const theme = useTheme();
   return (
     <Screen edges={['top', 'left', 'right']}>
-      <Header onBack={() => router.back()} />
+      <Header onBack={() => goBack(BACK_FALLBACK)} />
       <View style={{ paddingHorizontal: theme.screenPadding, gap: theme.spacing.base }}>
         <Skeleton height={220} radius={theme.radius.lg} />
         <Skeleton height={96} radius={theme.radius.lg} />

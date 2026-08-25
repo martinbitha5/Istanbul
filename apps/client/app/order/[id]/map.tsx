@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
+import type { Href } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Storefront, User } from 'phosphor-react-native';
 import {
@@ -28,6 +29,7 @@ import {
 } from '@istanbul/ui';
 import type { MapRouteInfo } from '@istanbul/map';
 import { RESTAURANT_ID as restaurantId } from '@/lib/restaurant';
+import { goBack, useAndroidBack } from '@/lib/nav';
 
 /**
  * Carte plein écran.
@@ -40,6 +42,11 @@ export default function OrderMap() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
+
+  // Parent de la carte quand la pile est vide (arrivée par lien direct) :
+  // le suivi de la commande, jamais l'accueil.
+  const backFallback: Href = `/order/${id}`;
+  useAndroidBack(backFallback);
 
   // Itinéraire réellement calculé par la carte : distance routière et durée,
   // trafic compris quand Mapbox en dispose. Il remplace l'approximation
@@ -67,7 +74,7 @@ export default function OrderMap() {
   if (isError || (!isLoading && (!order || !restaurant))) {
     return (
       <Screen edges={['top', 'left', 'right']}>
-        <Header title="Carte" onBack={() => router.back()} />
+        <Header title="Carte" onBack={() => goBack(backFallback)} />
         <ErrorState
           onRetry={() => {
             void orderQuery.refetch();
@@ -81,7 +88,7 @@ export default function OrderMap() {
   if (isLoading || !order || !restaurant) {
     return (
       <Screen edges={['top', 'left', 'right']}>
-        <Header title="Carte" onBack={() => router.back()} />
+        <Header title="Carte" onBack={() => goBack(backFallback)} />
         <View style={{ flex: 1, padding: theme.screenPadding }}>
           <Skeleton height={420} radius={theme.radius.lg} />
         </View>
@@ -106,7 +113,7 @@ export default function OrderMap() {
       <Header
         title="Suivi sur la carte"
         subtitle={order.order_number}
-        onBack={() => router.back()}
+        onBack={() => goBack(backFallback)}
         right={
           delivery ? (
             <Badge
