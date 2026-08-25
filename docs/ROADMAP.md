@@ -50,10 +50,21 @@ suivie sur la carte par le client, et clôturée par le code à 4 chiffres.
 - [x] Tests : moteur de prix + machines à états (33 tests vitest), policies RLS (pgTAP, 19 assertions)
 - [x] Sentry + journalisation structurée (`log` + sink ; actifs seulement si DSN fourni)
 
-**Bonus — mode démo (migration 15) :** un tick pg_cron (10 s) joue le restaurant
-et un livreur fantôme : toute commande passée est acceptée, préparée, assignée,
-le GPS avance sur la carte jusqu'à l'adresse, puis la commande est livrée
-(~4 min de bout en bout). Couper : `update app_config set value='' where key='demo_mode';`
+**Bonus — mode démo (migrations 15, 25 et 26) :** un tick pg_cron (10 s) joue le
+restaurant, le client et un livreur fantôme.
+
+- Le **client fantôme** passe une commande complète toutes les 2 minutes
+  (`demo_orders_interval_seconds`), plafonnée à 2 commandes ouvertes
+  (`demo_orders_max_open`) — plus besoin de lancer l'app client en parallèle
+  pour alimenter l'app livreur.
+- La commande est acceptée, préparée, puis **publiée dans le pool de courses** :
+  tout livreur approuvé la voit et peut l'accepter.
+- Le **livreur fantôme** ne s'en saisit qu'à défaut : 60 s après la publication,
+  ou 10 minutes si un vrai livreur est connecté et disponible
+  (`demo_pool_grace_seconds` / `demo_pool_grace_online_seconds`). Il roule
+  ensuite jusqu'à l'adresse, GPS simulé sur les rues, et livre (~4 min).
+
+Couper : `update app_config set value='' where key in ('demo_mode', 'demo_orders');`
 
 **Au passage :** les tests RLS ont révélé que `confirmation_code` était redevenu
 lisible par tout utilisateur connecté (un `grant` de table entière avait annulé le
@@ -66,6 +77,10 @@ revoke table + re-grant colonne par colonne.
 - [x] Notation de la commande et du livreur (écran post-livraison, moyenne livreur par trigger)
 - [x] Programme de fidélité (1 pt/$ livré, 1 pt = 5 ¢ au checkout — taux dans app_config)
 - [x] Assignation automatique du livreur le plus proche (trigger READY, toggle app_config.auto_assign)
+- [x] **Répartition par pool (migration 25)** — au passage « prête », la course
+      est publiée sans livreur : tous les livreurs approuvés la voient et
+      `fn_claim_delivery` arbitre le premier qui accepte. `app_config.dispatch_mode`
+      repasse en `AUTO` pour retrouver l'assignation d'office.
 - [x] **Rôles dans l'équipe (migration 21)** — `restaurant_members`
       (OWNER/MANAGER/STAFF), toutes les policies re-scopées, garde-fous ajoutés
       aux fonctions SECURITY DEFINER, pages Équipe et Établissement.

@@ -43,10 +43,10 @@ export function useDriverProfile() {
   });
 }
 
-export function useAvailableDeliveries(enabled = true) {
+export function useAvailableDeliveries(driverId: UUID | null, enabled = true) {
   return useQuery({
-    queryKey: queryKeys.availableDeliveries(),
-    queryFn: fetchAvailableDeliveries,
+    queryKey: queryKeys.availableDeliveries(driverId),
+    queryFn: () => fetchAvailableDeliveries(driverId),
     enabled,
     // Une course non prise doit apparaître vite : c'est de l'argent qui attend.
     refetchInterval: 20_000,
@@ -98,13 +98,28 @@ function useInvalidateDeliveries() {
   };
 }
 
+/**
+ * Accepter une course du pool.
+ *
+ * `retry: false` : le serveur arbitre déjà les acceptations simultanées et
+ * répond « prise par un autre livreur ». Réessayer ne peut que transformer ce
+ * refus définitif en attente inutile devant un livreur qui a besoin de
+ * regarder la course suivante tout de suite.
+ */
 export function useClaimDelivery() {
+  const queryClient = useQueryClient();
   const invalidate = useInvalidateDeliveries();
 
   return useMutation({
-    mutationFn: ({ deliveryId, driverId }: { deliveryId: UUID; driverId: UUID }) =>
-      claimDelivery(deliveryId, driverId),
-    onSuccess: invalidate,
+    mutationFn: ({ deliveryId }: { deliveryId: UUID }) => claimDelivery(deliveryId),
+    retry: false,
+    onSuccess: () => {
+      // Le livreur passe BUSY côté serveur : sans cette invalidation, sa
+      // fiche en cache le croit encore AVAILABLE et l'écran d'accueil lui
+      // propose des courses qu'il ne peut plus prendre.
+      void queryClient.invalidateQueries({ queryKey: queryKeys.driverProfile() });
+      invalidate();
+    },
   });
 }
 

@@ -74,13 +74,26 @@ export async function fetchMyDriverProfile(): Promise<Driver | null> {
   return (data as Driver | null) ?? null;
 }
 
-/** Courses proposées et non encore prises par un livreur. */
-export async function fetchAvailableDeliveries(): Promise<DeliveryWithOrder[]> {
-  const { data, error } = await getSupabase()
-    .from('deliveries')
-    .select(DELIVERY_SELECT)
-    .eq('status', 'OFFERED')
-    .order('offered_at', { ascending: true });
+/**
+ * Les courses qu'un livreur peut accepter, dans les deux cas de figure :
+ *
+ *  - le pool (`driver_id is null`) : publié au passage « prête », premier
+ *    arrivé premier servi ;
+ *  - une course que le gérant lui a nommément confiée depuis le backoffice
+ *    (`fn_assign_driver` la laisse OFFERED avec son `driver_id`).
+ *
+ * Sans le second cas, une assignation manuelle n'arrivait nulle part : elle
+ * n'est pas encore « active » (OFFERED n'est pas dans ACTIVE_STATUSES) et le
+ * filtre du pool l'excluait. Le livreur ne la voyait sur aucun écran.
+ */
+export async function fetchAvailableDeliveries(
+  driverId?: UUID | null,
+): Promise<DeliveryWithOrder[]> {
+  let query = getSupabase().from('deliveries').select(DELIVERY_SELECT).eq('status', 'OFFERED');
+
+  query = driverId ? query.or(`driver_id.is.null,driver_id.eq.${driverId}`) : query.is('driver_id', null);
+
+  const { data, error } = await query.order('offered_at', { ascending: true });
 
   if (error) throw error;
   return (data ?? []).map(normalize);
@@ -160,27 +173,23 @@ export async function confirmDelivery(deliveryId: UUID, code: string): Promise<D
   return data as Delivery;
 }
 
-/** Le livreur prend une course laissée libre. */
-export async function claimDelivery(deliveryId: UUID, driverId: UUID): Promise<void> {
-  const supabase = getSupabase();
-  const { data, error } = await supabase
-    .from('deliveries')
-    .update({ driver_id: driverId })
-    .eq('id', deliveryId)
-    .is('driver_id', null)
-    .eq('status', 'OFFERED')
-    .select('id');
-
+/**
+ * Le livreur prend une course laissée libre.
+ *
+ * Passe obligatoirement par la fonction serveur. Un UPDATE direct ne peut pas
+ * marcher : la policy `deliveries_update_driver` exige
+ * `driver_id = <le mien>` sur la ligne d'AVANT, ce qui est faux tant que la
+ * course n'appartient à personne — l'UPDATE ne touchait aucune ligne et tout
+ * le monde se voyait refuser toutes les courses. `fn_claim_delivery` verrouille
+ * la ligne, arbitre entre deux livreurs simultanés, met la commande en
+ * ASSIGNED et bascule le livreur en BUSY, le tout dans une seule transaction.
+ */
+export async function claimDelivery(deliveryId: UUID): Promise<Delivery> {
+  const { data, error } = await getSupabase().rpc('fn_claim_delivery', {
+    p_delivery_id: deliveryId,
+  });
   if (error) throw error;
-
-  // 0 ligne touchée = un collègue a été plus rapide. Sans ce contrôle,
-  // l'UPDATE est un no-op silencieux et l'avancement de statut qui suit
-  // échoue avec un message incompréhensible.
-  if (!data || data.length === 0) {
-    throw new Error('Cette course vient d’être prise par un autre livreur.');
-  }
-
-  await advanceDeliveryStatus(deliveryId, 'ACCEPTED');
+  return data as Delivery;
 }
 
 export async function setDriverAvailability(

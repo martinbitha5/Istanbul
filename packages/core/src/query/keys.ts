@@ -40,7 +40,7 @@ export const queryKeys = {
   orderQueue: (filters: OrderQueueFilters) => ['order-queue', filters] as const,
 
   driverProfile: () => ['driver', 'me'] as const,
-  availableDeliveries: () => ['deliveries', 'available'] as const,
+  availableDeliveries: (driverId: UUID | null) => ['deliveries', 'available', driverId] as const,
   activeDeliveries: (driverId: UUID) => ['deliveries', 'active', driverId] as const,
   completedDeliveries: (driverId: UUID) => ['deliveries', 'completed', driverId] as const,
   delivery: (id: UUID) => ['delivery', id] as const,

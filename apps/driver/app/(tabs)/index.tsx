@@ -54,7 +54,10 @@ export default function DriverHome() {
   const driverId = driver?.id ?? null;
 
   const active = useActiveDeliveries(driverId);
-  const available = useAvailableDeliveries(driver?.availability === 'AVAILABLE');
+  // Activée dès que le livreur n'est pas hors ligne, et non seulement quand il
+  // est AVAILABLE : un livreur BUSY doit continuer de voir une course que le
+  // gérant vient de lui confier nommément (le tri est fait plus bas).
+  const available = useAvailableDeliveries(driverId, driver?.availability !== 'OFFLINE');
   const earnings = useDriverEarnings(driverId);
   const claimDelivery = useClaimDelivery();
 
@@ -95,7 +98,7 @@ export default function DriverHome() {
       void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       setClaimingId(deliveryId);
       claimDelivery.mutate(
-        { deliveryId, driverId },
+        { deliveryId },
         {
           // Navigation directe : la carte migre de « disponibles » vers
           // « en cours », le livreur n'a plus à la chercher des yeux.
@@ -122,6 +125,18 @@ export default function DriverHome() {
   }
 
   const isOnline = driver?.availability !== 'OFFLINE';
+  // BUSY, c'est le serveur qui l'a posé en acceptant la course : le pool est
+  // fermé tant qu'elle n'est pas terminée. Sans ce cas distinct, l'écran
+  // affichait « Aucune course pour le moment » à un livreur qui en a une —
+  // il croyait à une panne.
+  const isBusy = driver?.availability === 'BUSY';
+
+  // En course, on ne pioche plus dans le pool — mais une course nommément
+  // confiée par le gérant reste proposée : c'est lui qui a jugé que le livreur
+  // pouvait l'enchaîner.
+  const offers = (available.data ?? []).filter(
+    (delivery) => !isBusy || delivery.driver_id === driverId,
+  );
 
   return (
     <Screen>
@@ -154,7 +169,7 @@ export default function DriverHome() {
       />
 
       <Animated.FlatList<DeliveryWithOrder>
-        data={isOnline ? (available.data ?? []) : []}
+        data={isOnline ? offers : []}
         keyExtractor={(item) => item.id}
         // Une nouvelle course qui surgit d'un coup décale la liste et fait
         // taper le livreur sur la mauvaise ligne : la transition adoucit ça.
@@ -224,11 +239,21 @@ export default function DriverHome() {
                   Vous êtes indisponible. Activez votre disponibilité pour recevoir des courses.
                 </Text>
               </Surface>
+            ) : isBusy && offers.length === 0 ? (
+              <Surface
+                padding="base"
+                elevation={0}
+                style={{ backgroundColor: theme.colors.surfaceSunken }}
+              >
+                <Text variant="body" color="textSecondary" align="center">
+                  Une course est en cours. Terminez-la pour voir les suivantes.
+                </Text>
+              </Surface>
             ) : null}
           </View>
         }
         ListEmptyComponent={
-          isOnline ? (
+          isOnline && !isBusy ? (
             available.isLoading ? (
               <ListSkeleton count={2} />
             ) : available.isError ? (
@@ -257,6 +282,7 @@ export default function DriverHome() {
             >
               <AvailableDeliveryCard
                 delivery={item}
+                forMe={item.driver_id === driverId}
                 onAccept={() => acceptDelivery(item.id)}
                 loading={claimingId === item.id}
                 disabled={claimingId !== null && claimingId !== item.id}
@@ -330,11 +356,14 @@ function ActiveDeliveryCard({ delivery }: { delivery: DeliveryWithOrder }) {
 
 function AvailableDeliveryCard({
   delivery,
+  forMe,
   onAccept,
   loading,
   disabled,
 }: {
   delivery: DeliveryWithOrder;
+  /** Course confiée nommément par le gérant, pas prise dans le pool commun. */
+  forMe: boolean;
   onAccept: () => void;
   loading: boolean;
   disabled: boolean;
@@ -343,12 +372,20 @@ function AvailableDeliveryCard({
   const order = delivery.order;
 
   return (
-    <Surface padding="base" elevation={0} bordered>
+    <Surface
+      padding="base"
+      elevation={0}
+      bordered
+      style={forMe ? { borderLeftWidth: 4, borderLeftColor: theme.colors.success } : undefined}
+    >
       <Row>
         <Text variant="labelStrong" tabular color="textSecondary">
           {order.order_number}
         </Text>
         <View style={styles.metaRow}>
+          {forMe ? (
+            <Badge label="Pour vous" tone="success" size="sm" style={{ marginRight: theme.spacing.sm }} />
+          ) : null}
           <Timer size={theme.iconSize.xs} color={theme.colors.textMuted} />
           <Text variant="caption" color="textMuted" style={{ marginLeft: theme.spacing.xs }}>
             {formatRelative(delivery.offered_at)}
