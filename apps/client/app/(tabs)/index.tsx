@@ -1,14 +1,10 @@
 import React, { useCallback, useMemo } from 'react';
-import { FlatList, RefreshControl, StyleSheet, View, type ListRenderItem } from 'react-native';
+import { FlatList, StyleSheet, View, type ListRenderItem } from 'react-native';
+import { RefreshControl } from 'react-native';
 import { router } from 'expo-router';
 import { Image } from 'expo-image';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import {
-  CaretRight,
-  MagnifyingGlass,
-  MapPin,
-  Storefront,
-} from 'phosphor-react-native';
+import { Bell, CaretDown, CaretRight, Storefront } from 'phosphor-react-native';
 import {
   firstName,
   formatEtaRange,
@@ -28,16 +24,16 @@ import {
 import type { Address, Category, OrderDetail, Product, Promotion, Restaurant } from '@istanbul/types';
 import {
   Badge,
-  CategoryChips,
+  CategoryRail,
   EmptyState,
   ErrorState,
+  InlineAlert,
   ListSkeleton,
   Pressable,
   ProductCard,
   Screen,
   SectionHeader,
   Spacer,
-  Surface,
   Text,
   useTheme,
 } from '@istanbul/ui';
@@ -48,9 +44,15 @@ import { useCartBarListPadding } from '@/lib/layout';
 /**
  * Accueil.
  *
- * Salutation, adresse, recherche, catégories, promotions, populaires,
- * recommandés, et le bandeau de commande en cours quand il y en a une.
- * Le bandeau hors ligne vit dans le layout des onglets — pas ici.
+ * Structure reprise du fil de la référence : adresse et cloche en tête, rail
+ * de catégories, puis des sections de produits séparées par rien d'autre que
+ * du blanc.
+ *
+ * Il n'y a plus de champ de recherche dans le corps de la page : la recherche
+ * est la pilule centrale de la barre d'onglets, visible sur les cinq écrans et
+ * atteignable sans remonter en haut d'une liste. En garder un second ici
+ * poserait deux entrées pour la même action, dont une seule suit le
+ * défilement.
  */
 export default function Home() {
   const theme = useTheme();
@@ -130,7 +132,7 @@ export default function Home() {
           <RefreshControl
             refreshing={popular.isRefetching}
             onRefresh={refresh}
-            tintColor={theme.colors.primary}
+            tintColor={theme.colors.text}
           />
         }
         contentContainerStyle={{ paddingBottom: listBottomPadding }}
@@ -211,140 +213,129 @@ const HomeHeader = React.memo(function HomeHeader({
 
   return (
     <View>
-      {/* --- Salutation + adresse ------------------------------------ */}
-      <View style={{ paddingHorizontal: theme.screenPadding, paddingTop: theme.spacing.md }}>
-        <Text variant="body" color="textSecondary">
-          {greeting()} {firstName(profileFullName ?? undefined) || ''} 👋
-        </Text>
-
+      {/* --- Adresse + notifications ---------------------------------
+          L'adresse est le titre de l'écran, pas une ligne de réglage : chez
+          Uber elle occupe le coin haut gauche en gras, parce que c'est la
+          variable qui change tout ce qui est affiché en dessous. */}
+      <View
+        style={[
+          styles.topBar,
+          { paddingHorizontal: theme.screenPadding, paddingVertical: theme.spacing.sm },
+        ]}
+      >
         <Pressable
           onPress={() => router.push('/addresses')}
           noScale
           accessibilityLabel="Changer l’adresse de livraison"
-          style={[styles.addressRow, { marginTop: theme.spacing.xs }]}
+          style={styles.addressRow}
         >
-          <MapPin size={theme.iconSize.sm} color={theme.colors.primary} weight="fill" />
-          <Text variant="h3" numberOfLines={1} style={{ marginHorizontal: 6, flexShrink: 1 }}>
+          <Text variant="h2" numberOfLines={1} style={{ flexShrink: 1 }}>
             {defaultAddress
-              ? `${defaultAddress.commune ?? defaultAddress.street}`
+              ? (defaultAddress.commune ?? defaultAddress.street)
               : 'Choisir une adresse'}
           </Text>
-          <CaretRight size={theme.iconSize.xs} color={theme.colors.textMuted} weight="bold" />
+          <CaretDown
+            size={theme.iconSize.sm}
+            color={theme.colors.text}
+            weight="bold"
+            style={{ marginLeft: 4 }}
+          />
+        </Pressable>
+
+        <Pressable
+          onPress={() => router.push('/(tabs)/orders')}
+          noScale
+          hitSlop={10}
+          accessibilityLabel="Mes commandes"
+        >
+          <Bell size={theme.iconSize.md} color={theme.colors.text} />
         </Pressable>
       </View>
 
-      <Spacer size="base" />
-
-      {/* --- Recherche ----------------------------------------------
-          Pas de vrai TextInput ici : un champ inerte dans un Pressable
-          piégeait le focus des lecteurs d'écran. C'est un bouton habillé
-          en barre de recherche, qui ouvre le menu avec le clavier prêt. */}
+      {/* Salutation reléguée sous l'adresse : agréable, mais ce n'est pas
+          l'information qui fait agir. */}
       <View style={{ paddingHorizontal: theme.screenPadding }}>
-        <Pressable
-          onPress={() => router.push({ pathname: '/(tabs)/menu', params: { focus: '1' } })}
-          noScale
-          accessibilityRole="search"
-          accessibilityLabel="Rechercher un plat"
-          style={[
-            styles.searchFacade,
-            {
-              backgroundColor: theme.colors.surface,
-              borderRadius: theme.radius.md,
-              paddingHorizontal: theme.spacing.base,
-              borderWidth: theme.borderWidth.hairline,
-              borderColor: theme.colors.border,
-            },
-          ]}
-        >
-          <MagnifyingGlass size={theme.iconSize.sm} color={theme.colors.textMuted} />
-          <Text variant="body" color="textMuted" style={{ marginLeft: 10 }}>
-            Rechercher un plat…
-          </Text>
-        </Pressable>
+        <Text variant="bodySmall" color="textSecondary">
+          {greeting()} {firstName(profileFullName ?? undefined) || ''}
+        </Text>
       </View>
 
       {/* --- Restaurant fermé --------------------------------------- */}
       {restaurant && !restaurant.is_accepting_orders ? (
         <View style={{ paddingHorizontal: theme.screenPadding, marginTop: theme.spacing.base }}>
-          <Surface
-            padding="base"
-            elevation={0}
-            style={{ backgroundColor: theme.colors.warningSoft, flexDirection: 'row' }}
-          >
-            <Storefront size={theme.iconSize.sm} color={theme.colors.warning} weight="fill" />
-            <Text variant="label" style={{ color: theme.colors.warning, flex: 1, marginLeft: 8 }}>
-              Le restaurant ne prend pas de commande pour le moment. Vous pouvez consulter le
-              menu.
-            </Text>
-          </Surface>
+          <InlineAlert
+            tone="warning"
+            message="Le restaurant ne prend pas de commande pour le moment. Vous pouvez consulter le menu."
+          />
         </View>
       ) : null}
 
-      {/* --- Commande en cours -------------------------------------- */}
+      {/* --- Commande en cours --------------------------------------
+          Encadré, pas ombré : une carte bordée suffit à la détacher du fond
+          blanc, et l'ombre aurait fait flotter le seul bloc de la page qui
+          reste au même endroit. */}
       {activeOrder ? (
-        <View style={{ paddingHorizontal: theme.screenPadding, marginTop: theme.spacing.lg }}>
+        <View style={{ paddingHorizontal: theme.screenPadding, marginTop: theme.spacing.base }}>
           <Pressable
             onPress={() => router.push(`/order/${activeOrder.id}`)}
             accessibilityLabel={`Commande ${activeOrder.order_number}, ${
               orderStatusCustomerLabel[activeOrder.status]
             }. Suivre ma commande`}
+            style={[
+              styles.activeOrder,
+              {
+                borderRadius: theme.radius.md,
+                borderWidth: theme.borderWidth.hairline,
+                borderColor: theme.colors.border,
+                padding: theme.spacing.base,
+              },
+            ]}
           >
-            <Surface padding="base" elevation={2}>
-              <View style={styles.rowBetween}>
-                <Badge
-                  label={orderStatusCustomerLabel[activeOrder.status]}
-                  tone="info"
-                  dot
-                  size="sm"
-                />
-                <Text variant="caption" color="textMuted" tabular>
-                  {activeOrder.order_number}
-                </Text>
-              </View>
-
-              <Text variant="h3" style={{ marginTop: theme.spacing.sm }}>
-                Votre commande est en route
+            <View style={styles.rowBetween}>
+              <Badge
+                label={orderStatusCustomerLabel[activeOrder.status]}
+                tone="success"
+                variant="solid"
+                size="sm"
+              />
+              <Text variant="caption" color="textMuted" tabular>
+                {activeOrder.order_number}
               </Text>
-              <Text variant="bodySmall" color="textSecondary" style={{ marginTop: 2 }}>
-                Arrivée estimée dans {formatEtaRange(activeOrder.eta_minutes)}
-              </Text>
+            </View>
 
-              <View style={[styles.rowBetween, { marginTop: theme.spacing.md }]}>
-                <Text variant="labelStrong" color="primary">
-                  Suivre ma commande
-                </Text>
-                <CaretRight size={theme.iconSize.xs} color={theme.colors.primary} weight="bold" />
-              </View>
-            </Surface>
+            <Text variant="h3" style={{ marginTop: theme.spacing.sm }}>
+              Votre commande est en route
+            </Text>
+            <Text variant="bodySmall" color="textSecondary" style={{ marginTop: 2 }}>
+              Arrivée estimée dans {formatEtaRange(activeOrder.eta_minutes)}
+            </Text>
+
+            <View style={[styles.rowBetween, { marginTop: theme.spacing.md }]}>
+              <Text variant="labelStrong" style={{ textDecorationLine: 'underline' }}>
+                Suivre ma commande
+              </Text>
+              <CaretRight size={theme.iconSize.xs} color={theme.colors.text} weight="bold" />
+            </View>
           </Pressable>
         </View>
       ) : null}
 
-      {/* --- Catégories --------------------------------------------- */}
+      {/* --- Rail de catégories -------------------------------------- */}
       {categories && categories.length > 0 ? (
-        <View style={{ marginTop: theme.spacing.xl }}>
-          <SectionHeader
-            title="Catégories"
-            actionLabel="Voir le menu"
-            onAction={() => router.push('/(tabs)/menu')}
-            style={{ paddingHorizontal: theme.screenPadding }}
-          />
-          <CategoryChips
+        <View style={{ marginTop: theme.spacing.lg }}>
+          <CategoryRail
             categories={categories}
-            selectedId={null}
-            showAll={false}
-            onSelect={(id) =>
-              router.push({ pathname: '/(tabs)/menu', params: { category: id ?? '' } })
-            }
+            onSelect={(id) => router.push({ pathname: '/(tabs)/menu', params: { category: id } })}
           />
         </View>
       ) : null}
 
       {/* --- Promotions --------------------------------------------- */}
       {promotions && promotions.length > 0 ? (
-        <View style={{ marginTop: theme.spacing['2xl'] }}>
+        <View style={{ marginTop: theme.spacing.xl }}>
           <SectionHeader
             title="Offres du moment"
+            onAction={() => router.push('/(tabs)/menu')}
             style={{ paddingHorizontal: theme.screenPadding }}
           />
           <FlatList
@@ -361,9 +352,10 @@ const HomeHeader = React.memo(function HomeHeader({
       {/* --- Populaires ----------------------------------------------
           Chaque section gère SES états : une erreur ici ne doit pas
           éteindre les recommandations, et inversement. */}
-      <View style={{ marginTop: theme.spacing['2xl'] }}>
+      <View style={{ marginTop: theme.spacing.xl }}>
         <SectionHeader
           title="Les plus commandés"
+          onAction={() => router.push('/(tabs)/menu')}
           style={{ paddingHorizontal: theme.screenPadding }}
         />
 
@@ -379,6 +371,7 @@ const HomeHeader = React.memo(function HomeHeader({
             description="Les plats les plus commandés apparaîtront ici très bientôt."
             actionLabel="Voir le menu"
             onAction={() => router.push('/(tabs)/menu')}
+            icon={<Storefront size={48} color={theme.colors.textMuted} weight="duotone" />}
           />
         ) : (
           <FlatList
@@ -394,9 +387,10 @@ const HomeHeader = React.memo(function HomeHeader({
 
       {/* --- Recommandés -------------------------------------------- */}
       {recommendedError || (recommendedData && recommendedData.length > 0) ? (
-        <View style={{ marginTop: theme.spacing['2xl'] }}>
+        <View style={{ marginTop: theme.spacing.xl }}>
           <SectionHeader
             title="Nos recommandations"
+            onAction={() => router.push('/(tabs)/menu')}
             style={{ paddingHorizontal: theme.screenPadding }}
           />
           {recommendedError ? (
@@ -424,11 +418,7 @@ function PromoCard({ promotion }: { promotion: Promotion }) {
     <Pressable
       onPress={() => router.push('/(tabs)/menu')}
       accessibilityLabel={`${promotion.title}. ${promotion.description ?? ''}`}
-      style={[
-        styles.promo,
-        { borderRadius: theme.radius.xl, backgroundColor: theme.colors.primary },
-        theme.elevation[2],
-      ]}
+      style={[styles.promo, { borderRadius: theme.radius.md, backgroundColor: theme.colors.skeleton }]}
     >
       {promotion.image_url ? (
         <Image
@@ -436,7 +426,7 @@ function PromoCard({ promotion }: { promotion: Promotion }) {
           contentFit="cover"
           transition={220}
           cachePolicy="memory-disk"
-          style={[StyleSheet.absoluteFill, { borderRadius: theme.radius.xl }]}
+          style={[StyleSheet.absoluteFill, { borderRadius: theme.radius.md }]}
         />
       ) : null}
 
@@ -445,13 +435,19 @@ function PromoCard({ promotion }: { promotion: Promotion }) {
       <View
         style={[
           StyleSheet.absoluteFill,
-          { backgroundColor: theme.colors.overlay, borderRadius: theme.radius.xl },
+          { backgroundColor: theme.colors.overlay, borderRadius: theme.radius.md },
         ]}
       />
 
       <View style={{ padding: theme.spacing.base, justifyContent: 'flex-end', flex: 1 }}>
-        {/* `textOnScrim`, pas `textOnPrimary` : le voile photo reste sombre
-            dans les deux thèmes, le texte doit rester clair. */}
+        {promotion.code ? (
+          <View style={{ marginBottom: theme.spacing.sm, alignSelf: 'flex-start' }}>
+            <Badge label={`Code ${promotion.code}`} tone="success" variant="solid" size="sm" />
+          </View>
+        ) : null}
+
+        {/* `textOnScrim`, pas `textOnPrimary` : le voile photo reste sombre,
+            le texte doit rester clair quoi qu'il arrive au thème. */}
         <Text variant="h3" style={{ color: theme.colors.textOnScrim }} numberOfLines={1}>
           {promotion.title}
         </Text>
@@ -464,20 +460,16 @@ function PromoCard({ promotion }: { promotion: Promotion }) {
             {promotion.description}
           </Text>
         ) : null}
-        {promotion.code ? (
-          <View style={{ marginTop: theme.spacing.sm, alignSelf: 'flex-start' }}>
-            <Badge label={`Code ${promotion.code}`} tone="warning" size="sm" />
-          </View>
-        ) : null}
       </View>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  addressRow: { flexDirection: 'row', alignItems: 'center' },
+  topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  addressRow: { flexDirection: 'row', alignItems: 'center', flexShrink: 1, marginRight: 12 },
   rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  carouselItem: { width: 190 },
+  activeOrder: { overflow: 'hidden' },
+  carouselItem: { width: 220 },
   promo: { width: 280, height: 150, overflow: 'hidden' },
-  searchFacade: { flexDirection: 'row', alignItems: 'center', height: 48 },
 });

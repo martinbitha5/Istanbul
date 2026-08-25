@@ -7,7 +7,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets, type Edge } from 'react-native-safe-area-context';
-import { ArrowLeft } from 'phosphor-react-native';
+import { ArrowLeft, ArrowRight } from 'phosphor-react-native';
 import { useTheme } from '../theme/ThemeProvider';
 import { Pressable } from './Pressable';
 import { Text } from './Text';
@@ -132,8 +132,11 @@ export function Header({
       ) : null}
 
       <View style={[styles.headerCenter, onBack ? { marginLeft: theme.spacing.sm } : null]}>
+        {/* `large` monte à h1 (28 pt) : les titres d'écran de la référence sont
+            volontairement gros et alignés à gauche — « Paniers », « Commandes »
+            occupent le haut de l'écran au lieu de s'excuser dans une barre. */}
         {title ? (
-          <Text variant={large ? 'h1' : 'h2'} numberOfLines={1}>
+          <Text variant={large ? 'h1' : 'h3'} numberOfLines={1}>
             {title}
           </Text>
         ) : null}
@@ -152,8 +155,10 @@ export function Header({
 /**
  * Barre d'action ancrée en bas.
  *
- * Se place au-dessus de l'indicateur de geste, avec une ombre vers le haut
- * pour marquer qu'elle flotte au-dessus du contenu qui défile dessous.
+ * Un filet, pas une ombre : la référence marque cette séparation par un trait
+ * de 1 px et rien d'autre. L'ombre portée qu'il y avait ici faisait flotter
+ * la barre au-dessus du contenu, ce qui n'a de sens que pour un élément qu'on
+ * peut déplacer — or celle-ci est ancrée.
  */
 export function BottomBar({ children }: { children: React.ReactNode }) {
   const theme = useTheme();
@@ -161,24 +166,29 @@ export function BottomBar({ children }: { children: React.ReactNode }) {
 
   return (
     <View
-      style={[
-        {
-          paddingHorizontal: theme.screenPadding,
-          paddingTop: theme.spacing.base,
-          paddingBottom: Math.max(insets.bottom, theme.spacing.base),
-          backgroundColor: theme.colors.surface,
-          borderTopWidth: theme.borderWidth.hairline,
-          borderTopColor: theme.colors.border,
-        },
-        theme.elevation[3],
-      ]}
+      style={{
+        paddingHorizontal: theme.screenPadding,
+        paddingTop: theme.spacing.md,
+        paddingBottom: Math.max(insets.bottom, theme.spacing.md),
+        backgroundColor: theme.colors.surface,
+        borderTopWidth: theme.borderWidth.hairline,
+        borderTopColor: theme.colors.divider,
+      }}
     >
       {children}
     </View>
   );
 }
 
-/** Titre de section avec action optionnelle à droite (« Voir tout »). */
+/**
+ * Titre de section, avec action optionnelle à droite.
+ *
+ * Deux formes d'action, et la forme dit la portée : un libellé (« Voir le
+ * menu ») quand la destination mérite d'être nommée, un simple disque fléché
+ * quand elle ne fait que dérouler la section qu'on vient de lire. La référence
+ * utilise le disque partout dans son fil d'accueil, et c'est ce qui laisse les
+ * titres de section respirer.
+ */
 export function SectionHeader({
   title,
   actionLabel,
@@ -197,12 +207,30 @@ export function SectionHeader({
       <Text variant="h2" style={{ flex: 1 }}>
         {title}
       </Text>
-      {actionLabel && onAction ? (
-        <Pressable onPress={onAction} hitSlop={8} noScale>
-          <Text variant="labelStrong" color="primary">
-            {actionLabel}
-          </Text>
-        </Pressable>
+
+      {onAction ? (
+        actionLabel ? (
+          <Pressable onPress={onAction} hitSlop={8} noScale>
+            <Text variant="labelStrong" style={{ textDecorationLine: 'underline' }}>
+              {actionLabel}
+            </Text>
+          </Pressable>
+        ) : (
+          <Pressable
+            onPress={onAction}
+            hitSlop={8}
+            accessibilityLabel={`Tout voir : ${title}`}
+            style={[
+              styles.sectionArrow,
+              {
+                backgroundColor: theme.colors.surfaceSunken,
+                borderRadius: theme.radius.pill,
+              },
+            ]}
+          >
+            <ArrowRight size={theme.iconSize.sm} color={theme.colors.text} weight="bold" />
+          </Pressable>
+        )
       ) : null}
     </View>
   );
@@ -215,4 +243,5 @@ const styles = StyleSheet.create({
   headerCenter: { flex: 1 },
   headerRight: { flexDirection: 'row', alignItems: 'center' },
   sectionHeader: { flexDirection: 'row', alignItems: 'center' },
+  sectionArrow: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
 });

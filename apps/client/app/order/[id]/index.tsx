@@ -37,6 +37,7 @@ import {
   Header,
   Input,
   OfflineBanner,
+  OrderProgress,
   OrderTimeline,
   Pressable,
   Screen,
@@ -167,7 +168,7 @@ export default function OrderTracking() {
         {/* --- Statut ------------------------------------------------------
             `accessibilityLiveRegion` : le statut change tout seul en realtime,
             les lecteurs d'écran doivent annoncer la progression. */}
-        <Surface padding="lg" elevation={2} accessibilityLiveRegion="polite">
+        <Surface padding="lg" elevation={0} bordered accessibilityLiveRegion="polite">
           <View style={styles.rowBetween}>
             <Badge
               label={orderStatusCustomerLabel[order.status]}
@@ -197,6 +198,14 @@ export default function OrderTracking() {
             </Text>
           ) : null}
 
+          {/* Progression segmentée juste sous le titre : c'est le résumé qu'on
+              lit en une seconde, avant de descendre dans le détail horodaté.
+              Elle est masquée à l'annulation, où il n'y a plus de progression
+              à montrer — cinq traits gris ne diraient rien. */}
+          {!isCancelled ? (
+            <OrderProgress status={order.status} style={{ marginTop: theme.spacing.lg }} />
+          ) : null}
+
           <Divider spacing="lg" />
 
           <OrderTimeline status={order.status} timestamps={timestamps} formatTime={formatTime} />
@@ -206,7 +215,7 @@ export default function OrderTracking() {
         {trackingActive && restaurant ? (
           <>
             <Spacer size="lg" />
-            <Surface padding="base" elevation={1}>
+            <Surface padding="base" elevation={0} bordered>
               <TrackingMap
                 restaurant={{ latitude: restaurant.latitude, longitude: restaurant.longitude }}
                 destination={
@@ -219,6 +228,10 @@ export default function OrderTracking() {
                     ? { latitude: driverLocation.latitude, longitude: driverLocation.longitude }
                     : null
                 }
+                labels={{ restaurant: restaurant.name, driver: 'Votre livreur' }}
+                // L'itinéraire dès la vignette : c'est ce qui distingue un
+                // aperçu utile d'une image de carte avec deux épingles.
+                showRoute
                 followDriver
                 onPress={() => router.push(`/order/${order.id}/map`)}
               />
@@ -250,7 +263,7 @@ export default function OrderTracking() {
         {confirmationCode && !isDelivered && !isCancelled ? (
           <>
             <Spacer size="lg" />
-            <Surface padding="lg" elevation={1}>
+            <Surface padding="lg" elevation={0} bordered>
               <ConfirmationCode
                 code={confirmationCode}
                 label="Code à communiquer au livreur"
@@ -271,7 +284,7 @@ export default function OrderTracking() {
         {driverProfile && !isDelivered ? (
           <>
             <Spacer size="lg" />
-            <Surface padding="base" elevation={1}>
+            <Surface padding="base" elevation={0} bordered>
               <View style={styles.driverRow}>
                 <Avatar uri={driverProfile.avatar_url} fallback={initials(driverProfile.full_name)} />
 
@@ -306,7 +319,7 @@ export default function OrderTracking() {
 
         {/* --- Adresse ---------------------------------------------------- */}
         <Spacer size="lg" />
-        <Surface padding="base" elevation={1}>
+        <Surface padding="base" elevation={0} bordered>
           <Text variant="caption" color="textMuted">
             {order.fulfillment === 'PICKUP' ? 'Retrait sur place' : 'Livraison à'}
           </Text>
@@ -409,7 +422,7 @@ function RatingCard({ orderId, hasDriver }: { orderId: string; hasDriver: boolea
 
   if (review) {
     return (
-      <Surface padding="base" elevation={1}>
+      <Surface padding="base" elevation={0} bordered>
         <Text variant="h3">Merci pour votre note ⭐</Text>
         <Spacer size="md" />
         <View style={{ gap: theme.spacing.md }}>
@@ -447,7 +460,7 @@ function RatingCard({ orderId, hasDriver }: { orderId: string; hasDriver: boolea
   };
 
   return (
-    <Surface padding="base" elevation={2}>
+    <Surface padding="base" elevation={0} bordered>
       <Text variant="h3">Comment c’était ?</Text>
       <Text variant="bodySmall" color="textSecondary" style={{ marginTop: 2 }}>
         Votre note aide le restaurant et le livreur à s’améliorer.
@@ -496,7 +509,7 @@ function OrderItems({ order }: { order: OrderDetail }) {
   const items = order.items ?? [];
 
   return (
-    <Surface padding="base" elevation={1}>
+    <Surface padding="base" elevation={0} bordered>
       <Text variant="h3">Votre commande</Text>
       <Spacer size="md" />
 

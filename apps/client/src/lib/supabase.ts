@@ -2,6 +2,7 @@ import 'react-native-url-polyfill/auto';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppState } from 'react-native';
 import { createSupabaseClient, setSupabaseClient, configureCartStorage } from '@istanbul/core';
+import { setMapboxToken } from '@istanbul/map';
 import { config } from './config';
 
 /**
@@ -22,6 +23,10 @@ export const supabase = createSupabaseClient({
 
 setSupabaseClient(supabase);
 configureCartStorage(AsyncStorage);
+
+// Même principe que Supabase : le package `@istanbul/map` ne lit pas
+// l'environnement, l'app lui passe son jeton. Vide = cartes OpenStreetMap.
+setMapboxToken(config.mapboxToken);
 
 /**
  * Le rafraîchissement automatique du token ne doit tourner qu'au premier plan.

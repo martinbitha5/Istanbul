@@ -162,7 +162,7 @@ export default function PhoneAuth() {
                   </Text>
                 ) : (
                   <Pressable onPress={sendCode} hitSlop={10} noScale>
-                    <Text variant="labelStrong" color="primary">
+                    <Text variant="labelStrong" color="primary" style={{ textDecorationLine: 'underline' }}>
                       Renvoyer le code
                     </Text>
                   </Pressable>

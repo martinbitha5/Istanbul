@@ -1,5 +1,5 @@
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useTheme } from '@istanbul/ui';
+import { FLOATING_TAB_BAR_HEIGHT, useTheme } from '@istanbul/ui';
 
 /**
  * Constantes de mise en page partagées.
@@ -9,11 +9,11 @@ import { useTheme } from '@istanbul/ui';
  * de la tab bar aurait cassé cinq écrans. Une seule source de vérité ici.
  */
 
-/** Hauteur de la barre d'onglets (hors inset système) — voir `(tabs)/_layout.tsx`. */
-export const TAB_BAR_HEIGHT = 58;
+/** Hauteur de la barre d'onglets flottante (hors inset système). */
+export const TAB_BAR_HEIGHT = FLOATING_TAB_BAR_HEIGHT;
 
 /** Hauteur de la barre de panier flottante (`CartBar` de @istanbul/ui). */
-export const CART_BAR_HEIGHT = 58;
+export const CART_BAR_HEIGHT = 56;
 
 /**
  * Réserve de défilement des écrans à `BottomBar` en flux (panier, checkout) :
@@ -23,18 +23,17 @@ export const CART_BAR_HEIGHT = 58;
 export const BOTTOM_BAR_INSET = CART_BAR_HEIGHT;
 
 /**
- * Padding bas d'une liste d'onglet surplombée par la CartBar flottante.
+ * Padding bas d'une liste d'onglet.
  *
- * Reproduit exactement la position de la barre (offset tab bar + inset système
- * + hauteur de barre) plus un souffle : le dernier élément reste lisible
- * au-dessus d'elle quel que soit le téléphone.
+ * La barre d'onglets ne pose plus de fond opaque : elle flotte, et le contenu
+ * défile derrière elle. Une liste doit donc réserver sa hauteur **en
+ * permanence**, panier visible ou pas — c'est le prix de la barre flottante, et
+ * l'oublier laisse le dernier plat de la liste caché sous les pastilles.
  */
 export function useCartBarListPadding(cartVisible: boolean): number {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
 
-  if (!cartVisible) return theme.spacing.xl;
-  return (
-    TAB_BAR_HEIGHT + Math.max(insets.bottom, theme.spacing.md) + CART_BAR_HEIGHT + theme.spacing.md
-  );
+  const base = TAB_BAR_HEIGHT + Math.max(insets.bottom, theme.spacing.md) + theme.spacing.md;
+  return cartVisible ? base + CART_BAR_HEIGHT + theme.spacing.sm : base;
 }

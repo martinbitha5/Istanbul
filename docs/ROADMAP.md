@@ -72,6 +72,14 @@ revoke table + re-grant colonne par colonne.
 - [x] Mise en route guidée (bannière de progression tant que la carte n'est pas
       publiée, publication en un geste une fois les 4 étapes faites).
 - [x] Optimisation d'itinéraire (OSRM : itinéraire sur les cartes client ET livreur, distance/ETA vivants)
+- [x] **Cartes Mapbox (`@istanbul/map`)** — une page de carte unique pour les
+      trois surfaces : WebView côté client et livreur, iframe côté dashboard.
+      Style `navigation-day`, tracé noir sur liseré blanc, puck orienté au cap,
+      vue inclinée et pivotante pour le livreur, itinéraire et ETA par Mapbox
+      Directions (`driving-traffic`). Le rendu Leaflet/OSM reste le repli
+      automatique quand `EXPO_PUBLIC_MAPBOX_TOKEN` / `NEXT_PUBLIC_MAPBOX_TOKEN`
+      est vide — l'engagement « zéro clé, zéro facture » tient toujours sans
+      jeton.
 - [x] **Retour au mono-restaurant (migration 24)** — la couche « place de
       marché » construite par les migrations 21–23 est retirée : plus de
       partenaires, de commission, ni de sélecteur d'établissement. Ce qui reste

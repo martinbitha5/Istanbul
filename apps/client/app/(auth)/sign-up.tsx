@@ -168,7 +168,7 @@ export default function SignUp() {
             </Text>
             <Link href="/(auth)/sign-in" asChild>
               <Pressable hitSlop={8} noScale>
-                <Text variant="bodyStrong" color="primary">
+                <Text variant="bodyStrong" color="primary" style={{ textDecorationLine: 'underline' }}>
                   Se connecter
                 </Text>
               </Pressable>

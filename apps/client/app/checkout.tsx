@@ -276,7 +276,7 @@ export default function Checkout() {
             <Text variant="h3">Adresse de livraison</Text>
             <Spacer size="md" />
 
-            <Surface padding="base" elevation={1}>
+            <Surface padding="base" elevation={0} bordered>
               {address ? (
                 <Pressable
                   onPress={() => router.push('/addresses')}
@@ -362,7 +362,7 @@ export default function Checkout() {
             />
           </>
         ) : (
-          <Surface padding="base" elevation={1}>
+          <Surface padding="base" elevation={0} bordered>
             <Text variant="bodyStrong">{restaurant?.name}</Text>
             <Text variant="bodySmall" color="textSecondary" style={{ marginTop: 2 }}>
               {restaurant?.address_line}, {restaurant?.city}
@@ -460,7 +460,7 @@ export default function Checkout() {
         <Text variant="h3">Paiement</Text>
         <Spacer size="md" />
 
-        <Surface padding="none" elevation={1} style={{ paddingHorizontal: theme.spacing.base }}>
+        <Surface padding="none" elevation={0} bordered style={{ paddingHorizontal: theme.spacing.base }}>
           <ListRow
             title="Espèces à la livraison"
             subtitle="À remettre au livreur · d’autres moyens de paiement arrivent"
@@ -472,7 +472,7 @@ export default function Checkout() {
         {session && loyaltyPoints > 0 ? (
           <>
             <Spacer size="xl" />
-            <Surface padding="base" elevation={1}>
+            <Surface padding="base" elevation={0} bordered>
               <View style={styles.loyaltyRow}>
                 <Coins size={theme.iconSize.md} color={theme.colors.warning} weight="fill" />
                 <View style={{ flex: 1, marginHorizontal: theme.spacing.md }}>
@@ -511,7 +511,7 @@ export default function Checkout() {
         <Spacer size="xl" />
 
         {/* --- Récapitulatif -------------------------------------------- */}
-        <Surface padding="base" elevation={1}>
+        <Surface padding="base" elevation={0} bordered>
           <PriceBreakdown
             subtotal={totals.subtotal}
             deliveryFee={isDelivery ? totals.deliveryFee : 0}
@@ -585,9 +585,13 @@ function ModeCard({
         {
           borderRadius: theme.radius.lg,
           padding: theme.spacing.base,
+          // Sélection = bordure noire de 2 px, fond inchangé. Le fond gris
+          // qu'avait la carte active la faisait paraître désactivée à côté de
+          // sa voisine blanche : l'aplat gris est la couleur du repos partout
+          // ailleurs dans l'interface.
           borderWidth: active ? theme.borderWidth.thick : theme.borderWidth.hairline,
           borderColor: active ? theme.colors.primary : theme.colors.border,
-          backgroundColor: active ? theme.colors.primarySoft : theme.colors.surface,
+          backgroundColor: theme.colors.surface,
         },
       ]}
     >

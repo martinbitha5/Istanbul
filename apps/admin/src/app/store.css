@@ -375,4 +375,46 @@
   [data-surface='store'] .ue-close:hover {
     background: var(--ue-surface-muted);
   }
+
+  /* --- Carte Leaflet -------------------------------------------------
+     Leaflet arrive avec sa propre feuille de style, calibrée pour une page
+     nue : police système, fond gris, infobulles à bord blanc. Ces trois
+     règles la ramènent dans la charte de la vitrine. Elles vivent dans
+     `@layer components` comme le reste : hors de la couche, elles
+     battraient les utilitaires Tailwind posés sur le conteneur. */
+
+  [data-surface='store'] .leaflet-container {
+    font-family: var(--ue-font-text);
+    background: var(--ue-surface-sunken);
+  }
+
+  [data-surface='store'] .leaflet-control-attribution {
+    background: rgba(255, 255, 255, 0.82);
+    font-size: 10px;
+    padding: 2px 6px;
+  }
+
+  [data-surface='store'] .leaflet-control-attribution a {
+    color: var(--ue-ink-secondary);
+  }
+
+  [data-surface='store'] .leaflet-tooltip {
+    padding: 6px 10px;
+    border: none;
+    border-radius: var(--ue-radius);
+    background: var(--ue-surface);
+    box-shadow: var(--ue-shadow-pop);
+    color: var(--ue-ink);
+    font-size: 13px;
+    font-weight: 500;
+  }
+
+  [data-surface='store'] .leaflet-tooltip::before {
+    display: none;
+  }
+
+  /* Le curseur dit ce que la carte attend : on y pose un repère. */
+  [data-surface='store'] .leaflet-container.leaflet-grab {
+    cursor: crosshair;
+  }
 }

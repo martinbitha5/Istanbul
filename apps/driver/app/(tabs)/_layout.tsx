@@ -1,75 +1,72 @@
 import { Tabs } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ClockCounterClockwise, Money, Motorcycle, User } from 'phosphor-react-native';
-import { useTheme } from '@istanbul/ui';
+import { FloatingTabBar, type FloatingTabItem } from '@istanbul/ui';
+
+/**
+ * Onglets du livreur — même barre flottante que l'application client.
+ *
+ * Pas de pilule de recherche ici : le livreur ne cherche rien, il exécute ce
+ * qu'on lui assigne. Les quatre pastilles sont donc centrées plutôt
+ * qu'étirées, ce que `FloatingTabBar` fait de lui-même en l'absence d'onglet
+ * large.
+ */
+const TABS: { name: string; label: string; icon: FloatingTabItem['icon'] }[] = [
+  {
+    name: 'index',
+    label: 'Courses',
+    icon: ({ color, focused, size }) => (
+      <Motorcycle size={size} color={color} weight={focused ? 'fill' : 'regular'} />
+    ),
+  },
+  {
+    name: 'history',
+    label: 'Historique',
+    icon: ({ color, focused, size }) => (
+      <ClockCounterClockwise size={size} color={color} weight={focused ? 'fill' : 'regular'} />
+    ),
+  },
+  {
+    name: 'earnings',
+    label: 'Revenus',
+    icon: ({ color, focused, size }) => (
+      <Money size={size} color={color} weight={focused ? 'fill' : 'regular'} />
+    ),
+  },
+  {
+    name: 'profile',
+    label: 'Profil',
+    icon: ({ color, focused, size }) => (
+      <User size={size} color={color} weight={focused ? 'fill' : 'regular'} />
+    ),
+  },
+];
 
 export default function DriverTabs() {
-  const theme = useTheme();
-  const insets = useSafeAreaInsets();
-
-  // Le bandeau hors ligne vit désormais dans le layout racine : il couvre
-  // aussi l'écran de course, hors de cette pile d'onglets.
+  // Le bandeau hors ligne vit dans le layout racine : il couvre aussi l'écran
+  // de course, hors de cette pile d'onglets.
   return (
     <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: theme.colors.primary,
-        tabBarInactiveTintColor: theme.colors.textMuted,
-        tabBarStyle: {
-          backgroundColor: theme.colors.surface,
-          borderTopColor: theme.colors.border,
-          borderTopWidth: theme.borderWidth.hairline,
-          height: 58 + insets.bottom,
-          paddingTop: 6,
-          paddingBottom: Math.max(insets.bottom, 8),
-        },
-        tabBarLabelStyle: { ...theme.text.overline, textTransform: 'none', marginTop: theme.spacing.xxs },
-      }}
+      screenOptions={{ headerShown: false }}
+      tabBar={({ state, navigation }) => (
+        <FloatingTabBar
+          items={TABS.map((tab): FloatingTabItem => {
+            const index = state.routes.findIndex((route) => route.name === tab.name);
+
+            return {
+              key: tab.name,
+              label: tab.label,
+              icon: tab.icon,
+              focused: state.index === index,
+              onPress: () => navigation.navigate(tab.name),
+            };
+          })}
+        />
+      )}
     >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Courses',
-          tabBarIcon: ({ color, focused }) => (
-            <Motorcycle
-              size={theme.iconSize.md}
-              color={color}
-              weight={focused ? 'fill' : 'regular'}
-            />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="history"
-        options={{
-          title: 'Historique',
-          tabBarIcon: ({ color, focused }) => (
-            <ClockCounterClockwise
-              size={theme.iconSize.md}
-              color={color}
-              weight={focused ? 'fill' : 'regular'}
-            />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="earnings"
-        options={{
-          title: 'Revenus',
-          tabBarIcon: ({ color, focused }) => (
-            <Money size={theme.iconSize.md} color={color} weight={focused ? 'fill' : 'regular'} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: 'Profil',
-          tabBarIcon: ({ color, focused }) => (
-            <User size={theme.iconSize.md} color={color} weight={focused ? 'fill' : 'regular'} />
-          ),
-        }}
-      />
+      <Tabs.Screen name="index" />
+      <Tabs.Screen name="history" />
+      <Tabs.Screen name="earnings" />
+      <Tabs.Screen name="profile" />
     </Tabs>
   );
 }

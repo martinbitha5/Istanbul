@@ -3,8 +3,14 @@
 import { useState } from 'react';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { configureCartStorage, createQueryClient } from '@istanbul/core';
+import { setMapboxToken } from '@istanbul/map';
 import { getBrowserClient } from '@/lib/supabase/client';
 import { ToastProvider, toastRef } from '@/components/Toaster';
+
+// Enregistré au chargement du module, avant tout rendu : `@istanbul/map` ne lit
+// pas l'environnement lui-même (Next ne substitue `NEXT_PUBLIC_*` que dans le
+// code de l'app, pas dans un package partagé). Vide = cartes OpenStreetMap.
+setMapboxToken(process.env.NEXT_PUBLIC_MAPBOX_TOKEN);
 
 export function Providers({ children }: { children: React.ReactNode }) {
   // useState(initializer) : une seule instance par montage, créée de façon

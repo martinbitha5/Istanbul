@@ -4,14 +4,23 @@ export * from './scales';
 export * from './typography';
 export * from './motion';
 
-import { themes, type ColorSchemeName, type ThemeColors } from './theme';
-import { borderWidth, elevation, hitTarget, iconSize, radius, screenPadding, spacing, zIndex } from './scales';
+import { colors, type ThemeColors } from './theme';
+import {
+  borderWidth,
+  controlHeight,
+  elevation,
+  hitTarget,
+  iconSize,
+  radius,
+  screenPadding,
+  spacing,
+  zIndex,
+} from './scales';
 import { fontFamily, fontSize, letterSpacing, lineHeight, tabularNums, textStyles } from './typography';
 import { duration, easing, pressScale, spring, stagger } from './motion';
 
 /** Objet thème complet consommé par le ThemeProvider de `@istanbul/ui`. */
 export interface Theme {
-  scheme: ColorSchemeName;
   colors: ThemeColors;
   spacing: typeof spacing;
   screenPadding: typeof screenPadding;
@@ -19,6 +28,7 @@ export interface Theme {
   borderWidth: typeof borderWidth;
   iconSize: typeof iconSize;
   hitTarget: typeof hitTarget;
+  controlHeight: typeof controlHeight;
   zIndex: typeof zIndex;
   elevation: typeof elevation;
   text: typeof textStyles;
@@ -34,28 +44,25 @@ export interface Theme {
   stagger: typeof stagger;
 }
 
-/** Re-teinte l'échelle d'élévation avec la couleur d'ombre du thème. */
-function themedElevation(shadowColor: string): typeof elevation {
+/**
+ * Le thème, en un seul exemplaire.
+ *
+ * `createTheme()` ne prend plus de schéma : il n'y en a qu'un. La fonction
+ * subsiste parce que le provider l'appelle, et parce qu'un thème construit
+ * reste plus facile à étendre qu'une constante figée.
+ */
+export function createTheme(): Theme {
   return {
-    0: elevation[0],
-    1: { ...elevation[1], shadowColor },
-    2: { ...elevation[2], shadowColor },
-    3: { ...elevation[3], shadowColor },
-  };
-}
-
-export function createTheme(scheme: ColorSchemeName): Theme {
-  return {
-    scheme,
-    colors: themes[scheme],
+    colors,
     spacing,
     screenPadding,
     radius,
     borderWidth,
     iconSize,
     hitTarget,
+    controlHeight,
     zIndex,
-    elevation: themedElevation(themes[scheme].shadow),
+    elevation,
     text: textStyles,
     fontFamily,
     fontSize,
@@ -70,5 +77,4 @@ export function createTheme(scheme: ColorSchemeName): Theme {
   };
 }
 
-export const lightTheme = createTheme('light');
-export const darkTheme = createTheme('dark');
+export const theme = createTheme();

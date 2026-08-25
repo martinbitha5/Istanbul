@@ -15,6 +15,12 @@ export interface ButtonProps {
   disabled?: boolean;
   loading?: boolean;
   fullWidth?: boolean;
+  /**
+   * Forme. Par défaut, elle se déduit de la largeur — voir le commentaire du
+   * composant. À ne forcer que pour aller contre cette règle en connaissance
+   * de cause.
+   */
+  shape?: 'rounded' | 'pill';
   /** Icône rendue à gauche du libellé. */
   icon?: React.ReactNode;
   iconRight?: React.ReactNode;
@@ -32,6 +38,21 @@ const HEIGHTS: Record<ButtonSize, number> = { sm: 40, md: 48, lg: 56 };
  *
  * Un seul bouton `primary` par écran : c'est la règle qui garde l'interface
  * lisible. Les actions secondaires prennent `secondary` ou `ghost`.
+ *
+ * Deux points hérités de la référence, contre-intuitifs tant qu'on ne les a
+ * pas vus côte à côte :
+ *
+ *  - **Le primaire est noir**, pas coloré. Le vert de marque ne sert jamais de
+ *    fond de bouton — il resterait un signal, et un signal partout ne signale
+ *    plus rien.
+ *  - **La forme dépend de la largeur.** Un bouton pleine largeur ancré en bas
+ *    prend le rayon 8 ; un bouton qui se dimensionne sur son texte prend la
+ *    pilule. Uber applique cette règle sans exception, et c'est elle qui fait
+ *    qu'un « Commander » flottant et un « Commander et payer » ancré ne se
+ *    ressemblent pas par accident.
+ *
+ * Aucune ombre nulle part : les boutons sont plats, c'est le contraste du
+ * noir sur blanc qui les fait ressortir.
  */
 export function Button({
   label,
@@ -41,6 +62,7 @@ export function Button({
   disabled = false,
   loading = false,
   fullWidth = false,
+  shape,
   icon,
   iconRight,
   trailing,
@@ -51,19 +73,19 @@ export function Button({
   const theme = useTheme();
   const isInactive = disabled || loading;
 
-  const palette: Record<ButtonVariant, { bg: string; fg: string; border?: string }> = {
+  const palette: Record<ButtonVariant, { bg: string; fg: string }> = {
     primary: { bg: theme.colors.primary, fg: theme.colors.textOnPrimary },
     accent: { bg: theme.colors.accent, fg: theme.colors.textOnAccent },
-    secondary: {
-      bg: 'transparent',
-      fg: theme.colors.text,
-      border: theme.colors.borderStrong,
-    },
-    ghost: { bg: 'transparent', fg: theme.colors.primary },
-    danger: { bg: theme.colors.danger, fg: theme.colors.textOnPrimary },
+    // Aplat gris, pas un contour : c'est la forme qu'ont « Continuer avec
+    // Apple » ou « Afficher l'offre du magasin ». Un bouton bordé jurerait
+    // dans une interface qui n'a presque aucune bordure.
+    secondary: { bg: theme.colors.surfaceSunken, fg: theme.colors.text },
+    ghost: { bg: 'transparent', fg: theme.colors.text },
+    danger: { bg: theme.colors.danger, fg: theme.colors.textInverse },
   };
 
-  const { bg, fg, border } = palette[variant];
+  const { bg, fg } = palette[variant];
+  const isPill = (shape ?? (fullWidth ? 'rounded' : 'pill')) === 'pill';
 
   return (
     <Pressable
@@ -78,18 +100,12 @@ export function Button({
         {
           height: HEIGHTS[size],
           paddingHorizontal: size === 'sm' ? theme.spacing.base : theme.spacing.xl,
-          borderRadius: theme.radius.pill,
-          // Les variantes transparentes le restent quand elles sont inactives :
-          // un `secondary` désactivé ne doit pas devenir un pavé gris plein.
-          backgroundColor:
-            isInactive && variant !== 'ghost' && variant !== 'secondary'
-              ? theme.colors.disabled
-              : bg,
-          borderWidth: border ? theme.borderWidth.thin : 0,
-          borderColor: isInactive && border ? theme.colors.border : border,
+          borderRadius: isPill ? theme.radius.pill : theme.radius.md,
+          // `ghost` reste transparent une fois inactif : un bouton texte
+          // désactivé ne doit pas se matérialiser en pavé gris.
+          backgroundColor: isInactive && variant !== 'ghost' ? theme.colors.disabled : bg,
         },
         fullWidth && styles.fullWidth,
-        variant === 'primary' && !isInactive && theme.elevation[2],
         style as ViewStyle,
       ]}
     >

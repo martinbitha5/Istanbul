@@ -28,6 +28,12 @@ export interface InputProps extends Omit<TextInputProps, 'style'> {
  * Le label est toujours visible : un placeholder qui disparaît à la frappe
  * laisse l'utilisateur sans repère dans un formulaire long. L'erreur s'affiche
  * sous le champ concerné, pas en haut de l'écran.
+ *
+ * Le champ est un aplat gris sans bordure au repos — la forme qu'ont tous les
+ * champs de la référence, du numéro de téléphone à la barre de recherche. La
+ * bordure n'apparaît qu'au focus et sur erreur, là où elle porte une
+ * information ; posée en permanence, elle ajouterait un trait à chaque ligne
+ * d'un formulaire qui n'en a pas besoin.
  */
 export function Input({
   label,
@@ -45,11 +51,8 @@ export function Input({
   const [focused, setFocused] = useState(false);
   const [revealed, setRevealed] = useState(false);
 
-  const borderColor = error
-    ? theme.colors.danger
-    : focused
-      ? theme.colors.primary
-      : theme.colors.border;
+  const outlined = Boolean(focused || error);
+  const borderColor = error ? theme.colors.danger : theme.colors.primary;
 
   return (
     <View style={containerStyle}>
@@ -68,9 +71,9 @@ export function Input({
         style={[
           styles.field,
           {
-            backgroundColor: theme.colors.surface,
-            borderColor,
-            borderWidth: focused || error ? theme.borderWidth.thick : theme.borderWidth.thin,
+            backgroundColor: theme.colors.surfaceSunken,
+            borderColor: outlined ? borderColor : 'transparent',
+            borderWidth: theme.borderWidth.thick,
             borderRadius: theme.radius.md,
             paddingHorizontal: theme.spacing.base,
             marginTop: theme.spacing.xs + 2,

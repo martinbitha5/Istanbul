@@ -5,7 +5,8 @@
     "jsx": "react-jsx",
     "paths": {
       "@istanbul/tokens": ["../tokens/src/index.ts"],
-      "@istanbul/types": ["../types/src/index.ts"]
+      "@istanbul/types": ["../types/src/index.ts"],
+      "@istanbul/map": ["../map/src/index.ts"]
     }
   },
   "include": ["src/**/*"]

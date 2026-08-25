@@ -22,9 +22,12 @@ export interface PriceBreakdownProps {
 /**
  * Récapitulatif de prix.
  *
- * Chiffres tabulaires partout, total en Sora 700, réduction en vert avec son
- * signe. Le client doit pouvoir vérifier son total d'un coup d'œil sans
- * relire trois fois.
+ * Chiffres tabulaires partout, réduction en vert avec son signe. Le client
+ * doit pouvoir vérifier son total d'un coup d'œil sans relire trois fois.
+ *
+ * Les lignes intermédiaires sont grises et de graisse normale ; seul le total
+ * est noir et gras. C'est ce contraste — et non un filet ou un fond — qui fait
+ * que l'œil tombe sur le montant à payer sans le chercher.
  */
 export function PriceBreakdown({
   subtotal,
@@ -48,7 +51,7 @@ export function PriceBreakdown({
         <Row
           label="Frais de livraison"
           value={freeDelivery || deliveryFee === 0 ? 'Offerte' : formatMoney(deliveryFee, currency)}
-          valueColor={freeDelivery || deliveryFee === 0 ? 'success' : 'text'}
+          valueColor={freeDelivery || deliveryFee === 0 ? 'success' : 'textSecondary'}
         />
       ) : null}
 
@@ -68,7 +71,7 @@ export function PriceBreakdown({
       <Divider spacing="md" />
 
       <View style={styles.row}>
-        <Text variant="h3">Total</Text>
+        <Text variant="h2">Total</Text>
         <Price variant="priceLarge" color="text">
           {formatMoney(total, currency)}
         </Price>
@@ -85,12 +88,12 @@ function Row({
   label,
   value,
   labelColor = 'textSecondary',
-  valueColor = 'text',
+  valueColor = 'textSecondary',
 }: {
   label: string;
   value: string;
   labelColor?: 'textSecondary' | 'success';
-  valueColor?: 'text' | 'success';
+  valueColor?: 'textSecondary' | 'success';
 }) {
   const theme = useTheme();
   return (
@@ -98,7 +101,7 @@ function Row({
       <Text variant="body" color={labelColor} style={{ flex: 1 }} numberOfLines={1}>
         {label}
       </Text>
-      <Text variant="bodyStrong" color={valueColor} tabular>
+      <Text variant="body" color={valueColor} tabular>
         {value}
       </Text>
     </View>

@@ -21,9 +21,11 @@ import {
   useTheme,
 } from '@istanbul/ui';
 import { Row } from '@/components/Row';
+import { useTabBarPadding } from '@/lib/layout';
 
 export default function History() {
   const theme = useTheme();
+  const tabBarPadding = useTabBarPadding();
   const { data: driver } = useDriverProfile();
   const { data, isLoading, isError, refetch, isRefetching } = useCompletedDeliveries(
     driver?.id ?? null,
@@ -48,12 +50,12 @@ export default function History() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{
             paddingHorizontal: theme.screenPadding,
-            paddingBottom: theme.spacing.xl,
+            paddingBottom: tabBarPadding,
             gap: theme.spacing.md,
           }}
           renderItem={({ item }) => (
             <Pressable onPress={() => router.push(`/delivery/${item.id}`)}>
-              <Surface padding="base" elevation={1}>
+              <Surface padding="base" elevation={0} bordered>
                 <Row>
                   <Text variant="labelStrong" tabular color="textSecondary">
                     {item.order.order_number}

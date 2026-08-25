@@ -23,6 +23,11 @@ export interface QuantityStepperProps {
  * Chaque bouton fait 44×44 minimum, même en taille `sm` où l'icône est plus
  * petite : le `hitSlop` compense. C'est le composant le plus manipulé du
  * panier, il n'a pas droit à l'à-peu-près.
+ *
+ * Une seule pilule grise, et les deux commandes posées dedans sans pastille :
+ * la référence ne dessine pas de bouton dans le bouton. Le « + » n'est pas
+ * noir non plus — un aplat noir ici entrerait en concurrence avec le CTA de
+ * l'écran, qui est la seule chose qui doit être noire.
  */
 export function QuantityStepper({
   value,
@@ -61,16 +66,11 @@ export function QuantityStepper({
         accessibilityLabel={showDelete ? "Retirer l'article" : 'Diminuer la quantité'}
         style={[
           styles.button,
-          {
-            width: button,
-            height: button,
-            borderRadius: button / 2,
-            backgroundColor: theme.colors.surface,
-          },
+          { width: button, height: button },
         ]}
       >
         {showDelete ? (
-          <Trash size={icon} color={theme.colors.danger} />
+          <Trash size={icon} color={theme.colors.text} />
         ) : (
           <Minus
             size={icon}
@@ -97,17 +97,12 @@ export function QuantityStepper({
         accessibilityLabel="Augmenter la quantité"
         style={[
           styles.button,
-          {
-            width: button,
-            height: button,
-            borderRadius: button / 2,
-            backgroundColor: value >= max ? theme.colors.surface : theme.colors.primary,
-          },
+          { width: button, height: button },
         ]}
       >
         <Plus
           size={icon}
-          color={value >= max ? theme.colors.disabledText : theme.colors.textOnPrimary}
+          color={value >= max ? theme.colors.disabledText : theme.colors.text}
           weight="bold"
         />
       </Pressable>

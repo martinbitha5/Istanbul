@@ -222,6 +222,7 @@ function IdentityForm({ restaurant, canEdit }: { restaurant: Restaurant; canEdit
     'latitude',
     'longitude',
     'logo_url',
+    'cover_url',
   ]);
   const save = useSaveRestaurant();
   const toast = useToast();
@@ -359,6 +360,20 @@ function IdentityForm({ restaurant, canEdit }: { restaurant: Restaurant; canEdit
               value={draft.logo_url ?? null}
               onChange={(url) => setField('logo_url', url)}
               folder="restaurants"
+            />
+          </Field>
+        </div>
+
+        <div className="md:col-span-2">
+          <Field
+            label="Photo d’accueil de la vitrine"
+            hint="Le grand visuel derrière « Livraison près de chez vous », sur istanbul.cd. Format paysage, sujet plutôt à droite : le titre se pose sur la moitié gauche."
+          >
+            <ImageUpload
+              value={draft.cover_url ?? null}
+              onChange={(url) => setField('cover_url', url)}
+              folder="restaurants"
+              shape="wide"
             />
           </Field>
         </div>

@@ -15,6 +15,7 @@ import {
   useTheme,
 } from '@istanbul/ui';
 import { Row } from '@/components/Row';
+import { useTabBarPadding } from '@/lib/layout';
 
 /**
  * Revenus.
@@ -30,6 +31,7 @@ import { Row } from '@/components/Row';
  */
 export default function Earnings() {
   const theme = useTheme();
+  const tabBarPadding = useTabBarPadding();
   const { data: driver } = useDriverProfile();
   const { data, isLoading, isError, refetch } = useDriverEarnings(driver?.id ?? null);
 
@@ -61,11 +63,11 @@ export default function Earnings() {
     <Screen>
       <Header title="Mes revenus" large />
 
-      <ScreenScroll>
+      <ScreenScroll bottomInset={tabBarPadding}>
         {/* --- Aujourd'hui ----------------------------------------------
             `textOnPrimary` est un encre foncé en mode sombre : c'est voulu,
             le fond `primary` y est plus clair — ne jamais forcer du blanc. */}
-        <Surface padding="lg" elevation={2} style={{ backgroundColor: theme.colors.primary }}>
+        <Surface padding="lg" elevation={0} bordered style={{ backgroundColor: theme.colors.primary }}>
           <Text variant="label" color="textOnPrimary" style={{ opacity: 0.85 }}>
             Aujourd’hui
           </Text>
@@ -98,7 +100,7 @@ export default function Earnings() {
         <Spacer size="lg" />
 
         {/* --- Cumul ----------------------------------------------------- */}
-        <Surface padding="base" elevation={1}>
+        <Surface padding="base" elevation={0} bordered>
           <Row>
             <View style={styles.iconRow}>
               <TrendUp size={theme.iconSize.sm} color={theme.colors.success} weight="bold" />
@@ -151,7 +153,7 @@ export default function Earnings() {
 function StatCard({ label, value }: { label: string; value: string }) {
   const theme = useTheme();
   return (
-    <Surface padding="base" elevation={1} style={{ flex: 1 }}>
+    <Surface padding="base" elevation={0} bordered style={{ flex: 1 }}>
       <Text variant="caption" color="textMuted">
         {label}
       </Text>

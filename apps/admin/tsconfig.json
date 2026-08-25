@@ -26,6 +26,9 @@
       "@istanbul/types": [
         "../../packages/types/src/index.ts"
       ],
+      "@istanbul/map": [
+        "../../packages/map/src/index.ts"
+      ],
       "@istanbul/tokens": [
         "../../packages/tokens/src/index.ts"
       ],

@@ -22,8 +22,11 @@ import { CategoryIcon } from '@/components/store/CategoryIcon';
 import { ProductModal } from '@/components/store/ProductModal';
 import { CartPanel } from '@/components/store/CartPanel';
 import { DeliveryDetailsModal } from '@/components/store/DeliveryDetailsModal';
-import { COVERAGE_CITY, isInCoverage } from '@/lib/coverage';
+import { KinshasaMap } from '@/components/store/KinshasaMap';
+import { COVERAGE_CITY, isDeliverable } from '@/lib/coverage';
 import { useDeliveryPrefs } from '@/lib/delivery-prefs';
+import { KINSHASA_CENTER } from '@/lib/geocode';
+import { deliveryRings } from '@/lib/zones';
 
 type SortKey = 'recommended' | 'rating' | 'price-asc';
 
@@ -80,7 +83,7 @@ export function FeedView({
   useEffect(() => setMounted(true), []);
 
   const hasAddress = Boolean(prefs.address);
-  const covered = prefs.mode === 'pickup' || isInCoverage(prefs.address);
+  const covered = prefs.mode === 'pickup' || isDeliverable(prefs);
   const currency = restaurant.currency;
 
   const activeCategory = categories.find((category) => category.slug === categorySlug) ?? null;
@@ -157,6 +160,8 @@ export function FeedView({
         open={addressOpen || (mounted && !hasAddress)}
         onClose={() => setAddressOpen(false)}
         required={mounted && !hasAddress}
+        restaurant={restaurant}
+        zones={zones}
       />
       <ProductModal
         productId={productId}
@@ -173,16 +178,27 @@ export function FeedView({
   );
 
   // --- 1. Pas encore d'adresse -------------------------------------------
+  //
+  // La modale s'ouvre par-dessus et ne se ferme pas ; ce qu'on met dessous
+  // n'est donc jamais manipulé, seulement vu. Une carte de Kinshasa y répond
+  // mieux qu'un paragraphe centré : elle dit d'emblée de quelle ville on parle
+  // et jusqu'où va la livraison, pendant que le client cherche son adresse.
   if (mounted && !hasAddress) {
     return (
       <>
         {header}
-        <main className="ue-container flex min-h-[50dvh] flex-col items-center justify-center py-20 text-center">
-          <h1 className="ue-h1">Où livrons-nous ?</h1>
-          <p className="mt-3 max-w-[42ch] text-base text-[var(--ue-ink-secondary)]">
-            Indiquez votre adresse pour découvrir la carte, les prix et le délai de livraison
-            chez vous.
-          </p>
+        <main className="px-4 py-6 md:px-6">
+          <KinshasaMap
+            restaurant={{
+              lat: restaurant.latitude ?? KINSHASA_CENTER.lat,
+              lng: restaurant.longitude ?? KINSHASA_CENTER.lng,
+              name: restaurant.name,
+            }}
+            rings={deliveryRings(zones, currency)}
+            showCommunes
+            basemap="voyager"
+            height="calc(100dvh - var(--ue-header-height) - 48px)"
+          />
         </main>
         {modals}
       </>

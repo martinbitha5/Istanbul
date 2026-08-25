@@ -1,168 +1,146 @@
-# 🥙 Istanbul Fast Food
+<p align="center">
+  <img src="logo.jpeg" alt="Istanbul Pide &amp; Kebap" width="260">
+</p>
 
-Plateforme de commande et de livraison de repas — **Kinshasa, RDC**.
+<h1 align="center">Istanbul Fast Food</h1>
 
-Monorepo contenant **2 applications mobiles** (client + livreur), **1 dashboard web**
-(restaurant / admin) et **1 backend Supabase** (PostgreSQL + Auth + Storage + Realtime).
+<p align="center">
+  <b>Commander un repas à Kinshasa, le suivre jusqu'à sa porte, et le recevoir chaud.</b>
+</p>
 
----
-
-## 📦 Structure
-
-```
-istanbul-fast-food/
-├── apps/
-│   ├── client/          # Expo — application CLIENT (commande, suivi, profil)
-│   ├── driver/          # Expo — application LIVREUR (courses, statuts, revenus)
-│   └── admin/           # Next.js — dashboard RESTAURANT / ADMIN
-├── packages/
-│   ├── tokens/          # Design tokens (couleurs, typo, espacements, motion)
-│   ├── types/           # Types du domaine + machine à états des commandes
-│   ├── core/            # Client Supabase, hooks React Query, moteur de prix
-│   └── ui/              # Bibliothèque de composants React Native
-├── supabase/
-│   ├── migrations/      # Schéma SQL versionné (tables, RLS, fonctions, triggers)
-│   ├── functions/       # Edge Functions (notifications push, assignation)
-│   └── seed.sql         # Données de démonstration (menu Istanbul, zones Kinshasa)
-└── docs/
-    ├── ARCHITECTURE.md  # Architecture technique détaillée
-    ├── DESIGN-SYSTEM.md # Identité visuelle et règles UI
-    └── ROADMAP.md       # Ordre de construction des modules
-```
+Istanbul Fast Food est une plateforme complète de commande et de livraison,
+pensée pour un restaurant qui veut vendre en ligne sans dépendre d'un
+intermédiaire : pas de commission prélevée sur chaque plat, pas de client
+« emprunté » par une place de marché. Le restaurant garde sa carte, ses prix,
+ses clients et ses livreurs.
 
 ---
 
-## 🚀 Démarrage
+## Ce que la plateforme comprend
 
-### 1. Prérequis
+Quatre surfaces, un seul système derrière.
 
-| Outil | Version |
-|-------|---------|
-| Node.js | ≥ 20.19 |
-| pnpm | ≥ 10 |
-| Supabase CLI | ≥ 2.x |
-| Docker Desktop | pour `supabase start` en local |
-| Expo Go / Dev Client | sur un téléphone Android ou iOS |
+### 🛍️ La vitrine en ligne
 
-### 2. Installation
+Un site public où l'on découvre le menu, choisit ses plats, indique son adresse
+et paie sa commande, depuis un ordinateur ou un téléphone, **sans rien
+installer**. C'est la porte d'entrée : on peut parcourir la carte librement, et
+la création de compte n'arrive qu'au moment de valider.
 
-```bash
-pnpm install
-```
+### 📱 L'application client
 
-### 3. Base de données
+Pour les habitués. On y retrouve son historique, ses adresses enregistrées, ses
+plats favoris, un bouton « commander à nouveau », et le suivi en direct du
+livreur sur une carte. Les notifications préviennent à chaque étape : commande
+acceptée, en préparation, en route, livreur arrivé.
 
-```bash
-supabase start
-supabase db reset
-```
+### 🛵 L'application livreur
 
-`db reset` applique toutes les migrations de `supabase/migrations/` puis charge `supabase/seed.sql`
-(menu Istanbul complet, zones de livraison Kinshasa, comptes de démo).
+L'outil de travail du coursier. Il voit les courses disponibles, accepte celle
+qui lui convient, suit l'itinéraire proposé, signale chaque étape et clôt la
+livraison en saisissant le code à 4 chiffres donné par le client. Il consulte
+aussi son historique et ses revenus.
 
-Générer les types TypeScript à partir du schéma :
+### 🖥️ Le back-office du restaurant
 
-```bash
-pnpm db:types
-```
+Le poste de pilotage. Les commandes arrivent en direct, à la seconde. Le gérant
+les accepte, les fait passer en préparation, puis les confie à un livreur. Il y
+gère également :
 
-### 4. Variables d'environnement
-
-```bash
-cp .env.example .env
-```
-
-Renseigner l'URL et la clé `anon` affichées par `supabase start`, puis créer
-`apps/client/.env`, `apps/driver/.env` et `apps/admin/.env.local` sur le même modèle.
-
-### 5. Lancer
-
-```bash
-pnpm client   # Expo — application client
-pnpm driver   # Expo — application livreur
-pnpm admin    # Next.js — http://localhost:3000
-```
+- **la carte** — plats, catégories, options (taille, sauces, suppléments), photos, ruptures de stock ;
+- **les prix et les promotions** — codes promo, réductions, tarifs de livraison par zone ;
+- **les zones de livraison** — jusqu'où on livre, et à quel prix ;
+- **l'équipe** — livreurs, employés, avec des droits différents selon la fonction ;
+- **les chiffres** — ventes du jour, de la semaine, du mois, plats les plus vendus.
 
 ---
 
-## ☁️ Déploiement du dashboard (Vercel)
-
-Seul `apps/admin` est déployé. Le projet Vercel doit être configuré ainsi :
-
-| Réglage | Valeur |
-|---------|--------|
-| Root Directory | `apps/admin` |
-| Include files outside root directory | activé (le monorepo pnpm en dépend) |
-| Framework | Next.js (détecté) |
-
-Le reste vit dans `apps/admin/vercel.json`, notamment l'`installCommand`. Sans le
-filtre `--filter @istanbul/admin...`, Vercel installerait tout le workspace —
-dont les deux applications Expo et leurs dépendances natives, inutiles ici et
-longues à télécharger. Le filtre ne retient que le dashboard et les packages
-dont il dépend (`types`, `core`).
-
-⚠️ `vercel.json` est validé contre un schéma strict : **aucune clé hors schéma**,
-pas même un `"//"` de commentaire — le build échoue avant de compiler.
-
-Les deux variables `NEXT_PUBLIC_*` sont versionnées dans
-`apps/admin/.env.production` (elles sont publiques par conception, la sécurité
-repose sur la RLS) : rien à renseigner côté Vercel.
-
----
-
-## 🎯 Le parcours de bout en bout
+## Le parcours, de la commande à la porte
 
 ```
 CLIENT                RESTAURANT              LIVREUR
 ──────                ──────────              ───────
 Panier
-Checkout ──────────►  NEW
-                      ACCEPTED  ──────────►
-                      PREPARING
-                      READY
-                      ASSIGNED  ──────────►  Course proposée
-                                             ACCEPTÉE
-                                             EN ROUTE VERS LE RESTO
-                      PICKED_UP ◄──────────  COMMANDE RÉCUPÉRÉE
-Suivi temps réel                             EN ROUTE VERS LE CLIENT
-                                             ARRIVÉ
-Code : 4831 ─────────────────────────────►   Vérification du code
-                      DELIVERED ◄─────────   LIVRÉE
+Commande passée ───►  Nouvelle commande
+                      Acceptée      ───────►
+                      En préparation
+                      Prête
+                      Confiée       ───────►  Course proposée
+                                              Acceptée
+                                              En route vers le resto
+                      Récupérée     ◄───────  Commande récupérée
+Suivi en direct                               En route vers le client
+                                              Arrivé
+Code : 4831 ─────────────────────────────►    Vérification du code
+                      Livrée        ◄───────  Livrée
 ```
 
-Chaque transition est écrite dans `order_status_history`, diffusée par **Supabase Realtime**
-et déclenche une **notification push** aux acteurs concernés.
+Chaque étape est enregistrée, visible par tout le monde en temps réel, et
+annoncée par une notification aux personnes concernées. Le **code à 4 chiffres**
+ferme la boucle : une commande n'est déclarée livrée que si le client a remis
+son code au livreur.
 
 ---
 
-## 🔐 Rôles
+## Les choix qui font la différence
 
-Deux niveaux se superposent. `UserRole` dit ce qu'une personne est vis-à-vis de
-l'application :
+**Tout est en direct.** Une commande passée sur un téléphone apparaît sur
+l'écran du restaurant en moins d'une seconde. Personne n'a besoin de rafraîchir
+quoi que ce soit.
 
-| Rôle | Accès |
-|------|-------|
-| `CUSTOMER` | Ses commandes, ses adresses, son profil |
-| `DRIVER` | Les courses qui lui sont assignées + les courses disponibles |
-| `RESTAURANT_STAFF` | Le dashboard, dans la limite de son rôle d'équipe |
-| `ADMIN` / `SUPER_ADMIN` | Tout, sans passer par l'équipe |
+**Ça marche aussi quand le réseau flanche.** À Kinshasa, la connexion n'est pas
+toujours au rendez-vous. Les applications continuent de fonctionner hors ligne,
+affichent ce qu'elles ont en mémoire, et envoient ce qui était en attente dès
+que le réseau revient.
 
-`RestaurantRole` dit jusqu'où elle va dans le dashboard — parce que « accès au
-dashboard » n'est pas une permission unique :
+**Les cartes ne coûtent rien.** Le suivi de livraison, l'itinéraire et l'adresse
+fonctionnent avec des cartes libres, sans abonnement ni facture. Un rendu plus
+fin, façon GPS de voiture, peut être activé en option si l'on y tient.
 
-| Rôle d'équipe | Peut |
-|---------------|------|
-| `OWNER` | Tout, y compris l'équipe et les paramètres |
-| `MANAGER` | Menu, prix, promotions, zones, livreurs, commandes |
-| `STAFF` | Commandes du jour et ruptures de stock — ni les prix, ni l'équipe |
+**Chacun voit ce qui le concerne.** Un client voit ses commandes, un livreur ses
+courses, un employé la file du jour sans accès aux chiffres d'affaires. Ces
+règles ne sont pas de simples écrans masqués : elles sont appliquées au niveau
+de la base de données, ce qui les rend impossibles à contourner.
 
-Les permissions sont appliquées par **Row Level Security** au niveau PostgreSQL —
-aucune règle métier de sécurité ne vit uniquement côté client.
+**Trois niveaux dans l'équipe.** Le *propriétaire* a tout ; le *gérant* tient la
+carte, les prix, les promotions et les livreurs ; l'*employé* voit les commandes
+du jour et signale les ruptures — ni les prix, ni l'équipe.
+
+**Fidélité intégrée.** Un point par dollar livré, convertible en réduction au
+moment de payer. Rien à installer en plus.
 
 ---
 
-## 📚 Documentation
+## Où en est le projet
 
+| | |
+|---|---|
+| ✅ | Vitrine en ligne, commande et paiement à la livraison |
+| ✅ | Applications client et livreur |
+| ✅ | Back-office complet : carte, prix, promotions, zones, équipe, statistiques |
+| ✅ | Suivi en direct, notifications, mode hors ligne |
+| ✅ | Programme de fidélité, notation du livreur, attribution automatique des courses |
+| 🚧 | Paiements mobile money (M-Pesa, Orange Money, Airtel Money) |
+
+Le détail des étapes se trouve dans la [feuille de route](docs/ROADMAP.md).
+
+---
+
+## Documentation
+
+- [Installation et déploiement](docs/INSTALLATION.md) — pour les développeurs
 - [Architecture technique](docs/ARCHITECTURE.md)
 - [Design system](docs/DESIGN-SYSTEM.md)
 - [Feuille de route](docs/ROADMAP.md)
+
+---
+
+## Auteur
+
+**Martin BITHA MOPONDA**
+Développeur Full Stack
+AFRICAN TRANSPORT SYSTEMS Sarl | Kinshasa / RDC
+
+📧 [m.bitha@ats-handling-rdc.com](mailto:m.bitha@ats-handling-rdc.com)
+🌐 [www.ats-handling-rdc.com](https://www.ats-handling-rdc.com)
+📱 WhatsApp : (+243) 827 241 919 | 853 829 264

@@ -29,6 +29,9 @@ importers:
       '@istanbul/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@istanbul/map':
+        specifier: workspace:*
+        version: link:../../packages/map
       '@istanbul/types':
         specifier: workspace:*
         version: link:../../packages/types
@@ -47,6 +50,9 @@ importers:
       '@tanstack/react-query':
         specifier: ^5.75.5
         version: 5.101.4(react@19.1.0)
+      leaflet:
+        specifier: ^1.9.4
+        version: 1.9.4
       next:
         specifier: ^15.3.2
         version: 15.5.23(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(babel-plugin-react-compiler@1.0.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
@@ -63,6 +69,9 @@ importers:
       '@tailwindcss/postcss':
         specifier: ^4.1.5
         version: 4.3.3
+      '@types/leaflet':
+        specifier: ^1.9.22
+        version: 1.9.22
       '@types/node':
         specifier: ^22.15.3
         version: 22.20.1
@@ -87,18 +96,18 @@ importers:
 
   apps/client:
     dependencies:
-      '@expo-google-fonts/inter':
-        specifier: ^0.4.1
-        version: 0.4.2
-      '@expo-google-fonts/playfair-display-sc':
+      '@expo-google-fonts/figtree':
         specifier: ^0.4.1
         version: 0.4.1
-      '@expo-google-fonts/sora':
+      '@expo-google-fonts/inter':
         specifier: ^0.4.1
         version: 0.4.2
       '@istanbul/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@istanbul/map':
+        specifier: workspace:*
+        version: link:../../packages/map
       '@istanbul/tokens':
         specifier: workspace:*
         version: link:../../packages/tokens
@@ -211,18 +220,18 @@ importers:
 
   apps/driver:
     dependencies:
-      '@expo-google-fonts/inter':
-        specifier: ^0.4.1
-        version: 0.4.2
-      '@expo-google-fonts/playfair-display-sc':
+      '@expo-google-fonts/figtree':
         specifier: ^0.4.1
         version: 0.4.1
-      '@expo-google-fonts/sora':
+      '@expo-google-fonts/inter':
         specifier: ^0.4.1
         version: 0.4.2
       '@istanbul/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@istanbul/map':
+        specifier: workspace:*
+        version: link:../../packages/map
       '@istanbul/tokens':
         specifier: workspace:*
         version: link:../../packages/tokens
@@ -361,6 +370,12 @@ importers:
         specifier: ^3.1.3
         version: 3.2.7(@types/node@22.20.1)(jiti@2.7.0)(lightningcss@1.33.0)(terser@5.50.0)(yaml@2.9.0)
 
+  packages/map:
+    devDependencies:
+      typescript:
+        specifier: ~5.9.2
+        version: 5.9.3
+
   packages/tokens:
     devDependencies:
       typescript:
@@ -378,6 +393,9 @@ importers:
 
   packages/ui:
     dependencies:
+      '@istanbul/map':
+        specifier: workspace:*
+        version: link:../map
       '@istanbul/tokens':
         specifier: workspace:*
         version: link:../tokens
@@ -1110,14 +1128,11 @@ packages:
     cpu: [x64]
     os: [win32]
 
+  '@expo-google-fonts/figtree@0.4.1':
+    resolution: {integrity: sha512-6IQQddGeR3yZBSwiIjy2kd1gA+5s2esF8JAFw6M1qqU4RUlj4Zxkw9J+gixAtZFgd+QIS875EPHqeYlpaRcCRw==}
+
   '@expo-google-fonts/inter@0.4.2':
     resolution: {integrity: sha512-syfiImMaDmq7cFi0of+waE2M4uSCyd16zgyWxdPOY7fN2VBmSLKEzkfbZgeOjJq61kSqPBNNtXjggiQiSD6gMQ==}
-
-  '@expo-google-fonts/playfair-display-sc@0.4.1':
-    resolution: {integrity: sha512-09k6v+fDw8fz1FSksGDzlBbK39z5IiEBGECv47ZtKfRBbZjMsQA4t4PbUgLVn9xcj7WGJoBvpi4m3YxXcGkKVg==}
-
-  '@expo-google-fonts/sora@0.4.2':
-    resolution: {integrity: sha512-X86Kl1cfObcSUzTLIbtmrPCLRlIbCNh0uBOo8bjmXb8gWgVVhnI8CZJEK2btsdq85JPn5k4P6sbV9JLbAm7dqQ==}
 
   '@expo/cli@54.0.27':
     resolution: {integrity: sha512-BxKOr6e8wmUwhGSyEVKY+CHWgS3Cre9ibgx1QWcdCenKTVKAz62qGmYL51q0lCcKg6vQY+4Usw9RK5Il4ZFaIA==}
@@ -2592,6 +2607,9 @@ packages:
   '@types/estree@1.0.9':
     resolution: {integrity: sha512-GhdPgy1el4/ImP05X05Uw4cw2/M93BCUmnEvWZNStlCzEKME4Fkk+YpoA5OiHNQmoS7Cafb8Xa3Pya8m1Qrzeg==}
 
+  '@types/geojson@7946.0.16':
+    resolution: {integrity: sha512-6C8nqWur3j98U6+lXDfTUWIfgvZU+EumvpHKcYjujKH7woYyLj2sUmff0tRhrqM7BohUw7Pz3ZB1jj2gW9Fvmg==}
+
   '@types/graceful-fs@4.1.9':
     resolution: {integrity: sha512-olP3sd1qOEe5dXTSaFvQG+02VdRXcdytWLAZsAq1PecU8uqQAhkrnbli7DagjtXKW/Bl7YJbUsa8MPcuc8LHEQ==}
 
@@ -2609,6 +2627,9 @@ packages:
 
   '@types/json-schema@7.0.15':
     resolution: {integrity: sha512-5+fP8P8MFNC+AyZCDxrB2pkZFPGzqQWUzpSeuuVLvm8VMcorNYavBqoFcxK8bQz4Qsbn4oUEEem4wDLfcysGHA==}
+
+  '@types/leaflet@1.9.22':
+    resolution: {integrity: sha512-h3lhECYEKDasG7LFHu+GiHqAvsgLuQvlJvVZzJDGONo3sEL+wUOqSFLnwkZlK0qVxnxbuGFW8iBlJNYs5wgndA==}
 
   '@types/node@22.20.1':
     resolution: {integrity: sha512-EANqOCF9QFyra+4pfxUcX9STKJpCLjMbObVzljIJomAWSnuSIEAvyzEU53GaajbXJEgdh0iEcPL+DGvpUd4k1Q==}
@@ -3973,6 +3994,9 @@ packages:
   lan-network@0.2.1:
     resolution: {integrity: sha512-ONPnazC96VKDntab9j9JKwIWhZ4ZUceB4A9Epu4Ssg0hYFmtHZSeQ+n15nIwTFmcBUKtExOer8WTJ4GF9MO64A==}
     hasBin: true
+
+  leaflet@1.9.4:
+    resolution: {integrity: sha512-nxS1ynzJOmOlHp+iL3FyWqK89GtNL8U8rvlMOsQdTTssxZwCXh8N2NB3GDQOL+YR3XnWyZAxwQixURb+FA74PA==}
 
   leven@3.1.0:
     resolution: {integrity: sha512-qsda+H8jTaUaN/x5vzW2rzc+8Rw4TAQ/4KjB46IwK5VH+IlVeeeje/EoZRpiXvIqjFgK84QffqPztGI3VBLG1A==}
@@ -6398,11 +6422,9 @@ snapshots:
   '@esbuild/win32-x64@0.28.2':
     optional: true
 
+  '@expo-google-fonts/figtree@0.4.1': {}
+
   '@expo-google-fonts/inter@0.4.2': {}
-
-  '@expo-google-fonts/playfair-display-sc@0.4.1': {}
-
-  '@expo-google-fonts/sora@0.4.2': {}
 
   '@expo/cli@54.0.27(expo-router@6.0.24)(expo@54.0.37)(react-native@0.81.4(@babel/core@7.29.7)(@react-native/metro-config@0.87.0(@babel/core@7.29.7))(@types/react@19.1.17)(react@19.1.0))(typescript@5.9.3)':
     dependencies:
@@ -8128,6 +8150,8 @@ snapshots:
 
   '@types/estree@1.0.9': {}
 
+  '@types/geojson@7946.0.16': {}
+
   '@types/graceful-fs@4.1.9':
     dependencies:
       '@types/node': 22.20.1
@@ -8145,6 +8169,10 @@ snapshots:
       '@types/istanbul-lib-report': 3.0.3
 
   '@types/json-schema@7.0.15': {}
+
+  '@types/leaflet@1.9.22':
+    dependencies:
+      '@types/geojson': 7946.0.16
 
   '@types/node@22.20.1':
     dependencies:
@@ -9621,6 +9649,8 @@ snapshots:
   kleur@3.0.3: {}
 
   lan-network@0.2.1: {}
+
+  leaflet@1.9.4: {}
 
   leven@3.1.0: {}
 

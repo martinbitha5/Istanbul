@@ -1,6 +1,6 @@
-import { Alert, Linking, StyleSheet, Switch, View } from 'react-native';
+import { Alert, Linking, StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
-import { IdentificationCard, Info, Moon, Phone, SignOut, Star } from 'phosphor-react-native';
+import { IdentificationCard, Info, Phone, SignOut, Star } from 'phosphor-react-native';
 import {
   driverAvailabilityLabel,
   formatPhone,
@@ -23,13 +23,13 @@ import {
   Surface,
   Text,
   useTheme,
-  useThemeContext,
 } from '@istanbul/ui';
 import { RESTAURANT } from '@/lib/restaurant';
+import { useTabBarPadding } from '@/lib/layout';
 
 export default function DriverProfile() {
   const theme = useTheme();
-  const { isDark, setPreference } = useThemeContext();
+  const tabBarPadding = useTabBarPadding();
   const { profile, isLoading: profileLoading } = useProfile();
   const { data: driver, isLoading: driverLoading } = useDriverProfile();
 
@@ -59,8 +59,8 @@ export default function DriverProfile() {
     <Screen>
       <Header title="Profil" large />
 
-      <ScreenScroll>
-        <Surface padding="base" elevation={1}>
+      <ScreenScroll bottomInset={tabBarPadding}>
+        <Surface padding="base" elevation={0} bordered>
           <View style={styles.identityRow}>
             <Avatar
               uri={profile?.avatar_url}
@@ -115,7 +115,7 @@ export default function DriverProfile() {
         </Text>
         <Spacer size="sm" />
 
-        <Surface padding="none" elevation={1} style={{ paddingHorizontal: theme.spacing.base }}>
+        <Surface padding="none" elevation={0} bordered style={{ paddingHorizontal: theme.spacing.base }}>
           {driverLoading ? (
             <View style={{ paddingVertical: theme.spacing.md, gap: theme.spacing.sm }}>
               <Skeleton width={140} height={18} />
@@ -142,30 +142,7 @@ export default function DriverProfile() {
 
         <Spacer size="xl" />
 
-        <Text variant="label" color="textMuted" uppercase>
-          Préférences
-        </Text>
-        <Spacer size="sm" />
-
-        <Surface padding="none" elevation={1} style={{ paddingHorizontal: theme.spacing.base }}>
-          <ListRow
-            title="Mode sombre"
-            subtitle="Plus lisible la nuit, moins de batterie"
-            icon={<Moon size={theme.iconSize.sm} color={theme.colors.text} />}
-            right={
-              <Switch
-                value={isDark}
-                onValueChange={(value) => setPreference(value ? 'dark' : 'light')}
-                trackColor={{ true: theme.colors.primary, false: theme.colors.border }}
-                accessibilityLabel="Mode sombre"
-              />
-            }
-          />
-        </Surface>
-
-        <Spacer size="xl" />
-
-        <Surface padding="none" elevation={1} style={{ paddingHorizontal: theme.spacing.base }}>
+        <Surface padding="none" elevation={0} bordered style={{ paddingHorizontal: theme.spacing.base }}>
           <ListRow
             title="Appeler le restaurant"
             subtitle={RESTAURANT.phoneDisplay}
@@ -182,7 +159,7 @@ export default function DriverProfile() {
 
         <Spacer size="xl" />
 
-        <Surface padding="none" elevation={1} style={{ paddingHorizontal: theme.spacing.base }}>
+        <Surface padding="none" elevation={0} bordered style={{ paddingHorizontal: theme.spacing.base }}>
           <ListRow
             title="Se déconnecter"
             icon={<SignOut size={theme.iconSize.sm} color={theme.colors.danger} />}

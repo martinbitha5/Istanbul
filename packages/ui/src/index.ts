@@ -9,11 +9,13 @@ export * from './components/Surface';
 export * from './components/Badge';
 export * from './components/Input';
 export * from './components/Layout';
+export * from './components/FloatingTabBar';
 
 // Composants métier
 export * from './components/QuantityStepper';
 export * from './components/ProductCard';
 export * from './components/CategoryChips';
+export * from './components/CategoryRail';
 export * from './components/OrderTimeline';
 export * from './components/PriceBreakdown';
 export * from './components/CartBar';

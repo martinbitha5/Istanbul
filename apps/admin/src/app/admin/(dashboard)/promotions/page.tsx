@@ -30,6 +30,7 @@ import {
 } from '@/components/ui';
 import { Alert } from '@/components/Alert';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { ImageUpload } from '@/components/ImageUpload';
 import { MoneyInput } from '@/components/MoneyInput';
 import { useToast } from '@/components/Toaster';
 import { useRestaurantId } from '@/hooks/useRestaurantId';
@@ -324,6 +325,20 @@ function PromotionModal({
               value={form.description ?? ''}
               onChange={(event) => setForm({ ...form, description: event.target.value })}
               placeholder="-20 % sur votre première commande"
+            />
+          </Field>
+        </div>
+
+        <div className="sm:col-span-2">
+          <Field
+            label="Visuel de la bannière"
+            hint="Occupe le tiers droit de la carte promotionnelle sur la vitrine. Sans photo, la carte reste sur son aplat de couleur."
+          >
+            <ImageUpload
+              value={form.image_url ?? null}
+              onChange={(url) => setForm({ ...form, image_url: url })}
+              folder="promotions"
+              shape="wide"
             />
           </Field>
         </div>

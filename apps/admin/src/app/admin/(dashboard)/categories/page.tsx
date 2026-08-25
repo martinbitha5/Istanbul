@@ -27,6 +27,8 @@ import {
 } from '@/components/ui';
 import { Alert } from '@/components/Alert';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { ImageUpload } from '@/components/ImageUpload';
+import { CategoryThumb } from '@/components/CategoryThumb';
 import { useToast } from '@/components/Toaster';
 import { useRestaurantId } from '@/hooks/useRestaurantId';
 
@@ -104,6 +106,7 @@ export default function CategoriesPage() {
             <thead>
               <tr>
                 <Th>Ordre</Th>
+                <Th>Photo</Th>
                 <Th>Nom</Th>
                 <Th>Identifiant</Th>
                 <Th>Visible</Th>
@@ -134,6 +137,10 @@ export default function CategoriesPage() {
                         <ArrowDown size={14} weight="bold" />
                       </button>
                     </div>
+                  </Td>
+
+                  <Td>
+                    <CategoryThumb category={category} />
                   </Td>
 
                   <Td>
@@ -288,15 +295,22 @@ function CategoryModal({
           />
         </Field>
 
-        <Field label="URL de l’image">
-          <input
-            className={inputClass}
-            value={form.image_url ?? ''}
-            onChange={(event) => setForm({ ...form, image_url: event.target.value })}
+        <Field
+          label="Photo de la catégorie"
+          hint="C’est la pastille ronde du rail de la vitrine. Une photo carrée et bien cadrée sur le plat rend le mieux."
+        >
+          <ImageUpload
+            value={form.image_url ?? null}
+            onChange={(url) => setForm({ ...form, image_url: url })}
+            folder="categories"
+            shape="round"
           />
         </Field>
 
-        <Field label="Icône Phosphor" hint="Ex. Wrap, Hamburger, Pizza, Martini.">
+        <Field
+          label="Icône Phosphor"
+          hint="Repli quand aucune photo n’est chargée. Ex. Wrap, Hamburger, Pizza, Martini."
+        >
           <input
             className={inputClass}
             value={form.icon ?? ''}

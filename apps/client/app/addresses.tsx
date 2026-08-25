@@ -231,7 +231,7 @@ export default function Addresses() {
 
           <Spacer size="lg" />
 
-          <Surface padding="base" elevation={1}>
+          <Surface padding="base" elevation={0} bordered>
             <View style={styles.rowBetween}>
               <View style={{ flex: 1 }}>
                 <Text variant="bodyStrong">Position GPS</Text>
@@ -302,7 +302,7 @@ export default function Addresses() {
         />
       ) : (
         <ScreenScroll bottomInset={90}>
-          <Surface padding="base" elevation={1}>
+          <Surface padding="base" elevation={0} bordered>
             {addresses!.map((address, index) => (
               <View key={address.id}>
                 {index > 0 ? <Divider spacing="md" /> : null}

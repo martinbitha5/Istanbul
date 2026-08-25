@@ -91,35 +91,45 @@ export function isInCoverage(address: string | null | undefined): boolean {
 }
 
 /**
- * Les communes, pour l'aide à la saisie.
- *
- * Sans autocomplétion géographique, la liste rend le champ honnête : le
- * client voit ce qu'on attend de lui au lieu de deviner pourquoi son adresse
- * est refusée.
+ * Emprise de la province de Kinshasa : Maluku au nord-est, Mont-Ngafula au
+ * sud, le fleuve à l'ouest. Bornes larges à dessein — mieux vaut accepter une
+ * commande à la limite et la trancher au moment du devis que refuser une
+ * adresse réelle sur un arrondi.
  */
-export const KINSHASA_COMMUNES = [
-  'Bandalungwa',
-  'Barumbu',
-  'Bumbu',
-  'Gombe',
-  'Kalamu',
-  'Kasa-Vubu',
-  'Kimbanseke',
-  'Kinshasa',
-  'Kintambo',
-  'Kisenso',
-  'Lemba',
-  'Limete',
-  'Lingwala',
-  'Makala',
-  'Maluku',
-  'Masina',
-  'Matete',
-  'Mont-Ngafula',
-  'N’Djili',
-  'Ngaba',
-  'Ngaliema',
-  'Ngiri-Ngiri',
-  'Nsele',
-  'Selembao',
-] as const;
+const BOUNDS = { north: -3.85, south: -5.0, west: 15.0, east: 16.95 };
+
+/**
+ * Couverture décidée sur les coordonnées, quand le client a posé un repère
+ * sur la carte.
+ *
+ * C'est la réponse la plus fiable dont on dispose : elle ne dépend ni de
+ * l'orthographe, ni du fait que le client ait pensé à écrire « Kinshasa » à la
+ * fin de sa ligne. Le repli textuel (`isInCoverage`) reste en place pour tous
+ * ceux qui tapent leur adresse sans jamais toucher la carte.
+ */
+export function isPointInCoverage(
+  lat: number | null | undefined,
+  lng: number | null | undefined,
+): boolean {
+  if (typeof lat !== 'number' || typeof lng !== 'number') return false;
+  return lat <= BOUNDS.north && lat >= BOUNDS.south && lng >= BOUNDS.west && lng <= BOUNDS.east;
+}
+
+/**
+ * La réponse retenue par la vitrine : les coordonnées font foi si elles
+ * existent, le texte sinon.
+ */
+export function isDeliverable(prefs: {
+  address: string | null;
+  lat: number | null;
+  lng: number | null;
+}): boolean {
+  if (prefs.lat !== null && prefs.lng !== null) return isPointInCoverage(prefs.lat, prefs.lng);
+  return isInCoverage(prefs.address);
+}
+
+/**
+ * La liste des communes destinée à l'aide à la saisie a déménagé dans
+ * `lib/kinshasa.ts` : elle y porte aussi les coordonnées de chaque commune,
+ * dont la carte a besoin. Ce module ne garde que la question de couverture.
+ */

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -25,6 +26,7 @@ import {
   TrackingMap,
   useTheme,
 } from '@istanbul/ui';
+import type { MapRouteInfo } from '@istanbul/map';
 import { RESTAURANT_ID as restaurantId } from '@/lib/restaurant';
 
 /**
@@ -38,6 +40,11 @@ export default function OrderMap() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
+
+  // Itinéraire réellement calculé par la carte : distance routière et durée,
+  // trafic compris quand Mapbox en dispose. Il remplace l'approximation
+  // « vol d'oiseau × 1,35 » dès qu'il arrive.
+  const [route, setRoute] = useState<MapRouteInfo | null>(null);
 
   const orderQuery = useOrder(id ?? null);
   const order = orderQuery.data;
@@ -117,8 +124,10 @@ export default function OrderMap() {
           destination={destination}
           driver={driver}
           trail={trail ?? undefined}
+          labels={{ restaurant: restaurant.name, driver: 'Votre livreur' }}
           showRoute
           interactive
+          onRoute={setRoute}
           fill
         />
 
@@ -156,7 +165,13 @@ export default function OrderMap() {
           </View>
 
           <View style={[styles.legendRow, { marginTop: theme.spacing.md }]}>
-            {remainingKm != null ? (
+            {/* L'itinéraire de la carte fait autorité ; l'estimation à vol
+                d'oiseau ne sert que le temps qu'il soit calculé. */}
+            {route ? (
+              <Text variant="labelStrong" tabular>
+                🛵 à {route.distanceKm.toLocaleString('fr-FR')} km · {route.durationMin} min
+              </Text>
+            ) : remainingKm != null ? (
               <Text variant="labelStrong" tabular>
                 🛵 à ~{remainingKm.toLocaleString('fr-FR')} km · {roughEtaMinutes(remainingKm)} min
               </Text>

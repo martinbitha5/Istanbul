@@ -1,52 +1,27 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { useColorScheme, type ColorSchemeName } from 'react-native';
+import React, { createContext, useContext, useMemo } from 'react';
 import { createTheme, type Theme } from '@istanbul/tokens';
-
-type ThemePreference = 'light' | 'dark' | 'system';
 
 interface ThemeContextValue {
   theme: Theme;
-  preference: ThemePreference;
-  setPreference: (preference: ThemePreference) => void;
-  isDark: boolean;
 }
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 export interface ThemeProviderProps {
   children: React.ReactNode;
-  /** Préférence initiale, restaurée depuis le stockage par l'application. */
-  initialPreference?: ThemePreference;
-  onPreferenceChange?: (preference: ThemePreference) => void;
 }
 
-export function ThemeProvider({
-  children,
-  initialPreference = 'system',
-  onPreferenceChange,
-}: ThemeProviderProps) {
-  const systemScheme: ColorSchemeName = useColorScheme();
-  const [preference, setPreferenceState] = useState<ThemePreference>(initialPreference);
-
-  useEffect(() => {
-    setPreferenceState(initialPreference);
-  }, [initialPreference]);
-
-  const scheme = preference === 'system' ? (systemScheme ?? 'light') : preference;
-
-  const value = useMemo<ThemeContextValue>(() => {
-    const setPreference = (next: ThemePreference) => {
-      setPreferenceState(next);
-      onPreferenceChange?.(next);
-    };
-
-    return {
-      theme: createTheme(scheme === 'dark' ? 'dark' : 'light'),
-      preference,
-      setPreference,
-      isDark: scheme === 'dark',
-    };
-  }, [scheme, preference, onPreferenceChange]);
+/**
+ * Fournit le thème — il n'y en a qu'un.
+ *
+ * Le provider ne lit plus `useColorScheme` et n'expose plus de préférence :
+ * l'application est claire, comme sa référence. Il subsiste malgré tout,
+ * plutôt qu'un simple import du thème dans chaque composant, parce que c'est
+ * le point où l'on rebranchera une variation le jour où il en faudra une
+ * (contraste élevé, par exemple) sans toucher aux 19 composants.
+ */
+export function ThemeProvider({ children }: ThemeProviderProps) {
+  const value = useMemo<ThemeContextValue>(() => ({ theme: createTheme() }), []);
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }

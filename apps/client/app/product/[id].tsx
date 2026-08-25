@@ -4,7 +4,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { Check, Fire, Heart, X } from 'phosphor-react-native';
+import { Check, Heart, X } from 'phosphor-react-native';
 import {
   defaultSelection,
   formatMoney,
@@ -144,9 +144,9 @@ export default function ProductDetail() {
               accessibilityLabel="Fermer"
               // Boutons de 40 : le hitSlop remonte la cible au plancher de 44.
               hitSlop={(theme.hitTarget - CIRCLE_BUTTON_SIZE) / 2}
-              style={[styles.circleButton, { backgroundColor: theme.colors.surface }]}
+              style={[styles.circleButton, { backgroundColor: theme.colors.scrim }]}
             >
-              <X size={theme.iconSize.sm} color={theme.colors.text} weight="bold" />
+              <X size={theme.iconSize.sm} color={theme.colors.textOnScrim} weight="bold" />
             </Pressable>
 
             {profile ? (
@@ -154,11 +154,11 @@ export default function ProductDetail() {
                 onPress={() => toggleFavorite.mutate({ productId: product.id, isFavorite })}
                 accessibilityLabel={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
                 hitSlop={(theme.hitTarget - CIRCLE_BUTTON_SIZE) / 2}
-                style={[styles.circleButton, { backgroundColor: theme.colors.surface }]}
+                style={[styles.circleButton, { backgroundColor: theme.colors.scrim }]}
               >
                 <Heart
                   size={theme.iconSize.sm}
-                  color={isFavorite ? theme.colors.primary : theme.colors.text}
+                  color={theme.colors.textOnScrim}
                   weight={isFavorite ? 'fill' : 'regular'}
                 />
               </Pressable>
@@ -170,20 +170,20 @@ export default function ProductDetail() {
           {/* --- Titre et prix ------------------------------------------ */}
           <View style={styles.badgeRow}>
             {product.is_popular ? (
-              <Badge
-                label="Populaire"
-                tone="warning"
-                size="sm"
-                icon={<Fire size={11} color={theme.colors.warning} weight="fill" />}
-              />
+              <Badge label="Le plus aimé" tone="success" variant="solid" size="sm" />
             ) : null}
             {product.tags.map((tag) => (
               <Badge key={tag} label={tag} tone="neutral" size="sm" />
             ))}
-            {unavailable ? <Badge label="Rupture de stock" tone="danger" size="sm" /> : null}
+            {unavailable ? (
+              <Badge label="Rupture de stock" tone="danger" variant="solid" size="sm" />
+            ) : null}
           </View>
 
-          <Text variant="display" style={{ marginTop: theme.spacing.md }}>
+          {/* h1 (28) et non display (40) : un nom de plat n'est pas un titre de
+              héros, et à 40 pt « Formule Pita + Frites + Boisson » prend trois
+              lignes avant que le prix soit visible. */}
+          <Text variant="h1" style={{ marginTop: theme.spacing.md }}>
             {product.name}
           </Text>
 
@@ -194,7 +194,7 @@ export default function ProductDetail() {
           ) : null}
 
           <View style={[styles.metaRow, { marginTop: theme.spacing.md }]}>
-            <Text variant="priceLarge" tabular color="primary">
+            <Text variant="priceLarge" tabular>
               {formatMoney(product.base_price, currency)}
             </Text>
             {product.compare_at_price ? (
@@ -333,6 +333,32 @@ function OptionGroup({
                 }`}
                 style={[styles.optionRow, { paddingVertical: theme.spacing.md }]}
               >
+                {/* Le contrôle est à DROITE, en bout de ligne.
+                    C'est la disposition de la référence, et elle a une raison :
+                    l'œil descend la colonne des noms d'options sans être coupé
+                    par une colonne de pastilles, et le pouce trouve tous les
+                    contrôles alignés sur le bord où il est déjà. */}
+                <Text
+                  variant="body"
+                  color={disabled ? 'textMuted' : 'text'}
+                  style={{ flex: 1 }}
+                >
+                  {option.name}
+                  {disabled ? ' (indisponible)' : ''}
+                </Text>
+
+                {option.price_delta !== 0 ? (
+                  <Text
+                    variant="label"
+                    color="textSecondary"
+                    tabular
+                    style={{ marginRight: theme.spacing.md }}
+                  >
+                    {option.price_delta > 0 ? '+' : '−'}
+                    {formatMoney(Math.abs(option.price_delta), currency)}
+                  </Text>
+                ) : null}
+
                 <View
                   style={[
                     isSingle ? styles.radio : styles.checkbox,
@@ -352,22 +378,6 @@ function OptionGroup({
                     )
                   ) : null}
                 </View>
-
-                <Text
-                  variant="body"
-                  color={disabled ? 'textMuted' : 'text'}
-                  style={{ flex: 1, marginLeft: theme.spacing.md }}
-                >
-                  {option.name}
-                  {disabled ? ' (indisponible)' : ''}
-                </Text>
-
-                {option.price_delta !== 0 ? (
-                  <Text variant="labelStrong" color={isSelected ? 'primary' : 'textSecondary'} tabular>
-                    {option.price_delta > 0 ? '+' : '−'}
-                    {formatMoney(Math.abs(option.price_delta), currency)}
-                  </Text>
-                ) : null}
               </Pressable>
             </View>
           );

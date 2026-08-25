@@ -38,17 +38,35 @@ async function compressImage(file: File): Promise<Blob> {
   return blob;
 }
 
+/**
+ * Cadre de l'aperçu.
+ *
+ * Il vaut la peine de le régler : le gérant juge la photo qu'il vient de
+ * choisir sur cette vignette, et une image ronde jugée dans un carré se
+ * révèle mal cadrée seulement une fois publiée. Chaque forme reprend celle du
+ * rendu final — pastille ronde pour une catégorie, bandeau pour une
+ * couverture.
+ */
+const SHAPES = {
+  square: { width: 72, height: 72, radius: 12 },
+  round: { width: 72, height: 72, radius: 999 },
+  wide: { width: 160, height: 90, radius: 12 },
+} as const;
+
 export function ImageUpload({
   value,
   onChange,
   bucket = 'product-images',
   folder = 'products',
+  shape = 'square',
 }: {
   value: string | null;
   onChange: (url: string | null) => void;
   bucket?: string;
   folder?: string;
+  shape?: keyof typeof SHAPES;
 }) {
+  const frame = SHAPES[shape];
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -83,15 +101,20 @@ export function ImageUpload({
         <Image
           src={value}
           alt=""
-          width={72}
-          height={72}
-          className="h-18 w-18 rounded-xl object-cover"
-          style={{ height: 72, width: 72 }}
+          width={frame.width}
+          height={frame.height}
+          className="shrink-0 object-cover"
+          style={{ height: frame.height, width: frame.width, borderRadius: frame.radius }}
         />
       ) : (
         <div
-          className="flex items-center justify-center rounded-xl"
-          style={{ height: 72, width: 72, background: 'var(--color-surface-sunken)' }}
+          className="flex shrink-0 items-center justify-center"
+          style={{
+            height: frame.height,
+            width: frame.width,
+            borderRadius: frame.radius,
+            background: 'var(--color-surface-sunken)',
+          }}
         >
           <ImageIcon size={24} color="var(--color-text-muted)" />
         </div>

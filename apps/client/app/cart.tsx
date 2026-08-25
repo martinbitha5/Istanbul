@@ -72,7 +72,7 @@ export default function Cart() {
           description="Parcourez le menu et ajoutez vos plats préférés."
           actionLabel="Voir le menu"
           onAction={() => router.replace('/(tabs)/menu')}
-          icon={<ShoppingBagOpen size={32} color={theme.colors.textMuted} weight="duotone" />}
+          icon={<ShoppingBagOpen size={48} color={theme.colors.textMuted} weight="duotone" />}
         />
       </Screen>
     );
@@ -84,32 +84,35 @@ export default function Cart() {
         title="Mon panier"
         subtitle={`${lines.length} ligne${lines.length > 1 ? 's' : ''}`}
         onBack={() => router.back()}
+        large
       />
 
       <ScreenScroll bottomInset={BOTTOM_BAR_INSET}>
-        <Surface padding="base" elevation={1}>
-          {lines.map((line, index) => (
-            <Animated.View key={line.key} layout={LinearTransition.duration(theme.duration.base)}>
-              {index > 0 ? <Divider spacing="md" /> : null}
-              <CartLineRow
-                line={line}
-                currency={currency}
-                onChangeQuantity={(quantity) => {
-                  // Retour tactile discret : le stepper est l'élément le plus
-                  // manipulé du panier, la confirmation doit se sentir.
-                  void Haptics.selectionAsync();
-                  setQuantity(line.key, quantity);
-                }}
-                onRemove={() => {
-                  void Haptics.selectionAsync();
-                  removeLine(line.key);
-                }}
-              />
-            </Animated.View>
-          ))}
-        </Surface>
+        {/* Les lignes vivent à même le fond blanc, séparées par des filets.
+            La carte ombrée qui les enveloppait ajoutait un cadre autour de ce
+            qui est déjà le seul contenu de l'écran. */}
+        {lines.map((line, index) => (
+          <Animated.View key={line.key} layout={LinearTransition.duration(theme.duration.base)}>
+            {index > 0 ? <Divider spacing="base" /> : null}
+            <CartLineRow
+              line={line}
+              currency={currency}
+              onChangeQuantity={(quantity) => {
+                // Retour tactile discret : le stepper est l'élément le plus
+                // manipulé du panier, la confirmation doit se sentir.
+                void Haptics.selectionAsync();
+                setQuantity(line.key, quantity);
+              }}
+              onRemove={() => {
+                void Haptics.selectionAsync();
+                removeLine(line.key);
+              }}
+            />
+          </Animated.View>
+        ))}
 
-        <Spacer size="lg" />
+        <Divider spacing="base" />
+        <Spacer size="sm" />
 
         <View style={styles.rowBetween}>
           <Text variant="body" color="textSecondary">

@@ -1,18 +1,29 @@
 /**
  * Typographie.
  *
- * Trois familles, trois rôles distincts :
- *   Brand   — Playfair Display SC : logo, splash, titres éditoriaux. Rien d'autre.
- *   Heading — Sora : titres d'écran, noms de produits, prix.
- *   Body    — Inter : descriptions, labels, formulaires.
+ * Deux familles, deux rôles — c'est la structure d'Uber, qui oppose UberMove
+ * (titres) à UberMoveText (courant) :
+ *
+ *   Display — Figtree : titres d'écran, noms d'établissement, prix, boutons.
+ *   Body    — Inter   : descriptions, méta, formulaires.
+ *
+ * UberMove est propriétaire et non redistribuable. Figtree est la grotesque
+ * géométrique la plus proche — mêmes proportions en gras, même rondeur — et
+ * c'est déjà elle qui tient ce rôle sur la vitrine web. Inter, de son côté,
+ * est presque indiscernable d'UberMoveText.
+ *
+ * Playfair Display a disparu : le sérif éditorial n'existe nulle part chez
+ * Uber, et le garder pour le seul mot-logo aurait laissé une police entière
+ * dans le bundle pour trois écrans.
  */
 export const fontFamily = {
-  brand: 'PlayfairDisplaySC_700Bold',
-  brandRegular: 'PlayfairDisplaySC_400Regular',
+  /** Mot-logo « Istanbul » — le poids le plus lourd, comme « Uber Eats ». */
+  brand: 'Figtree_800ExtraBold',
+  brandRegular: 'Figtree_600SemiBold',
 
-  headingBold: 'Sora_700Bold',
-  headingSemi: 'Sora_600SemiBold',
-  heading: 'Sora_500Medium',
+  headingBold: 'Figtree_700Bold',
+  headingSemi: 'Figtree_600SemiBold',
+  heading: 'Figtree_500Medium',
 
   bodyBold: 'Inter_700Bold',
   bodySemi: 'Inter_600SemiBold',
@@ -23,13 +34,13 @@ export const fontFamily = {
 export const fontSize = {
   xxs: 11,
   xs: 12,
-  sm: 13,
-  base: 15,
-  md: 17,
+  sm: 14,
+  base: 16,
+  md: 18,
   lg: 20,
   xl: 24,
-  '2xl': 30,
-  '3xl': 38,
+  '2xl': 28,
+  '3xl': 40,
 } as const;
 
 export const lineHeight = {
@@ -67,37 +78,56 @@ const style = (
 });
 
 /**
+ * Resserrement des gros titres.
+ *
+ * UberMove est plus étroite que Figtree. À -0.02 em, l'écart se rattrape là
+ * où il se voit — sur les titres de 24 px et plus. En dessous, le
+ * resserrement se lit comme un défaut de rendu, donc on n'y touche pas.
+ */
+const tighten = (size: number) => Math.round(size * -0.02 * 10) / 10;
+
+/**
  * Rôles de texte. Un écran compose ces rôles, il ne redéfinit jamais
  * fontSize/fontFamily à la main.
  */
 export const textStyles = {
-  /** Wordmark « Istanbul » — splash et en-tête de marque uniquement. */
-  brand: style(fontFamily.brand, fontSize['3xl'], lineHeight.tight, letterSpacing.tight),
-  brandSmall: style(fontFamily.brand, fontSize.lg, lineHeight.tight, letterSpacing.normal),
+  /** Mot-logo — splash et en-tête de marque uniquement. */
+  brand: style(fontFamily.brand, fontSize['3xl'], 1.2, tighten(fontSize['3xl'])),
+  brandSmall: style(fontFamily.brand, fontSize.lg, 1.2, tighten(fontSize.lg)),
 
-  display: style(fontFamily.headingBold, fontSize['2xl'], lineHeight.tight, letterSpacing.tight),
-  h1: style(fontFamily.headingBold, fontSize.xl, lineHeight.tight, letterSpacing.tight),
-  h2: style(fontFamily.headingSemi, fontSize.lg, lineHeight.snug),
-  h3: style(fontFamily.headingSemi, fontSize.md, lineHeight.snug),
+  /** Titre de héros — écran d'accueil auth, onboarding. */
+  display: style(fontFamily.headingBold, fontSize['3xl'], 1.2, tighten(fontSize['3xl'])),
+  /** Titre d'écran, aligné à gauche et volontairement gros (« Paniers »). */
+  h1: style(fontFamily.headingBold, fontSize['2xl'], 1.29, tighten(fontSize['2xl'])),
+  /** Titre de section (« Articles en vedette »). */
+  h2: style(fontFamily.headingBold, fontSize.xl, 1.33, tighten(fontSize.xl)),
+  /** Nom de produit, titre de carte. */
+  h3: style(fontFamily.headingSemi, fontSize.md, 1.33),
 
-  body: style(fontFamily.body, fontSize.base, lineHeight.normal),
-  bodyStrong: style(fontFamily.bodySemi, fontSize.base, lineHeight.normal),
-  bodySmall: style(fontFamily.body, fontSize.sm, lineHeight.normal),
+  body: style(fontFamily.body, fontSize.base, 1.5),
+  bodyStrong: style(fontFamily.bodySemi, fontSize.base, 1.5),
+  bodySmall: style(fontFamily.body, fontSize.sm, 1.43),
 
-  label: style(fontFamily.bodyMedium, fontSize.sm, lineHeight.snug),
-  labelStrong: style(fontFamily.bodySemi, fontSize.sm, lineHeight.snug),
-  caption: style(fontFamily.body, fontSize.xs, lineHeight.snug),
+  label: style(fontFamily.bodyMedium, fontSize.sm, 1.43),
+  labelStrong: style(fontFamily.bodySemi, fontSize.sm, 1.43),
+  caption: style(fontFamily.body, fontSize.xs, 1.33),
 
-  /** Puces, badges, statuts. Majuscules imposées côté composant. */
-  overline: style(fontFamily.bodySemi, fontSize.xxs, lineHeight.snug, letterSpacing.wider),
+  /**
+   * Puces et badges.
+   *
+   * Uber n'écrit pas ses badges en majuscules espacées : « 1 acheté = 1
+   * offert » se lit en casse normale. Le token garde son nom, mais l'espacement
+   * revient à zéro et les composants n'imposent plus `textTransform`.
+   */
+  overline: style(fontFamily.bodySemi, fontSize.xs, 1.33),
 
-  /** Prix — Sora + chiffres tabulaires côté composant. */
-  price: style(fontFamily.headingBold, fontSize.md, lineHeight.snug, letterSpacing.tight),
-  priceLarge: style(fontFamily.headingBold, fontSize.xl, lineHeight.tight, letterSpacing.tight),
-  priceSmall: style(fontFamily.headingSemi, fontSize.base, lineHeight.snug),
+  /** Prix — Figtree + chiffres tabulaires côté composant. */
+  price: style(fontFamily.headingBold, fontSize.base, 1.5),
+  priceLarge: style(fontFamily.headingBold, fontSize.xl, 1.33, tighten(fontSize.xl)),
+  priceSmall: style(fontFamily.headingSemi, fontSize.sm, 1.43),
 
-  button: style(fontFamily.bodySemi, fontSize.md, lineHeight.snug),
-  buttonSmall: style(fontFamily.bodySemi, fontSize.base, lineHeight.snug),
+  button: style(fontFamily.headingSemi, fontSize.base, 1.5),
+  buttonSmall: style(fontFamily.headingSemi, fontSize.sm, 1.43),
 } as const;
 
 /** À appliquer sur tout texte numérique susceptible de changer en place. */

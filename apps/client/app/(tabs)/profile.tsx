@@ -36,16 +36,18 @@ import {
   Surface,
   Text,
   useTheme,
-  useThemeContext,
   useToast,
 } from '@istanbul/ui';
 import { RESTAURANT_ID as restaurantId } from '@/lib/restaurant';
 import { FALLBACK_RESTAURANT_PHONE } from '@/lib/config';
+import { useCartBarListPadding } from '@/lib/layout';
 
 export default function Profile() {
   const theme = useTheme();
   const toast = useToast();
-  const { preference, setPreference, isDark } = useThemeContext();
+  // La barre d'onglets flotte au-dessus du contenu : sans cette réserve, le
+  // bouton « Se déconnecter » finit sous les pastilles.
+  const listBottomPadding = useCartBarListPadding(false);
   const { session, isLoading: sessionLoading } = useSession();
   const { profile, isLoading: profileLoading, refetch } = useProfile();
   const { data: restaurant } = useRestaurant(restaurantId);
@@ -74,8 +76,8 @@ export default function Profile() {
     return (
       <Screen>
         <Header title="Profil" large />
-        <ScreenScroll>
-          <Surface padding="lg" elevation={1} style={{ alignItems: 'center' }}>
+        <ScreenScroll bottomInset={listBottomPadding}>
+          <Surface padding="lg" elevation={0} bordered style={{ alignItems: 'center' }}>
             <Avatar fallback="?" size={64} />
             <Text variant="h2" align="center" style={{ marginTop: theme.spacing.base }}>
               Bienvenue chez Istanbul
@@ -142,9 +144,9 @@ export default function Profile() {
     <Screen>
       <Header title="Profil" large />
 
-      <ScreenScroll>
+      <ScreenScroll bottomInset={listBottomPadding}>
         {/* --- Identité -------------------------------------------------- */}
-        <Surface padding="base" elevation={1}>
+        <Surface padding="base" elevation={0} bordered>
           <View style={styles.identityRow}>
             <Avatar uri={profile.avatar_url} fallback={initials(profile.full_name)} size={60} />
             <View style={{ flex: 1, marginLeft: theme.spacing.base }}>
@@ -169,7 +171,7 @@ export default function Profile() {
         <Spacer size="base" />
         <Surface
           padding="base"
-          elevation={1}
+          elevation={0} bordered
           style={{ flexDirection: 'row', alignItems: 'center' }}
         >
           <IconBubble size={44} tone="warning">
@@ -193,7 +195,7 @@ export default function Profile() {
         </Text>
         <Spacer size="sm" />
 
-        <Surface padding="none" elevation={1} style={{ paddingHorizontal: theme.spacing.base }}>
+        <Surface padding="none" elevation={0} bordered style={{ paddingHorizontal: theme.spacing.base }}>
           {/* L'ancienne ligne « Mes informations » promettait un écran
               d'édition qui n'existe pas et menait ici aussi : une seule
               ligne honnête vaut mieux que deux libellés pour la même route. */}
@@ -225,7 +227,7 @@ export default function Profile() {
         </Text>
         <Spacer size="sm" />
 
-        <Surface padding="none" elevation={1} style={{ paddingHorizontal: theme.spacing.base }}>
+        <Surface padding="none" elevation={0} bordered style={{ paddingHorizontal: theme.spacing.base }}>
           <ListRow
             title="Suivi de mes commandes"
             subtitle="Notifications à chaque étape"
@@ -252,20 +254,6 @@ export default function Profile() {
               />
             }
           />
-          <Divider />
-          <ListRow
-            title="Mode sombre"
-            subtitle={preference === 'system' ? 'Suit le réglage du téléphone' : undefined}
-            icon={<Moon size={theme.iconSize.sm} color={theme.colors.text} />}
-            right={
-              <Switch
-                value={isDark}
-                onValueChange={(value) => setPreference(value ? 'dark' : 'light')}
-                trackColor={{ true: theme.colors.primary, false: theme.colors.border }}
-                accessibilityLabel="Mode sombre"
-              />
-            }
-          />
         </Surface>
 
         <Spacer size="xl" />
@@ -276,7 +264,7 @@ export default function Profile() {
         </Text>
         <Spacer size="sm" />
 
-        <Surface padding="none" elevation={1} style={{ paddingHorizontal: theme.spacing.base }}>
+        <Surface padding="none" elevation={0} bordered style={{ paddingHorizontal: theme.spacing.base }}>
           <ListRow
             title="Appeler le restaurant"
             subtitle={formatPhone(restaurantPhone)}
@@ -294,7 +282,7 @@ export default function Profile() {
         <Spacer size="xl" />
 
         {/* Action destructive : séparée visuellement du reste. */}
-        <Surface padding="none" elevation={1} style={{ paddingHorizontal: theme.spacing.base }}>
+        <Surface padding="none" elevation={0} bordered style={{ paddingHorizontal: theme.spacing.base }}>
           <ListRow
             title="Se déconnecter"
             icon={<SignOut size={theme.iconSize.sm} color={theme.colors.danger} />}

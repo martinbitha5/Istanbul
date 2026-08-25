@@ -15,16 +15,29 @@ export const spacing = {
 } as const;
 
 /** Marge horizontale standard des écrans mobiles. */
-export const screenPadding = spacing.lg;
+export const screenPadding = spacing.base;
 
+/**
+ * Rayons — il n'y en a que deux.
+ *
+ * Uber n'utilise que 8 px et la pilule. Pas de 12, pas de 16, pas de 24 : une
+ * carte fait 8, un bouton rond fait 500. Toute autre valeur trahit
+ * immédiatement la copie, et c'est le détail qui fait qu'un écran « ressemble
+ * à » sans « être ».
+ *
+ * L'échelle garde ses anciens noms (`md`, `lg`, `xl`…) et les fait toutes
+ * pointer sur 8. Les écrans continuent d'écrire `theme.radius.lg` et prennent
+ * le bon rayon sans être réécrits ; le jour où l'un d'eux a vraiment besoin
+ * d'autre chose, il faudra ajouter un token et le justifier.
+ */
 export const radius = {
   none: 0,
   sm: 8,
-  md: 12,
-  lg: 16,
-  xl: 24,
-  '2xl': 32,
-  pill: 999,
+  md: 8,
+  lg: 8,
+  xl: 8,
+  '2xl': 8,
+  pill: 500,
 } as const;
 
 export const borderWidth = {
@@ -45,6 +58,9 @@ export const iconSize = {
 /** Plancher de cible tactile (Apple HIG 44 pt / Material 48 dp). */
 export const hitTarget = 44;
 
+/** Hauteur des boutons pleine largeur. Uber les fait généreux. */
+export const controlHeight = 56;
+
 export const zIndex = {
   base: 0,
   raised: 10,
@@ -55,11 +71,16 @@ export const zIndex = {
 } as const;
 
 /**
- * Élévation — ombres chaudes basées sur #3A1E12.
- * `elevation` sert Android, les autres champs servent iOS.
+ * Élévation.
  *
- * La couleur d'ombre ici est celle du thème clair : `createTheme` la remplace
- * par `colors.shadow` pour que le mode sombre projette du noir, pas du brun.
+ * Uber sépare par des filets et des aplats gris, presque jamais par des
+ * ombres : `0` et `1` couvrent donc la quasi-totalité des cas. L'ombre de
+ * carte réelle est double (`0 0 8px rgba(0,0,0,.1)` + `0 4px 4px
+ * rgba(0,0,0,.04)`) ; React Native n'en accepte qu'une, `2` en est
+ * l'approximation la plus proche.
+ *
+ * `3` est réservé à ce qui flotte vraiment au-dessus du contenu : la barre
+ * d'onglets en pilules et les feuilles ancrées en bas.
  */
 export interface ElevationStyle {
   shadowColor: string;
@@ -78,24 +99,24 @@ export const elevation: Record<0 | 1 | 2 | 3, ElevationStyle> = {
     elevation: 0,
   },
   1: {
-    shadowColor: '#3A1E12',
+    shadowColor: '#000000',
     shadowOpacity: 0.06,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 1,
   },
   2: {
-    shadowColor: '#3A1E12',
+    shadowColor: '#000000',
     shadowOpacity: 0.1,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 6,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
   },
   3: {
-    shadowColor: '#3A1E12',
-    shadowOpacity: 0.16,
-    shadowRadius: 28,
-    shadowOffset: { width: 0, height: 12 },
+    shadowColor: '#000000',
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 4 },
     elevation: 12,
   },
 };

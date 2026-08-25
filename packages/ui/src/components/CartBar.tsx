@@ -64,27 +64,19 @@ export function CartBar({
           theme.elevation[3],
         ]}
       >
-        <View
-          style={[
-            styles.count,
-            { backgroundColor: 'rgba(255,255,255,0.22)', borderRadius: theme.radius.sm },
-          ]}
-        >
-          <ShoppingBag size={16} color={theme.colors.textOnPrimary} weight="fill" />
-          <Text
-            variant="labelStrong"
-            tabular
-            style={{ color: theme.colors.textOnPrimary, marginLeft: 6 }}
-          >
-            {itemCount}
-          </Text>
-        </View>
+        <ShoppingBag size={18} color={theme.colors.textOnPrimary} weight="fill" />
 
+        {/* « Voir le panier • 3 » d'un seul tenant : la pastille translucide
+            qu'il y avait ici découpait la barre en deux blocs pour afficher un
+            chiffre que la phrase porte déjà. */}
         <Text
           variant="button"
-          style={{ color: theme.colors.textOnPrimary, flex: 1, marginLeft: theme.spacing.md }}
+          numberOfLines={1}
+          style={{ color: theme.colors.textOnPrimary, flex: 1, marginLeft: theme.spacing.sm }}
         >
-          {label}
+          {label} · <Text variant="button" tabular style={{ color: theme.colors.textOnPrimary }}>
+            {itemCount}
+          </Text>
         </Text>
 
         <Price style={{ color: theme.colors.textOnPrimary }}>{formatMoney(total)}</Price>
@@ -95,11 +87,5 @@ export function CartBar({
 
 const styles = StyleSheet.create({
   wrapper: { position: 'absolute', left: 0, right: 0 },
-  bar: { height: 58, flexDirection: 'row', alignItems: 'center' },
-  count: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-  },
+  bar: { height: 56, flexDirection: 'row', alignItems: 'center' },
 });

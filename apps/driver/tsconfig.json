@@ -9,7 +9,8 @@
       "@istanbul/ui": ["../../packages/ui/src/index.ts"],
       "@istanbul/core": ["../../packages/core/src/index.ts"],
       "@istanbul/types": ["../../packages/types/src/index.ts"],
-      "@istanbul/tokens": ["../../packages/tokens/src/index.ts"]
+      "@istanbul/tokens": ["../../packages/tokens/src/index.ts"],
+      "@istanbul/map": ["../../packages/map/src/index.ts"]
     }
   },
   "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"],

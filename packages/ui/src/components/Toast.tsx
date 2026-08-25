@@ -117,15 +117,19 @@ function ToastHost({ toast, onDismiss }: { toast: ActiveToast | null; onDismiss:
 
   if (!toast) return null;
 
+  // Icônes blanches sur le pavé noir.
+  //
+  // Les tons sémantiques sont calibrés pour tenir 4.5:1 sur du blanc, pas sur
+  // du noir : le vert y tombait à 3.8:1 et le bleu à 3.3:1. La distinction
+  // repose donc sur la forme — coche, octogone, triangle, cercle — qui reste
+  // lisible et qu'un daltonien perçoit de toute façon mieux qu'une teinte.
+  const iconColor = theme.colors.textInverse;
+
   const icons: Record<ToastTone, React.ReactNode> = {
-    success: (
-      <CheckCircle size={theme.iconSize.sm} color={theme.colors.success} weight="fill" />
-    ),
-    error: (
-      <WarningOctagon size={theme.iconSize.sm} color={theme.colors.danger} weight="fill" />
-    ),
-    warning: <Warning size={theme.iconSize.sm} color={theme.colors.warning} weight="fill" />,
-    info: <Info size={theme.iconSize.sm} color={theme.colors.info} weight="fill" />,
+    success: <CheckCircle size={theme.iconSize.sm} color={iconColor} weight="fill" />,
+    error: <WarningOctagon size={theme.iconSize.sm} color={iconColor} weight="fill" />,
+    warning: <Warning size={theme.iconSize.sm} color={iconColor} weight="fill" />,
+    info: <Info size={theme.iconSize.sm} color={iconColor} weight="fill" />,
   };
 
   return (

@@ -37,9 +37,13 @@ export function StarRating({
         {[1, 2, 3, 4, 5].map((star) => {
           const filled = value != null && star <= value;
           const icon = (
+            // Étoile noire, pas dorée : la référence affiche « 4,2 ★ » en
+            // noir plein. Une étoile ambre serait la seule tache de couleur
+            // d'une carte par ailleurs entièrement en noir et blanc, et
+            // attirerait l'œil plus que le nom du plat.
             <Star
               size={size}
-              color={filled ? theme.colors.warning : theme.colors.border}
+              color={filled ? theme.colors.text : theme.colors.border}
               weight={filled ? 'fill' : 'regular'}
             />
           );

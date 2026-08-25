@@ -85,16 +85,18 @@ export function SearchBar({
       style={[
         styles.search,
         {
-          backgroundColor: theme.colors.surface,
-          borderRadius: theme.radius.md,
+          // Pilule grise sans bordure : la forme qu'a la recherche partout
+          // dans la référence, y compris dans la barre d'onglets flottante.
+          // Garder les deux formes (rectangle ici, pilule là) donnerait deux
+          // champs de recherche différents dans la même application.
+          backgroundColor: theme.colors.surfaceSunken,
+          borderRadius: theme.radius.pill,
           paddingHorizontal: theme.spacing.base,
-          borderWidth: theme.borderWidth.hairline,
-          borderColor: theme.colors.border,
         },
         style,
       ]}
     >
-      <MagnifyingGlass size={theme.iconSize.sm} color={theme.colors.textMuted} />
+      <MagnifyingGlass size={theme.iconSize.sm} color={theme.colors.textMuted} weight="bold" />
 
       <TextInput
         value={value}
@@ -150,22 +152,12 @@ export function ListRow({
   const theme = useTheme();
 
   const content = (
-    <View style={[styles.row, { paddingVertical: theme.spacing.md }, style]}>
-      {icon ? (
-        <View
-          style={{
-            width: 38,
-            height: 38,
-            borderRadius: theme.radius.md,
-            backgroundColor: destructive ? theme.colors.dangerSoft : theme.colors.surfaceSunken,
-            alignItems: 'center',
-            justifyContent: 'center',
-            marginRight: theme.spacing.md,
-          }}
-        >
-          {icon}
-        </View>
-      ) : null}
+    <View style={[styles.row, { paddingVertical: theme.spacing.base }, style]}>
+      {/* Icône posée nue, sans pastille : les listes de réglages de la
+          référence alignent des icônes en trait fin sur un fond blanc. La
+          pastille grise transformait chaque ligne en carte et faisait d'un
+          menu de dix entrées un empilement de dix blocs. */}
+      {icon ? <View style={{ width: 32, marginRight: theme.spacing.md }}>{icon}</View> : null}
 
       <View style={{ flex: 1 }}>
         <Text variant="body" color={destructive ? 'danger' : 'text'} numberOfLines={1}>

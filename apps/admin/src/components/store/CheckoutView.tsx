@@ -20,7 +20,8 @@ import {
   useSession,
 } from '@istanbul/core';
 import type { DeliveryZone, Order, Restaurant } from '@istanbul/types';
-import { KINSHASA_COMMUNES, isInCoverage } from '@/lib/coverage';
+import { isInCoverage, isPointInCoverage } from '@/lib/coverage';
+import { COMMUNE_NAMES } from '@/lib/kinshasa';
 import { setDeliveryPrefs, useDeliveryPrefs } from '@/lib/delivery-prefs';
 import { StoreHeader } from '@/components/store/StoreHeader';
 
@@ -88,14 +89,32 @@ export function CheckoutView({
   }, [prefs.address]);
 
   const fullAddress = `${street.trim()}${commune ? `, ${commune}` : ''}`;
-  const addressCovered = pickup || isInCoverage(fullAddress);
 
-  // Devis sans coordonnées : la fonction serveur retombe sur la zone la moins
-  // chère. `enabled` seulement en livraison — un retrait n'a pas de frais.
+  /**
+   * Le repère posé sur la carte du feed — mais seulement s'il désigne encore
+   * cette adresse-là. Dès que le client retouche la rue ici, les coordonnées
+   * mémorisées cessent de lui correspondre : les garder ferait partir le
+   * livreur à l'adresse précédente, et c'est le genre d'erreur qu'on ne
+   * découvre qu'au moment où le repas arrive chez quelqu'un d'autre.
+   */
+  const point =
+    prefs.lat !== null && prefs.lng !== null && street.trim() === (prefs.address ?? '').trim()
+      ? { lat: prefs.lat, lng: prefs.lng }
+      : null;
+
+  const addressCovered = pickup
+    ? true
+    : point
+      ? isPointInCoverage(point.lat, point.lng)
+      : isInCoverage(fullAddress);
+
+  // Avec coordonnées, `fn_delivery_quote` facture la vraie distance ; sans,
+  // elle retombe sur la zone la moins chère. `enabled` seulement en livraison
+  // — un retrait n'a pas de frais.
   const { data: quote } = useDeliveryQuote(
     restaurant.id,
-    null,
-    null,
+    point?.lat ?? null,
+    point?.lng ?? null,
     subtotal,
     !pickup && lines.length > 0,
   );
@@ -136,12 +155,16 @@ export function CheckoutView({
           street: street.trim(),
           details: null,
           delivery_notes: notes.trim() || null,
-          latitude: null,
-          longitude: null,
+          latitude: point?.lat ?? null,
+          longitude: point?.lng ?? null,
           is_default: true,
         });
         addressId = address.id;
-        setDeliveryPrefs({ address: fullAddress });
+        setDeliveryPrefs({
+          address: fullAddress,
+          lat: point?.lat ?? null,
+          lng: point?.lng ?? null,
+        });
       }
 
       const order = await placeOrder({
@@ -263,7 +286,7 @@ export function CheckoutView({
                         className="ue-field cursor-pointer"
                       >
                         <option value="">Choisir une commune</option>
-                        {KINSHASA_COMMUNES.map((item) => (
+                        {COMMUNE_NAMES.map((item) => (
                           <option key={item} value={item}>
                             {item}
                           </option>

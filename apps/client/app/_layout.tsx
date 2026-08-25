@@ -11,11 +11,12 @@ import {
   Inter_600SemiBold,
   Inter_700Bold,
 } from '@expo-google-fonts/inter';
-import { Sora_500Medium, Sora_600SemiBold, Sora_700Bold } from '@expo-google-fonts/sora';
 import {
-  PlayfairDisplaySC_400Regular,
-  PlayfairDisplaySC_700Bold,
-} from '@expo-google-fonts/playfair-display-sc';
+  Figtree_500Medium,
+  Figtree_600SemiBold,
+  Figtree_700Bold,
+  Figtree_800ExtraBold,
+} from '@expo-google-fonts/figtree';
 import { useTheme } from '@istanbul/ui';
 import { AppProviders } from '@/providers/AppProviders';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
@@ -24,7 +25,7 @@ import { initMonitoring } from '@/lib/monitoring';
 initMonitoring();
 
 // Le splash natif reste affiché tant que les polices ne sont pas prêtes :
-// sinon le premier écran apparaît en Helvetica puis saute en Sora.
+// sinon le premier écran apparaît en Helvetica puis saute en Figtree.
 void SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
@@ -33,11 +34,10 @@ export default function RootLayout() {
     Inter_500Medium,
     Inter_600SemiBold,
     Inter_700Bold,
-    Sora_500Medium,
-    Sora_600SemiBold,
-    Sora_700Bold,
-    PlayfairDisplaySC_400Regular,
-    PlayfairDisplaySC_700Bold,
+    Figtree_500Medium,
+    Figtree_600SemiBold,
+    Figtree_700Bold,
+    Figtree_800ExtraBold,
   });
 
   const onReady = useCallback(() => {
@@ -69,7 +69,9 @@ function RootNavigator() {
 
   return (
     <>
-      <StatusBar style={theme.scheme === 'dark' ? 'light' : 'dark'} />
+      {/* L'application est claire, sans exception : la barre de statut est
+          toujours en contenu sombre. */}
+      <StatusBar style="dark" />
       <Stack
         screenOptions={{
           headerShown: false,

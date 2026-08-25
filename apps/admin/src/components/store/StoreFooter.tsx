@@ -85,7 +85,14 @@ export function StoreFooter({ phone, city }: { phone?: string | null; city?: str
             <WhatsappLogo size={22} aria-label="WhatsApp" />
           </div>
           <p className="text-sm text-[var(--ue-ink-secondary)]">
-            © 2026 Istanbul Fast Food{city ? ` — ${city}` : ''}. Tous droits réservés.
+            © 2026 Istanbul Fast Food{city ? ` — ${city}` : ''}. Tous droits réservés.{' '}
+            {/* Obligation de licence, pas une coquetterie : cinq photos livrées
+                avec le site sont en CC BY / CC BY-SA et doivent créditer leur
+                auteur quelque part d'atteignable. */}
+            <Link href="/credits" className="hover:underline">
+              Crédits photos
+            </Link>
+            .
           </p>
         </div>
       </div>

@@ -77,7 +77,9 @@ export function ProductCardSkeleton() {
   const theme = useTheme();
   return (
     <View style={{ marginBottom: theme.spacing.base }}>
-      <Skeleton height={140} radius={theme.radius.lg} />
+      {/* 16:9, comme l'image réelle de la carte produit : un squelette qui
+          réserve la mauvaise hauteur fait sauter la liste au chargement. */}
+      <Skeleton height={106} radius={theme.radius.md} />
       <View style={{ marginTop: theme.spacing.md, gap: theme.spacing.sm }}>
         <Skeleton width="70%" height={16} />
         <Skeleton width="45%" height={13} />
@@ -115,21 +117,11 @@ function StateView({ title, description, actionLabel, onAction, icon, style }: S
 
   return (
     <View style={[styles.state, { padding: theme.spacing['2xl'] }, style]}>
-      {icon ? (
-        <View
-          style={{
-            width: 72,
-            height: 72,
-            borderRadius: 36,
-            backgroundColor: theme.colors.surfaceSunken,
-            alignItems: 'center',
-            justifyContent: 'center',
-            marginBottom: theme.spacing.lg,
-          }}
-        >
-          {icon}
-        </View>
-      ) : null}
+      {/* Icône nue, sans pastille grise autour : les états vides de la
+          référence posent une illustration à même le fond blanc. Le cercle
+          gris ajoutait une forme à regarder avant le message, alors que le
+          message est tout ce qui compte ici. */}
+      {icon ? <View style={{ marginBottom: theme.spacing.lg }}>{icon}</View> : null}
 
       <Text variant="h2" align="center">
         {title}
@@ -146,11 +138,13 @@ function StateView({ title, description, actionLabel, onAction, icon, style }: S
         </Text>
       ) : null}
 
+      {/* En pilule noire : c'est la seule action de l'écran, elle n'a personne
+          avec qui rivaliser et rien ne justifie de la sous-pondérer. */}
       {actionLabel && onAction ? (
         <Button
           label={actionLabel}
           onPress={onAction}
-          variant="secondary"
+          variant="primary"
           style={{ marginTop: theme.spacing.xl }}
         />
       ) : null}
@@ -175,7 +169,7 @@ export function ErrorState({
       description={description}
       actionLabel={onRetry ? 'Réessayer' : undefined}
       onAction={onRetry}
-      icon={<WarningOctagon size={32} color={theme.colors.danger} weight="duotone" />}
+      icon={<WarningOctagon size={48} color={theme.colors.danger} weight="duotone" />}
       {...rest}
     />
   );
@@ -189,7 +183,7 @@ export function NoResultsState({ query, onReset }: { query: string; onReset?: ()
       description={`Rien ne correspond à « ${query} ». Essayez un autre mot ou réinitialisez les filtres.`}
       actionLabel={onReset ? 'Réinitialiser' : undefined}
       onAction={onReset}
-      icon={<MagnifyingGlass size={32} color={theme.colors.textMuted} weight="duotone" />}
+      icon={<MagnifyingGlass size={48} color={theme.colors.textMuted} weight="duotone" />}
     />
   );
 }

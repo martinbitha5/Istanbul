@@ -41,10 +41,11 @@ const nextConfig = {
   },
 
   images: {
-    remotePatterns: [
-      { protocol: 'https', hostname: '**.supabase.co' },
-      { protocol: 'https', hostname: 'picsum.photos' },
-    ],
+    // Une seule origine autorisée : le Storage du projet. Les photos de la
+    // carte y sont téléversées depuis le backoffice, jamais référencées par
+    // un lien externe — un domaine tiers dans cette liste, c'est une image
+    // qui disparaît le jour où quelqu'un d'autre la supprime.
+    remotePatterns: [{ protocol: 'https', hostname: '**.supabase.co' }],
   },
 
   /**

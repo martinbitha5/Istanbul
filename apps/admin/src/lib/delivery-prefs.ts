@@ -20,6 +20,15 @@ import { useSyncExternalStore } from 'react';
 
 export interface DeliveryPrefs {
   address: string | null;
+  /**
+   * Coordonnées du repère posé sur la carte, quand le client en a posé un.
+   *
+   * Facultatives : l'adresse en texte libre reste le contrat minimum, et
+   * `fn_delivery_quote` sait travailler sans. Quand elles sont là, la commande
+   * part avec la position exacte et le livreur n'a plus à deviner.
+   */
+  lat: number | null;
+  lng: number | null;
   /** `null` = « livrer maintenant ». Sinon un libellé de créneau déjà formaté. */
   slot: string | null;
   mode: 'delivery' | 'pickup';
@@ -27,7 +36,13 @@ export interface DeliveryPrefs {
 
 const STORAGE_KEY = 'istanbul.store.delivery';
 
-const EMPTY: DeliveryPrefs = { address: null, slot: null, mode: 'delivery' };
+const EMPTY: DeliveryPrefs = {
+  address: null,
+  lat: null,
+  lng: null,
+  slot: null,
+  mode: 'delivery',
+};
 
 /**
  * Instantané serveur — et instantané initial du client.
@@ -48,6 +63,8 @@ function readStorage(): DeliveryPrefs {
     const parsed = JSON.parse(raw) as Partial<DeliveryPrefs>;
     return {
       address: typeof parsed.address === 'string' ? parsed.address : null,
+      lat: Number.isFinite(parsed.lat) ? (parsed.lat as number) : null,
+      lng: Number.isFinite(parsed.lng) ? (parsed.lng as number) : null,
       slot: typeof parsed.slot === 'string' ? parsed.slot : null,
       mode: parsed.mode === 'pickup' ? 'pickup' : 'delivery',
     };
@@ -89,6 +106,8 @@ export function setDeliveryPrefs(patch: Partial<DeliveryPrefs>): void {
   const next = { ...getSnapshot(), ...patch };
   if (
     next.address === snapshot.address &&
+    next.lat === snapshot.lat &&
+    next.lng === snapshot.lng &&
     next.slot === snapshot.slot &&
     next.mode === snapshot.mode
   ) {

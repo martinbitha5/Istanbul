@@ -37,6 +37,7 @@ import {
 } from '@istanbul/ui';
 import { Row } from '@/components/Row';
 import { useLocationTracking } from '@/hooks/useLocationTracking';
+import { useTabBarPadding } from '@/lib/layout';
 
 /**
  * Tableau de bord du livreur.
@@ -47,6 +48,7 @@ import { useLocationTracking } from '@/hooks/useLocationTracking';
 export default function DriverHome() {
   const theme = useTheme();
   const toast = useToast();
+  const tabBarPadding = useTabBarPadding();
 
   const { data: driver, isLoading: driverLoading } = useDriverProfile();
   const driverId = driver?.id ?? null;
@@ -166,13 +168,13 @@ export default function DriverHome() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{
           paddingHorizontal: theme.screenPadding,
-          paddingBottom: theme.spacing.xl,
+          paddingBottom: tabBarPadding,
           gap: theme.spacing.md,
         }}
         ListHeaderComponent={
           <View>
             {/* --- Revenus du jour --------------------------------------- */}
-            <Surface padding="base" elevation={1}>
+            <Surface padding="base" elevation={0} bordered>
               <Row>
                 <View>
                   <Text variant="caption" color="textMuted">
@@ -275,7 +277,7 @@ function ActiveDeliveryCard({ delivery }: { delivery: DeliveryWithOrder }) {
     <Pressable onPress={() => router.push(`/delivery/${delivery.id}`)}>
       <Surface
         padding="base"
-        elevation={2}
+        elevation={0} bordered
         style={{ borderLeftWidth: 4, borderLeftColor: theme.colors.primary }}
       >
         <Row>
@@ -341,7 +343,7 @@ function AvailableDeliveryCard({
   const order = delivery.order;
 
   return (
-    <Surface padding="base" elevation={1}>
+    <Surface padding="base" elevation={0} bordered>
       <Row>
         <Text variant="labelStrong" tabular color="textSecondary">
           {order.order_number}

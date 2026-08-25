@@ -19,11 +19,12 @@ import {
   Inter_600SemiBold,
   Inter_700Bold,
 } from '@expo-google-fonts/inter';
-import { Sora_500Medium, Sora_600SemiBold, Sora_700Bold } from '@expo-google-fonts/sora';
 import {
-  PlayfairDisplaySC_400Regular,
-  PlayfairDisplaySC_700Bold,
-} from '@expo-google-fonts/playfair-display-sc';
+  Figtree_500Medium,
+  Figtree_600SemiBold,
+  Figtree_700Bold,
+  Figtree_800ExtraBold,
+} from '@expo-google-fonts/figtree';
 import { createQueryClient } from '@istanbul/core';
 import { OfflineBanner, ThemeProvider, ToastProvider, useTheme, useToast } from '@istanbul/ui';
 import { STORAGE_KEYS } from '@/lib/supabase';
@@ -41,8 +42,6 @@ const queryPersister = createAsyncStoragePersister({
   key: 'istanbul.driver.query-cache',
   throttleTime: 2_000,
 });
-
-type ThemePreference = 'light' | 'dark' | 'system';
 
 /**
  * Pont module-scope vers l'API toast : le queryClient est créé hors de
@@ -72,25 +71,16 @@ export default function RootLayout() {
       }),
     [],
   );
-  const [preference, setPreference] = useState<ThemePreference>('system');
-
   const [fontsLoaded, fontError] = useFonts({
     Inter_400Regular,
     Inter_500Medium,
     Inter_600SemiBold,
     Inter_700Bold,
-    Sora_500Medium,
-    Sora_600SemiBold,
-    Sora_700Bold,
-    PlayfairDisplaySC_400Regular,
-    PlayfairDisplaySC_700Bold,
+    Figtree_500Medium,
+    Figtree_600SemiBold,
+    Figtree_700Bold,
+    Figtree_800ExtraBold,
   });
-
-  useEffect(() => {
-    void AsyncStorage.getItem(STORAGE_KEYS.themePreference).then((value) => {
-      if (value === 'light' || value === 'dark' || value === 'system') setPreference(value);
-    });
-  }, []);
 
   useEffect(() => {
     return NetInfo.addEventListener((state) => {
@@ -129,13 +119,7 @@ export default function RootLayout() {
             void queryClient.resumePausedMutations();
           }}
         >
-          <ThemeProvider
-            initialPreference={preference}
-            onPreferenceChange={(next) => {
-              setPreference(next);
-              void AsyncStorage.setItem(STORAGE_KEYS.themePreference, next);
-            }}
-          >
+          <ThemeProvider>
             <ToastProvider>
               <ToastBridge />
               <DriverNavigator />
@@ -156,7 +140,7 @@ function DriverNavigator() {
 
   return (
     <>
-      <StatusBar style={theme.scheme === 'dark' ? 'light' : 'dark'} />
+      <StatusBar style="dark" />
       {/* Monté à la racine (et plus dans les tabs) : l'écran /delivery/[id],
           le seul où le livreur agit devant le client, l'affiche aussi. */}
       <OfflineBanner visible={offline} safeAreaTop />
@@ -171,6 +155,7 @@ function DriverNavigator() {
         <Stack.Screen name="sign-in" options={{ animation: 'fade' }} />
         <Stack.Screen name="(tabs)" options={{ animation: 'fade' }} />
         <Stack.Screen name="delivery/[id]" />
+        <Stack.Screen name="navigate/[id]" />
       </Stack>
     </>
   );

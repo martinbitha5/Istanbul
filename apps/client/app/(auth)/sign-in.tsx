@@ -108,7 +108,7 @@ export default function SignIn() {
           <View style={styles.forgotRow}>
             <Link href="/(auth)/forgot-password" asChild>
               <Pressable hitSlop={10} noScale>
-                <Text variant="label" color="primary">
+                <Text variant="label" color="primary" style={{ textDecorationLine: 'underline' }}>
                   Mot de passe oublié ?
                 </Text>
               </Pressable>
@@ -151,7 +151,7 @@ export default function SignIn() {
             </Text>
             <Link href="/(auth)/sign-up" asChild>
               <Pressable hitSlop={8} noScale>
-                <Text variant="bodyStrong" color="primary">
+                <Text variant="bodyStrong" color="primary" style={{ textDecorationLine: 'underline' }}>
                   Créer un compte
                 </Text>
               </Pressable>

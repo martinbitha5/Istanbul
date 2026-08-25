@@ -31,6 +31,7 @@ import {
 } from '@istanbul/ui';
 import { AuthGate } from '@/components/AuthGate';
 import { refillCartFromOrder } from '@/lib/reorder';
+import { useCartBarListPadding } from '@/lib/layout';
 
 type Filter = 'active' | 'past';
 
@@ -43,6 +44,9 @@ type Filter = 'active' | 'past';
  */
 export default function Orders() {
   const theme = useTheme();
+  // Pas de barre de panier sur cet onglet, mais la barre d'onglets flotte :
+  // la réserve reste obligatoire.
+  const listBottomPadding = useCartBarListPadding(false);
   const { session, isLoading: sessionLoading } = useSession();
   const { data: orders, isLoading, isError, refetch, isRefetching } = useMyOrders();
   const [filter, setFilter] = useState<Filter>('active');
@@ -104,7 +108,7 @@ export default function Orders() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{
             paddingHorizontal: theme.screenPadding,
-            paddingBottom: theme.spacing.xl,
+            paddingBottom: listBottomPadding,
             gap: theme.spacing.md,
           }}
           renderItem={({ item }) => <OrderCard order={item} />}
@@ -141,7 +145,7 @@ function OrderCard({ order }: { order: OrderDetail }) {
         orderStatusCustomerLabel[order.status]
       }, ${formatMoney(order.total, order.currency)}. Voir le détail`}
     >
-      <Surface padding="base" elevation={1}>
+      <Surface padding="base" elevation={0} bordered>
         <View style={styles.rowBetween}>
           <Text variant="labelStrong" tabular color="textSecondary">
             {order.order_number}
@@ -172,7 +176,7 @@ function OrderCard({ order }: { order: OrderDetail }) {
           {isOrderTerminal(order.status) ? (
             <ReorderButton order={order} />
           ) : (
-            <Text variant="labelStrong" color="primary">
+            <Text variant="labelStrong" color="primary" style={{ textDecorationLine: 'underline' }}>
               Suivre →
             </Text>
           )}

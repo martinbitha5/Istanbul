@@ -5,6 +5,9 @@ import { getStorefront } from '@/lib/storefront';
 import { StoreHeader } from '@/components/store/StoreHeader';
 import { StoreFooter } from '@/components/store/StoreFooter';
 import { AddressSearch } from '@/components/store/AddressSearch';
+import { KinshasaMap } from '@/components/store/KinshasaMap';
+import { KINSHASA_CENTER } from '@/lib/geocode';
+import { deliveryRings } from '@/lib/zones';
 
 /**
  * Accueil de la vitrine — la page d'entrée d'Uber Eats, transposée.
@@ -54,12 +57,15 @@ export default async function StoreHomePage() {
         {/* Uber pose son texte noir à même la photo, parce qu'elle est
             choisie claire. Une couverture sombre rendrait le titre illisible :
             ce voile blanc dégradé garantit le contraste quelle que soit
-            l'image téléversée depuis le backoffice. */}
+            l'image téléversée depuis le backoffice.
+            Le palier à 65 % n'est pas décoratif : sous 900 px, le titre court
+            jusqu'aux deux tiers de la largeur, et sans lui « chez vous »
+            tombait sur la partie claire de la photo. */}
         <div
           className="absolute inset-0 -z-10"
           style={{
             background:
-              'linear-gradient(90deg, rgba(255,255,255,0.94) 0%, rgba(255,255,255,0.82) 45%, rgba(255,255,255,0.1) 80%)',
+              'linear-gradient(90deg, rgba(255,255,255,0.96) 0%, rgba(255,255,255,0.90) 40%, rgba(255,255,255,0.62) 65%, rgba(255,255,255,0.06) 90%)',
           }}
           aria-hidden
         />
@@ -116,7 +122,13 @@ export default async function StoreHomePage() {
         </div>
       </section>
 
-      {/* --- Zones (« Cities near me ») ----------------------------------- */}
+      {/* --- Zones (« Cities near me ») -----------------------------------
+          Uber liste des noms de villes ; ici il n'y en a qu'une, et ce qui
+          intéresse le client de Kinshasa n'est pas *quelle* ville mais
+          *jusqu'où* — et à quel prix. D'où la carte : les anneaux portent le
+          barème, les communes servent de repères, le marqueur noir situe le
+          restaurant. La liste reste à côté, pour qui lit plus vite qu'il ne
+          regarde. */}
       {zones.length > 0 ? (
         <section className="ue-container mt-20" id="zones">
           <div className="flex items-end justify-between gap-4">
@@ -126,22 +138,41 @@ export default async function StoreHomePage() {
             </Link>
           </div>
 
-          <ul className="mt-8 grid gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-4">
-            {zones.map((zone) => (
-              <li key={zone.id}>
-                <p className="text-base font-medium">{zone.name}</p>
-                <p className="mt-1 text-sm text-[var(--ue-ink-secondary)]">
-                  {zone.eta_minutes} min ·{' '}
-                  {zone.fee_amount === 0
-                    ? 'livraison offerte'
-                    : formatMoney(zone.fee_amount, restaurant.currency)}
-                  {zone.free_above !== null
-                    ? ` · offerte dès ${formatMoney(zone.free_above, restaurant.currency)}`
-                    : ''}
-                </p>
+          <div className="mt-8 grid gap-8 lg:grid-cols-[1.6fr_1fr] lg:items-start">
+            <KinshasaMap
+              restaurant={{
+                lat: restaurant.latitude ?? KINSHASA_CENTER.lat,
+                lng: restaurant.longitude ?? KINSHASA_CENTER.lng,
+                name: restaurant.name,
+              }}
+              rings={deliveryRings(zones, restaurant.currency)}
+              showCommunes
+              basemap="voyager"
+              height={420}
+            />
+
+            <ul className="grid gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-1">
+              {zones.map((zone) => (
+                <li key={zone.id}>
+                  <p className="text-base font-medium">{zone.name}</p>
+                  <p className="mt-1 text-sm text-[var(--ue-ink-secondary)]">
+                    {zone.eta_minutes} min ·{' '}
+                    {zone.fee_amount === 0
+                      ? 'livraison offerte'
+                      : formatMoney(zone.fee_amount, restaurant.currency)}
+                    {zone.free_above !== null
+                      ? ` · offerte dès ${formatMoney(zone.free_above, restaurant.currency)}`
+                      : ''}
+                  </p>
+                </li>
+              ))}
+
+              <li className="text-sm text-[var(--ue-ink-secondary)]">
+                Au-delà du dernier anneau, la livraison reste possible partout à{' '}
+                {restaurant.city} : le tarif est confirmé au moment de la commande.
               </li>
-            ))}
-          </ul>
+            </ul>
+          </div>
         </section>
       ) : null}
 

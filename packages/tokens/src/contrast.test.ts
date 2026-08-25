@@ -1,14 +1,21 @@
 import { describe, expect, it } from 'vitest';
-import { darkColors, lightColors, type ThemeColors } from './theme';
+import { colors, type ThemeColors } from './theme';
 
 /**
  * Contrastes WCAG mécanisés.
  *
- * Le design system promet « contraste ≥ 4.5:1, vérifié dans les deux thèmes »
- * (DESIGN-SYSTEM.md §10). Cette promesse a déjà été violée une fois sans que
- * personne ne s'en aperçoive — badges à 3.2:1, CTA à 4.08:1. Ce test la rend
- * incassable : toute paire contractuelle qui descend sous le seuil fait
- * échouer la CI.
+ * Le design system promet « contraste ≥ 4.5:1 ». Cette promesse a déjà été
+ * violée une fois sans que personne ne s'en aperçoive — badges à 3.2:1, CTA à
+ * 4.08:1. Ce test la rend incassable : toute paire contractuelle qui descend
+ * sous le seuil fait échouer la CI.
+ *
+ * Le passage au thème Uber n'a pas relâché ce filet, et c'est ce qui a dicté
+ * deux écarts assumés avec la référence :
+ *
+ *   - le texte posé sur le vert de marque est encre, pas blanc (blanc sur
+ *     #06C167 = 2.3:1 chez Uber) ;
+ *   - les badges pleins verts prennent #048A4A et non #06C167, ce qui rend
+ *     leur texte blanc lisible sans changer le vert perçu.
  */
 
 function srgbToLinear(channel: number): number {
@@ -78,16 +85,17 @@ function contractualPairs(colors: ThemeColors): [string, string, string, number]
     ['onInfoSoft / infoSoft', colors.onInfoSoft, colors.infoSoft, 4.5],
     ['onPrimarySoft / primarySoft', colors.onPrimarySoft, colors.primarySoft, 4.5],
     ['textInverse / surfaceInverse', colors.textInverse, colors.surfaceInverse, 4.5],
+    // Badges pleins : le texte y est blanc, et c'est la paire qui a dicté le
+    // choix d'un vert assombri plutôt que le #06C167 de marque.
+    ['textInverse / success (badge plein)', colors.textInverse, colors.success, 4.5],
+    ['textInverse / danger (badge plein)', colors.textInverse, colors.danger, 4.5],
+    ['success / surface (texte vert)', colors.success, colors.surface, 4.5],
   ];
 }
 
-describe.each([
-  ['clair', lightColors],
-  ['sombre', darkColors],
-] as const)('Thème %s', (_name, colors) => {
+describe('Thème', () => {
   it.each(contractualPairs(colors))('%s ≥ %f:1', (_label, fg, bg, threshold) => {
-    // Les fonds doux translucides se composent sur la surface la plus claire
-    // du thème (le pire cas pour le contraste).
+    // Les fonds doux translucides se composent sur la surface du thème.
     const ratio = contrast(fg, bg, colors.surface);
     expect(ratio).toBeGreaterThanOrEqual(threshold);
   });

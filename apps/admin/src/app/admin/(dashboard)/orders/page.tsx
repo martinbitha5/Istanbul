@@ -17,9 +17,14 @@ import {
   useAssignDriver,
   useAssignableDrivers,
   useConfirmationCode,
+  useDriverLocation,
+  useDriverLocationRealtime,
+  useDriverTrail,
   useOrderQueue,
   useOrderQueueRealtime,
+  useRestaurant,
 } from '@istanbul/core';
+import type { MapRouteInfo } from '@istanbul/map';
 import type { OrderDetail, OrderStatus } from '@istanbul/types';
 import {
   Badge,
@@ -37,6 +42,7 @@ import {
 } from '@/components/ui';
 import { Alert } from '@/components/Alert';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { DeliveryMap } from '@/components/DeliveryMap';
 import { FilterChips } from '@/components/FilterChips';
 import { useRestaurantId } from '@/hooks/useRestaurantId';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
@@ -569,19 +575,74 @@ function AssignDriverModal({ order, onClose }: { order: OrderDetail | null; onCl
  *
  * Le code de confirmation passe par une RPC dédiée : la colonne n'est pas
  * lisible directement, y compris par le staff (migration 09).
+ *
+ * La carte n'apparaît que tant que la course est vivante. Sur une commande
+ * livrée, elle n'apprendrait plus rien et coûterait des tuiles à chaque
+ * ouverture du détail.
  */
 function DeliveryBlock({ order }: { order: OrderDetail }) {
+  const restaurantId = useRestaurantId();
   const { data: code } = useConfirmationCode(order.id, order.status !== 'DELIVERED');
+  const { data: restaurant } = useRestaurant(restaurantId);
+
+  const delivery = order.delivery ?? null;
+  const live = Boolean(
+    delivery && !['DELIVERED', 'CANCELLED', 'REJECTED'].includes(delivery.status),
+  );
+
+  const { data: driverLocation } = useDriverLocation(delivery?.id ?? null, live);
+  const { data: trail } = useDriverTrail(delivery?.id ?? null, live);
+  useDriverLocationRealtime(live ? (delivery?.id ?? null) : null);
+
+  const [route, setRoute] = useState<MapRouteInfo | null>(null);
+
+  const destination =
+    order.delivery_latitude != null && order.delivery_longitude != null
+      ? { latitude: order.delivery_latitude, longitude: order.delivery_longitude }
+      : null;
 
   return (
-    <InfoBlock label="Livraison">
-      <p className="text-sm">
-        Livreur : {order.delivery?.driver?.profile?.full_name ?? 'Non assigné'}
-      </p>
-      <p className="mt-1 text-xs text-[var(--color-text-muted)]">Code de confirmation</p>
-      {/* Grand et tabulaire : ce code se dicte au téléphone en plein service. */}
-      <p className="tabular text-2xl font-bold tracking-widest">{code ?? '—'}</p>
-    </InfoBlock>
+    <div className="space-y-3">
+      <InfoBlock label="Livraison">
+        <p className="text-sm">
+          Livreur : {order.delivery?.driver?.profile?.full_name ?? 'Non assigné'}
+        </p>
+        <p className="mt-1 text-xs text-[var(--color-text-muted)]">Code de confirmation</p>
+        {/* Grand et tabulaire : ce code se dicte au téléphone en plein service. */}
+        <p className="tabular text-2xl font-bold tracking-widest">{code ?? '—'}</p>
+      </InfoBlock>
+
+      {live && restaurant ? (
+        <div>
+          <DeliveryMap
+            restaurant={{ latitude: restaurant.latitude, longitude: restaurant.longitude }}
+            destination={destination}
+            driver={
+              driverLocation
+                ? { latitude: driverLocation.latitude, longitude: driverLocation.longitude }
+                : null
+            }
+            trail={trail ?? undefined}
+            height={280}
+            onRoute={setRoute}
+          />
+
+          <p className="mt-2 text-xs text-[var(--color-text-muted)]">
+            {route ? (
+              <span className="tabular">
+                Itinéraire restant : {route.distanceKm.toLocaleString('fr-FR')} km ·{' '}
+                {route.durationMin} min
+                {route.source === 'mapbox' ? ' (trafic Mapbox)' : ' (estimation)'}
+              </span>
+            ) : driverLocation ? (
+              'Calcul de l’itinéraire…'
+            ) : (
+              'En attente de la position du livreur.'
+            )}
+          </p>
+        </div>
+      ) : null}
+    </div>
   );
 }
 

@@ -41,6 +41,7 @@ import {
   useTheme,
   useToast,
 } from '@istanbul/ui';
+import type { MapRouteInfo } from '@istanbul/map';
 import { Row } from '@/components/Row';
 import { useIsOffline } from '@/hooks/useIsOffline';
 import { useLocationTracking } from '@/hooks/useLocationTracking';
@@ -72,6 +73,9 @@ export default function DeliveryDetail() {
   // Hauteur réelle de la barre d'action, mesurée par onLayout : les valeurs
   // codées en dur (220/110) débordaient dès que la police système grossissait.
   const [bottomBarHeight, setBottomBarHeight] = useState(0);
+  // Distance et durée routières renvoyées par la carte (Mapbox Directions,
+  // trafic compris). Le calcul à vol d'oiseau ne sert plus que d'attente.
+  const [route, setRoute] = useState<MapRouteInfo | null>(null);
 
   useLocationTracking(id ?? null, Boolean(delivery && delivery.status !== 'DELIVERED'));
 
@@ -84,24 +88,40 @@ export default function DeliveryDetail() {
   useDriverLocationRealtime(delivery && delivery.status !== 'DELIVERED' ? (id ?? null) : null);
 
   // Prochaine étape : le restaurant tant que la commande n'est pas
-  // récupérée, le client ensuite. Recalculé seulement quand la position ou
-  // le statut changent — pas à chaque rendu.
+  // récupérée, le client ensuite. C'est aussi ce que la carte doit tracer —
+  // un itinéraire vers le client pendant que le livreur roule vers la cuisine
+  // ne lui sert à rien.
+  const pickupPhase = delivery
+    ? ['ACCEPTED', 'HEADING_TO_RESTAURANT'].includes(delivery.status)
+    : true;
+
+  // Recalculé seulement quand la position ou le statut changent — pas à
+  // chaque rendu.
   const distanceLabel = useMemo(() => {
-    if (!delivery || !myLocation) return null;
+    if (!delivery) return null;
+    const target = pickupPhase ? 'Restaurant' : 'Client';
+
+    // L'itinéraire de la carte fait autorité dès qu'il est arrivé.
+    if (route) {
+      return `${target} à ${route.distanceKm.toLocaleString('fr-FR')} km · ${route.durationMin} min`;
+    }
+
+    if (!myLocation) return null;
+
     const order = delivery.order;
-    const pickupPhase = ['ACCEPTED', 'HEADING_TO_RESTAURANT'].includes(delivery.status);
-    const target = pickupPhase
+    const coords = pickupPhase
       ? RESTAURANT.coords
       : order.delivery_latitude != null && order.delivery_longitude != null
         ? { latitude: order.delivery_latitude, longitude: order.delivery_longitude }
         : null;
-    if (!target) return 'Itinéraire en pointillés sur la carte';
+    if (!coords) return 'Itinéraire en pointillés sur la carte';
+
     const km = roadDistanceKm(
       { latitude: myLocation.latitude, longitude: myLocation.longitude },
-      target,
+      coords,
     );
-    return `${pickupPhase ? 'Restaurant' : 'Client'} à ~${km.toLocaleString('fr-FR')} km · ${roughEtaMinutes(km)} min`;
-  }, [delivery, myLocation]);
+    return `${target} à ~${km.toLocaleString('fr-FR')} km · ${roughEtaMinutes(km)} min`;
+  }, [delivery, myLocation, pickupPhase, route]);
 
   if (isLoading) return <DeliverySkeleton />;
   if (isError || !delivery) {
@@ -217,8 +237,16 @@ export default function DeliveryDetail() {
                     ? { latitude: myLocation.latitude, longitude: myLocation.longitude }
                     : null
                 }
-                height={180}
+                labels={{ restaurant: RESTAURANT.name, driver: 'Vous' }}
+                height={200}
                 showRoute
+                routeTo={pickupPhase ? 'restaurant' : 'destination'}
+                onRoute={setRoute}
+                // Forme objet et non gabarit : les types de routes générés par
+                // expo-router n'exposent cette route qu'ainsi dans ce monorepo.
+                onPress={() =>
+                  router.push({ pathname: '/navigate/[id]', params: { id: delivery.id } })
+                }
               />
               {distanceLabel ? (
                 <Text
@@ -288,7 +316,7 @@ export default function DeliveryDetail() {
 
           {/* --- Contenu de la commande ---------------------------------- */}
           <Spacer size="lg" />
-          <Surface padding="base" elevation={1}>
+          <Surface padding="base" elevation={0} bordered>
             <Text variant="h3">Contenu de la commande</Text>
             <Spacer size="md" />
 
@@ -323,7 +351,7 @@ export default function DeliveryDetail() {
 
           {/* --- Argent ---------------------------------------------------- */}
           <Spacer size="lg" />
-          <Surface padding="base" elevation={1}>
+          <Surface padding="base" elevation={0} bordered>
             <Row>
               <Text variant="body" color="textSecondary">
                 Total de la commande
@@ -371,7 +399,7 @@ export default function DeliveryDetail() {
           {needsCode ? (
             <>
               <Spacer size="lg" />
-              <Surface padding="base" elevation={2}>
+              <Surface padding="base" elevation={0} bordered>
                 <Text variant="h3">Code de confirmation</Text>
                 <Text variant="bodySmall" color="textSecondary" style={{ marginTop: theme.spacing.xs }}>
                   Demandez au client le code à 4 chiffres affiché dans son application.

@@ -1,19 +1,58 @@
-import { Platform, View } from 'react-native';
+import { View } from 'react-native';
 import { Tabs } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ForkKnife, Heart, House, Receipt, User } from 'phosphor-react-native';
-import { OfflineBanner, useTheme } from '@istanbul/ui';
+import { Heart, House, MagnifyingGlass, Receipt, User } from 'phosphor-react-native';
+import { FloatingTabBar, OfflineBanner, type FloatingTabItem } from '@istanbul/ui';
 import { useIsOffline } from '@/providers/AppProviders';
-import { TAB_BAR_HEIGHT } from '@/lib/layout';
 
 /**
  * Navigation principale — cinq onglets, pas un de plus (limite Material).
  * Le panier n'est pas un onglet : il vit dans la barre flottante, toujours
  * accessible sans consommer une place dans la barre.
+ *
+ * L'ordre place **Menu au centre**, sous la forme d'une pilule « Rechercher »
+ * large. Ce n'est pas cosmétique : chercher un plat est l'action la plus
+ * fréquente après ouvrir l'application, et la référence lui donne le milieu de
+ * la barre — la seule position atteignable au pouce des deux mains. Accueil et
+ * Profil gardent les extrémités, où ils étaient déjà.
  */
+const TAB_ORDER = ['index', 'favorites', 'menu', 'orders', 'profile'] as const;
+
+const TABS: Record<
+  (typeof TAB_ORDER)[number],
+  { label: string; wide?: boolean; icon: FloatingTabItem['icon'] }
+> = {
+  index: {
+    label: 'Accueil',
+    icon: ({ color, focused, size }) => (
+      <House size={size} color={color} weight={focused ? 'fill' : 'regular'} />
+    ),
+  },
+  favorites: {
+    label: 'Favoris',
+    icon: ({ color, focused, size }) => (
+      <Heart size={size} color={color} weight={focused ? 'fill' : 'regular'} />
+    ),
+  },
+  menu: {
+    label: 'Rechercher un plat',
+    wide: true,
+    icon: ({ color, size }) => <MagnifyingGlass size={size} color={color} weight="bold" />,
+  },
+  orders: {
+    label: 'Commandes',
+    icon: ({ color, focused, size }) => (
+      <Receipt size={size} color={color} weight={focused ? 'fill' : 'regular'} />
+    ),
+  },
+  profile: {
+    label: 'Profil',
+    icon: ({ color, focused, size }) => (
+      <User size={size} color={color} weight={focused ? 'fill' : 'regular'} />
+    ),
+  },
+};
+
 export default function TabsLayout() {
-  const theme = useTheme();
-  const insets = useSafeAreaInsets();
   const offline = useIsOffline();
 
   return (
@@ -22,78 +61,37 @@ export default function TabsLayout() {
           passait sous la barre de statut. C'est LE point de rendu unique du
           bandeau pour les onglets — pas de doublon par écran. */}
       <OfflineBanner visible={offline} safeAreaTop />
+
       <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: theme.colors.primary,
-        tabBarInactiveTintColor: theme.colors.textMuted,
-        tabBarStyle: {
-          backgroundColor: theme.colors.surface,
-          borderTopColor: theme.colors.border,
-          borderTopWidth: theme.borderWidth.hairline,
-          height: TAB_BAR_HEIGHT + insets.bottom,
-          paddingTop: 6,
-          paddingBottom: Math.max(insets.bottom, 8),
-          elevation: 0,
-        },
-        tabBarLabelStyle: {
-          ...theme.text.overline,
-          textTransform: 'none',
-          marginTop: 2,
-        },
-        // Cible tactile confortable sur Android où la barre est plus basse.
-        tabBarItemStyle: { paddingVertical: Platform.OS === 'android' ? 4 : 0 },
-      }}
-    >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Accueil',
-          tabBarIcon: ({ color, focused }) => (
-            <House size={theme.iconSize.md} color={color} weight={focused ? 'fill' : 'regular'} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="menu"
-        options={{
-          title: 'Menu',
-          tabBarIcon: ({ color, focused }) => (
-            <ForkKnife
-              size={theme.iconSize.md}
-              color={color}
-              weight={focused ? 'fill' : 'regular'}
-            />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="orders"
-        options={{
-          title: 'Commandes',
-          tabBarIcon: ({ color, focused }) => (
-            <Receipt size={theme.iconSize.md} color={color} weight={focused ? 'fill' : 'regular'} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="favorites"
-        options={{
-          title: 'Favoris',
-          tabBarIcon: ({ color, focused }) => (
-            <Heart size={theme.iconSize.md} color={color} weight={focused ? 'fill' : 'regular'} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: 'Profil',
-          tabBarIcon: ({ color, focused }) => (
-            <User size={theme.iconSize.md} color={color} weight={focused ? 'fill' : 'regular'} />
-          ),
-        }}
-      />
+        screenOptions={{ headerShown: false }}
+        tabBar={({ state, navigation }) => (
+          <FloatingTabBar
+            items={TAB_ORDER.map((name): FloatingTabItem => {
+              const index = state.routes.findIndex((route) => route.name === name);
+              const route = state.routes[index];
+              const config = TABS[name];
+
+              return {
+                key: name,
+                label: config.label,
+                icon: config.icon,
+                wide: config.wide,
+                focused: state.index === index,
+                // `navigate` par nom plutôt que par clé : la barre affiche les
+                // onglets dans son propre ordre, qui n'est plus celui du
+                // navigateur, et une navigation par index se tromperait de
+                // cible dès qu'un onglet est ajouté.
+                onPress: () => navigation.navigate(route?.name ?? name),
+              };
+            })}
+          />
+        )}
+      >
+        <Tabs.Screen name="index" />
+        <Tabs.Screen name="menu" />
+        <Tabs.Screen name="orders" />
+        <Tabs.Screen name="favorites" />
+        <Tabs.Screen name="profile" />
       </Tabs>
     </View>
   );

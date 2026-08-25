@@ -2,6 +2,7 @@ import 'react-native-url-polyfill/auto';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppState } from 'react-native';
 import { createSupabaseClient, setSupabaseClient } from '@istanbul/core';
+import { setMapboxToken } from '@istanbul/map';
 
 function required(name: string, value: string | undefined): string {
   if (!value) {
@@ -19,6 +20,10 @@ export const config = {
     'EXPO_PUBLIC_SUPABASE_ANON_KEY',
     process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
   ),
+  // Pas `required` : sans jeton, la carte retombe sur OpenStreetMap. Une app
+  // livreur qui refuse de démarrer faute de clé cartographique serait une
+  // régression, pas un garde-fou.
+  mapboxToken: process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? '',
 } as const;
 
 export const supabase = createSupabaseClient({
@@ -29,6 +34,7 @@ export const supabase = createSupabaseClient({
 });
 
 setSupabaseClient(supabase);
+setMapboxToken(config.mapboxToken);
 
 AppState.addEventListener('change', (state) => {
   if (state === 'active') {

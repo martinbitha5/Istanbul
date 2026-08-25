@@ -10,7 +10,6 @@ import { createQueryClient } from '@istanbul/core';
 import { ThemeProvider, ToastProvider, useToast } from '@istanbul/ui';
 import { STORAGE_KEYS } from '@/lib/config';
 
-type ThemePreference = 'light' | 'dark' | 'system';
 type ToastApi = ReturnType<typeof useToast>;
 
 /**
@@ -65,16 +64,6 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
       }),
     [],
   );
-  const [themePreference, setThemePreference] = useState<ThemePreference>('system');
-
-  // Restauration de la préférence de thème.
-  useEffect(() => {
-    void AsyncStorage.getItem(STORAGE_KEYS.themePreference).then((value) => {
-      if (value === 'light' || value === 'dark' || value === 'system') {
-        setThemePreference(value);
-      }
-    });
-  }, []);
 
   /**
    * Branche l'état réseau sur React Query : sans cela, les mutations
@@ -86,11 +75,6 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
       onlineManager.setOnline(Boolean(state.isConnected && state.isInternetReachable !== false));
     });
   }, []);
-
-  const handleThemeChange = (preference: ThemePreference) => {
-    setThemePreference(preference);
-    void AsyncStorage.setItem(STORAGE_KEYS.themePreference, preference);
-  };
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -113,10 +97,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
             void queryClient.resumePausedMutations();
           }}
         >
-          <ThemeProvider
-            initialPreference={themePreference}
-            onPreferenceChange={handleThemeChange}
-          >
+          <ThemeProvider>
             {/* Dans le ThemeProvider ET le SafeAreaProvider : le toast lit les
                 deux pour se positionner sous la barre de statut. */}
             <ToastProvider>

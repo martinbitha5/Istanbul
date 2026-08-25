@@ -19,6 +19,11 @@ export interface CategoryChipsProps {
  *
  * Scroll horizontal simple : pas de gestes exotiques sur un élément qui doit
  * rester utilisable d'une main, dans un taxi, avec un pouce.
+ *
+ * Au repos, aplat gris sans bordure ; sélectionnée, aplat noir et texte blanc.
+ * Le contraste entre les deux états est total, ce qui permet de se passer de
+ * l'ombre et de la bordure que portait l'ancienne version : dans une interface
+ * en noir et blanc, une puce noire ne peut pas passer pour inactive.
  */
 export function CategoryChips({
   categories,
@@ -58,18 +63,15 @@ export function CategoryChips({
             style={[
               styles.chip,
               {
-                backgroundColor: active ? theme.colors.primary : theme.colors.surface,
+                backgroundColor: active ? theme.colors.primary : theme.colors.surfaceSunken,
                 borderRadius: theme.radius.pill,
                 paddingHorizontal: theme.spacing.base,
-                borderWidth: theme.borderWidth.hairline,
-                borderColor: active ? theme.colors.primary : theme.colors.border,
               },
-              active && theme.elevation[1],
             ]}
           >
             <Text
               variant="labelStrong"
-              style={{ color: active ? theme.colors.textOnPrimary : theme.colors.textSecondary }}
+              style={{ color: active ? theme.colors.textOnPrimary : theme.colors.text }}
               numberOfLines={1}
             >
               {item?.name ?? 'Tout'}
@@ -81,7 +83,13 @@ export function CategoryChips({
   );
 }
 
-/** Onglets de filtre de statut — utilisés dans l'historique et le dashboard. */
+/**
+ * Bascule segmentée — « Livraison / À emporter », filtres de statut.
+ *
+ * Rail gris, cavalier blanc : c'est le seul endroit de l'interface où une
+ * ombre porte encore du sens, parce qu'elle est ce qui fait lire le segment
+ * actif comme posé *sur* le rail plutôt que découpé dedans.
+ */
 export interface FilterTabsProps<T extends string> {
   options: { value: T; label: string; count?: number }[];
   value: T;
@@ -129,9 +137,9 @@ export function FilterTabs<T extends string>({
             ]}
           >
             <Text
-              variant="label"
+              variant={active ? 'labelStrong' : 'label'}
               numberOfLines={1}
-              style={{ color: active ? theme.colors.text : theme.colors.textMuted }}
+              style={{ color: active ? theme.colors.text : theme.colors.textSecondary }}
             >
               {option.label}
               {option.count != null ? ` (${option.count})` : ''}

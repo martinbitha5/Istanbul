@@ -13,10 +13,10 @@
     "clean": "rimraf .expo .turbo node_modules"
   },
   "dependencies": {
+    "@expo-google-fonts/figtree": "^0.4.1",
     "@expo-google-fonts/inter": "^0.4.1",
-    "@expo-google-fonts/playfair-display-sc": "^0.4.1",
-    "@expo-google-fonts/sora": "^0.4.1",
     "@istanbul/core": "workspace:*",
+    "@istanbul/map": "workspace:*",
     "@istanbul/tokens": "workspace:*",
     "@istanbul/types": "workspace:*",
     "@istanbul/ui": "workspace:*",

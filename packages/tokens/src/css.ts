@@ -1,11 +1,18 @@
-import { darkColors, lightColors, type ThemeColors } from './theme';
+import { colors, type ThemeColors } from './theme';
 import { radius, spacing } from './scales';
 
 /**
- * Pont vers le dashboard Next.js : les mêmes tokens, exposés en variables CSS.
+ * Pont vers le web : les mêmes tokens, exposés en variables CSS.
  *
- * Le dashboard et les apps mobiles partagent donc littéralement la même
- * palette — impossible qu'elles dérivent l'une de l'autre.
+ * ⚠️ Le dashboard `/admin` ne consomme PLUS cette sortie : il vit sur sa
+ * propre palette Wise, écrite à la main dans `globals.css`. Ne relancez pas
+ * `pnpm tokens:css` en croyant rafraîchir le dashboard — vous écraseriez son
+ * thème. La vitrine publique, elle, porte les mêmes valeurs qu'ici mais les
+ * déclare dans `store.css`, parce qu'elle a aussi besoin de tokens (hauteur
+ * d'en-tête, gouttière) qui n'ont pas de sens sur mobile.
+ *
+ * Cette fonction reste donc le point de vérité si l'on rebranche un jour une
+ * surface web sur les tokens mobiles.
  */
 
 const kebab = (key: string) => key.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
@@ -27,29 +34,12 @@ function scaleVars(): string {
 }
 
 /**
- * Feuille de style à injecter dans `globals.css` du dashboard.
- * Le thème sombre est défini pour `[data-theme="dark"]` ET pour la préférence
- * système, sans que l'un n'écrase l'autre par accident.
+ * Feuille de style à injecter dans une surface web.
+ *
+ * Plus aucun bloc sombre : le système n'a qu'un thème. `color-scheme: light`
+ * est déclaré explicitement, sans quoi un visiteur en préférence sombre
+ * récupère des champs de formulaire et des ascenseurs noirs sur fond blanc.
  */
 export function buildCssVariables(): string {
-  return [
-    ':root {',
-    colorVars(lightColors),
-    scaleVars(),
-    '}',
-    '',
-    ':root[data-theme="dark"] {',
-    colorVars(darkColors),
-    '}',
-    '',
-    '@media (prefers-color-scheme: dark) {',
-    '  :root:not([data-theme="light"]) {',
-    colorVars(darkColors)
-      .split('\n')
-      .map((line) => `  ${line}`)
-      .join('\n'),
-    '  }',
-    '}',
-    '',
-  ].join('\n');
+  return [':root {', '  color-scheme: light;', colorVars(colors), scaleVars(), '}', ''].join('\n');
 }
