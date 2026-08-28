@@ -20,11 +20,10 @@ import { StoreFooter } from '@/components/store/StoreFooter';
 import { ProductCard } from '@/components/store/ProductCard';
 import { CategoryIcon } from '@/components/store/CategoryIcon';
 import { ProductModal } from '@/components/store/ProductModal';
-import { CartPanel } from '@/components/store/CartPanel';
 import { DeliveryDetailsModal } from '@/components/store/DeliveryDetailsModal';
 import { KinshasaMap } from '@/components/store/KinshasaMap';
 import { COVERAGE_CITY, isDeliverable } from '@/lib/coverage';
-import { useDeliveryPrefs } from '@/lib/delivery-prefs';
+import { setDeliveryPrefs, useDeliveryPrefs } from '@/lib/delivery-prefs';
 import { KINSHASA_CENTER } from '@/lib/geocode';
 import { deliveryRings } from '@/lib/zones';
 
@@ -73,7 +72,6 @@ export function FeedView({
   const [sort, setSort] = useState<SortKey>('recommended');
 
   const [addressOpen, setAddressOpen] = useState(false);
-  const [cartOpen, setCartOpen] = useState(false);
   const [productId, setProductId] = useState<string | null>(null);
 
   // `useDeliveryPrefs` renvoie l'état vide au rendu serveur puis l'adresse
@@ -149,7 +147,6 @@ export function FeedView({
       variant="feed"
       search={search}
       onSearchChange={setSearch}
-      onCartClick={() => setCartOpen(true)}
       onAddressClick={() => setAddressOpen(true)}
     />
   );
@@ -168,12 +165,9 @@ export function FeedView({
         currency={currency}
         onClose={() => setProductId(null)}
       />
-      <CartPanel
-        open={cartOpen}
-        onClose={() => setCartOpen(false)}
-        restaurant={restaurant}
-        products={products}
-      />
+      {/* Le panier n'est plus monté ici : il vit dans la coquille de la
+          vitrine, pour être ouvrable depuis n'importe quelle page. Voir
+          components/store/StoreCart.tsx. */}
     </>
   );
 
@@ -233,7 +227,13 @@ export function FeedView({
           }}
         />
 
-        <main className="min-w-0 flex-1 px-4 pb-16 pt-6 md:px-6">
+        <main className="min-w-0 flex-1 px-4 pb-16 pt-4 md:px-6 md:pt-6">
+          <ModeTabs
+            mode={prefs.mode}
+            pickupEnabled={restaurant.pickup_enabled}
+            onChange={(mode) => setDeliveryPrefs({ mode })}
+          />
+
           <ServiceBar
             restaurant={restaurant}
             zone={cheapestZone}
@@ -247,7 +247,10 @@ export function FeedView({
             onSelect={(slug) => setCategorySlug(slug === categorySlug ? null : slug)}
           />
 
-          <div className="ue-rail mt-6 gap-2 pb-1">
+          {/* Les puces débordent volontairement des gouttières au téléphone :
+              une rangée qui s'arrête net à 16 px du bord se lit comme une
+              rangée coupée, pas comme une rangée qui défile. */}
+          <div className="ue-rail -mx-4 mt-5 gap-2 px-4 pb-1 md:mx-0 md:mt-6 md:px-0">
             <button
               type="button"
               className="ue-chip"
@@ -432,8 +435,72 @@ function UnavailableIllustration() {
 }
 
 /**
- * La barre d'informations de service, reprise de la page boutique : mode,
- * frais de livraison et délai, sur une ligne encadrée.
+ * Bascule Livraison / À emporter.
+ *
+ * Elle vivait dans l'entête, où elle disparaissait sous 640 px : au téléphone,
+ * le seul moyen de passer en retrait était la modale d'adresse. Elle est
+ * remontée en tête de carte, à sa place — c'est la première décision qu'on
+ * prend en arrivant, avant même de regarder les plats — et pleine largeur au
+ * téléphone, deux cibles de 44 px qu'on atteint au pouce.
+ *
+ * Rien à basculer si le retrait n'est pas ouvert : un onglet qui renverrait
+ * « le retrait ouvrira prochainement » ne mérite pas la moitié de l'écran.
+ * Sauf si le client y est déjà — sans quoi il n'aurait plus de porte de
+ * sortie vers la livraison.
+ */
+function ModeTabs({
+  mode,
+  pickupEnabled,
+  onChange,
+}: {
+  mode: 'delivery' | 'pickup';
+  pickupEnabled: boolean;
+  onChange: (mode: 'delivery' | 'pickup') => void;
+}) {
+  if (!pickupEnabled && mode !== 'pickup') return null;
+
+  return (
+    <div
+      className="mb-4 flex items-center rounded-[var(--ue-pill)] p-1 sm:mb-5 sm:w-fit"
+      style={{ background: 'var(--ue-surface-sunken)' }}
+      role="group"
+      aria-label="Mode de retrait"
+    >
+      {(
+        [
+          ['delivery', 'Livraison'],
+          ['pickup', 'À emporter'],
+        ] as const
+      ).map(([value, label]) => {
+        const active = mode === value;
+        return (
+          <button
+            key={value}
+            type="button"
+            aria-pressed={active}
+            onClick={() => onChange(value)}
+            className="flex-1 cursor-pointer rounded-[var(--ue-pill)] px-6 py-2.5 text-sm font-medium transition-colors duration-200 sm:flex-none"
+            style={{
+              background: active ? 'var(--ue-surface)' : 'transparent',
+              boxShadow: active ? 'var(--ue-shadow-card)' : 'none',
+            }}
+          >
+            {label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * La barre d'informations de service, reprise de la page boutique : frais de
+ * livraison et délai.
+ *
+ * Le mode n'y est plus répété — il est porté par les onglets juste au-dessus.
+ * Au téléphone, les informations passent en colonne avec un filet entre
+ * elles : côte à côte, elles se touchaient et deux phrases sans rapport
+ * finissaient par se lire comme une seule.
  */
 function ServiceBar({
   restaurant,
@@ -449,30 +516,29 @@ function ServiceBar({
   const eta = zone?.eta_minutes ?? restaurant.avg_prep_minutes;
 
   return (
-    <div className="flex flex-wrap items-center gap-x-8 gap-y-3 rounded-[var(--ue-radius)] border border-[var(--ue-border)] px-5 py-4">
-      <p className="text-base font-medium">
-        {mode === 'pickup' ? 'À emporter' : 'Livraison'}
-      </p>
-
+    <div className="flex flex-col divide-y divide-[var(--ue-border-subtle)] rounded-[var(--ue-radius)] border border-[var(--ue-border)] px-4 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-8 sm:divide-y-0 sm:px-5 sm:py-4">
       {mode === 'delivery' ? (
-        <p className="text-base" style={{ color: 'var(--ue-green-text)' }}>
+        <p className="py-3 text-base sm:py-0" style={{ color: 'var(--ue-green-text)' }}>
           {zone && zone.fee_amount === 0
             ? 'Livraison offerte'
             : `Frais de livraison dès ${formatMoney(zone?.fee_amount ?? 0, restaurant.currency)}`}
         </p>
       ) : (
-        <p className="text-base text-[var(--ue-ink-secondary)]">
+        <p className="py-3 text-base text-[var(--ue-ink-secondary)] sm:py-0">
           {restaurant.address_line}
         </p>
       )}
 
-      <p className="flex items-center gap-2 text-base text-[var(--ue-ink-secondary)]">
-        <Clock size={18} aria-hidden />
+      <p className="flex items-center gap-2 py-3 text-base text-[var(--ue-ink-secondary)] sm:py-0">
+        <Clock size={18} aria-hidden className="shrink-0" />
         {slot ?? `${eta} min`}
       </p>
 
       {!restaurant.is_accepting_orders || !restaurant.is_open ? (
-        <p className="text-base font-medium" style={{ color: 'var(--ue-promo)' }}>
+        <p
+          className="py-3 text-base font-medium sm:py-0"
+          style={{ color: 'var(--ue-promo)' }}
+        >
           Commandes fermées pour le moment
         </p>
       ) : null}
@@ -573,8 +639,11 @@ function CategoryRail({
   };
 
   return (
-    <div className="relative mt-6">
-      <div ref={railRef} className="ue-rail gap-6 py-2">
+    // Débordement des gouttières au téléphone : la première pastille commence
+    // au bord de l'écran et la dernière s'y termine, ce qui montre d'un coup
+    // d'œil que la rangée défile.
+    <div className="relative -mx-4 mt-5 md:mx-0 md:mt-6">
+      <div ref={railRef} className="ue-rail gap-4 px-4 py-2 md:gap-6 md:px-0">
         {categories.map((category) => {
           const active = category.slug === activeSlug;
           return (
@@ -583,11 +652,14 @@ function CategoryRail({
               type="button"
               onClick={() => onSelect(category.slug)}
               aria-pressed={active}
-              className="flex w-[76px] cursor-pointer flex-col items-center gap-1.5"
+              // 84 px de large pour 64 px de pastille : le blanc autour est ce
+              // qui sépare deux catégories. À 76 px les étiquettes de deux
+              // lignes se touchaient presque.
+              className="flex w-[84px] cursor-pointer flex-col items-center gap-2"
             >
               <span
                 aria-hidden
-                className="grid h-14 w-14 place-items-center overflow-hidden rounded-full"
+                className="grid h-16 w-16 place-items-center overflow-hidden rounded-full"
                 style={{
                   background: 'var(--ue-surface-sunken)',
                   backgroundImage: category.image_url ? `url(${category.image_url})` : undefined,
@@ -597,9 +669,12 @@ function CategoryRail({
                   outlineOffset: '2px',
                 }}
               >
-                {category.image_url ? null : <CategoryIcon name={category.icon} size={26} />}
+                {category.image_url ? null : <CategoryIcon name={category.icon} size={28} />}
               </span>
-              <span className="line-clamp-2 text-center text-sm font-medium leading-4">
+              <span
+                className="line-clamp-2 text-center text-[13px] font-medium leading-4 md:text-sm"
+                style={{ color: active ? 'var(--ue-ink)' : 'var(--ue-ink-secondary)' }}
+              >
                 {category.name}
               </span>
             </button>
@@ -642,14 +717,14 @@ function PromoCarousel({ promotions, currency }: { promotions: Promotion[]; curr
   const tints = ['#fdf1e3', '#e6f8ee', '#f1efff', '#fdeceb'];
 
   return (
-    <div className="ue-rail mt-6 gap-4">
+    <div className="ue-rail -mx-4 mt-6 gap-4 px-4 md:mx-0 md:px-0">
       {promotions.map((promotion, index) => (
         <div
           key={promotion.id}
-          className="flex w-[86vw] overflow-hidden rounded-[var(--ue-radius)] sm:w-[440px]"
+          className="flex w-[82vw] overflow-hidden rounded-[var(--ue-radius)] sm:w-[440px]"
           style={{ background: tints[index % tints.length], minHeight: 180 }}
         >
-          <div className="flex min-w-0 flex-1 flex-col justify-between p-6">
+          <div className="flex min-w-0 flex-1 flex-col justify-between p-5 sm:p-6">
             <div>
               <p className="text-sm font-medium text-[var(--ue-ink-secondary)]">
                 {promoBadge(promotion, currency)}
@@ -793,7 +868,7 @@ function MenuRow({
 
   return (
     <div
-      className="relative flex gap-4 rounded-[var(--ue-radius)] border border-[var(--ue-border)] p-4 transition-shadow duration-200 hover:shadow-[var(--ue-shadow-card)]"
+      className="relative flex gap-3 rounded-[var(--ue-radius)] border border-[var(--ue-border)] p-3 transition-shadow duration-200 hover:shadow-[var(--ue-shadow-card)] sm:gap-4 sm:p-4"
       style={{ opacity: product.is_available ? 1 : 0.6 }}
     >
       <div className="min-w-0 flex-1">
@@ -824,13 +899,16 @@ function MenuRow({
         ) : null}
       </div>
 
-      <div className="relative h-[104px] w-[104px] shrink-0">
+      {/* 88 px au téléphone : à 375 px de large, la vignette à 104 ne laissait
+          au nom du plat que la moitié de la ligne, et tous les titres un peu
+          longs passaient sur deux lignes. */}
+      <div className="relative h-[88px] w-[88px] shrink-0 sm:h-[104px] sm:w-[104px]">
         {product.image_url ? (
           <Image
             src={product.image_url}
             alt=""
             fill
-            sizes="104px"
+            sizes="(max-width: 640px) 88px, 104px"
             className="rounded-[var(--ue-radius)] object-cover"
           />
         ) : (
@@ -858,14 +936,20 @@ function MenuRow({
   );
 }
 
-/** Le bandeau collant du bas — l'équivalent du « $0 Delivery Fee with Uber One ». */
+/**
+ * Le bandeau du bas — l'équivalent du « $0 Delivery Fee with Uber One ».
+ *
+ * Collant à partir de 1024 px seulement : au téléphone, le bas de l'écran est
+ * réservé à la barre de panier (StoreCart), et deux bandes empilées au-dessus
+ * du clavier de gestes, c'est une de trop.
+ */
 function FreeDeliveryBanner({ amount }: { amount: string }) {
   const [dismissed, setDismissed] = useState(false);
   if (dismissed) return null;
 
   return (
     <div
-      className="sticky bottom-0 z-30 flex items-center gap-4 px-4 py-3.5 md:px-6"
+      className="z-30 flex items-center gap-4 px-4 py-3.5 md:px-6 lg:sticky lg:bottom-0"
       style={{ background: 'var(--ue-deep)', color: 'var(--ue-ink-inverse)' }}
     >
       <p className="flex-1 text-center text-base font-medium">

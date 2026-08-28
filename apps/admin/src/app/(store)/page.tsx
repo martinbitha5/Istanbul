@@ -264,9 +264,8 @@ function EmptyState() {
           Aucun établissement n’est enregistré en base. Chargez les données initiales, puis
           rechargez cette page.
         </p>
-        <Link href="/admin" className="ue-btn ue-btn-primary mt-6">
-          Espace restaurant
-        </Link>
+        {/* Pas de raccourci vers /admin : cet écran est public, et rien de la
+            vitrine ne doit désigner le backoffice. */}
       </div>
     </main>
   );

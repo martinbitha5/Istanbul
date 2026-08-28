@@ -413,7 +413,16 @@ function UserFooter({
 }) {
   return (
     <div className="mt-4 shrink-0 space-y-3 border-t border-[var(--color-border)] pt-4">
-      <ThemeSwitcher />
+      {/* Le thème est une préférence, pas une commande de service : il tient
+          sur une ligne étiquetée, à droite, comme dans un panneau de réglages.
+          Il occupait jusqu'ici toute la largeur du pied de barre, au même
+          poids visuel que la déconnexion. */}
+      <div className="flex items-center justify-between gap-3 pl-1">
+        <span className="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-muted)]">
+          Apparence
+        </span>
+        <ThemeSwitcher />
+      </div>
 
       <div className="flex items-center gap-3">
         <Avatar name={profile?.full_name} />

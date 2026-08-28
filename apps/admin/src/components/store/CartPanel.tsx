@@ -36,7 +36,7 @@ export function CartPanel({
   onClose: () => void;
   restaurant: Restaurant;
   /** Le catalogue, seulement pour retrouver les prix barrés (voir `savings`). */
-  products: Product[];
+  products: Pick<Product, 'id' | 'compare_at_price'>[];
 }) {
   const router = useRouter();
   const { session, isLoading: sessionLoading } = useSession();
@@ -107,7 +107,9 @@ export function CartPanel({
         </span>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-6">
+      {/* px-4 au téléphone : à 375 px, deux gouttières de 24 amputaient la
+          ligne d'un plat de 48 px, soit la moitié de sa vignette. */}
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 sm:px-6">
         <div className="flex items-center gap-3 pb-6">
           <span
             aria-hidden
@@ -216,8 +218,13 @@ export function CartPanel({
         )}
       </div>
 
-      <div className="shrink-0 border-t border-[var(--ue-border-subtle)]">
-        <div className="flex items-baseline justify-between px-6 py-4">
+      <div
+        className="shrink-0 border-t border-[var(--ue-border-subtle)]"
+        // Le tiroir occupe tout l'écran au téléphone : sans ce retrait, le
+        // bouton « Commander » tombe sous la barre de gestes de l'iPhone.
+        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+      >
+        <div className="flex items-baseline justify-between px-4 py-4 sm:px-6">
           <span className="text-lg font-bold">Sous-total</span>
           <span className="text-lg font-bold tabular-nums">
             {formatMoney(subtotal, currency)}
@@ -226,14 +233,14 @@ export function CartPanel({
 
         {savings > 0 ? (
           <p
-            className="px-6 py-3 text-base font-medium"
+            className="px-4 py-3 text-base font-medium sm:px-6"
             style={{ background: 'var(--ue-promo)', color: 'var(--ue-ink-inverse)' }}
           >
             Vous économisez {formatMoney(savings, currency)} avec les promotions
           </p>
         ) : null}
 
-        <div className="p-6 pt-4">
+        <div className="p-4 pt-4 sm:p-6 sm:pt-4">
           <button
             type="button"
             onClick={checkout}

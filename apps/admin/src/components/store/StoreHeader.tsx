@@ -15,7 +15,8 @@ import {
 } from '@phosphor-icons/react';
 import { selectItemCount, useCartStore, useSession } from '@istanbul/core';
 import { Logo } from '@/components/Logo';
-import { setDeliveryPrefs, useDeliveryPrefs } from '@/lib/delivery-prefs';
+import { useStoreCart } from '@/components/store/StoreCart';
+import { useDeliveryPrefs } from '@/lib/delivery-prefs';
 
 /**
  * Barre de navigation de la vitrine.
@@ -25,8 +26,7 @@ import { setDeliveryPrefs, useDeliveryPrefs } from '@/lib/delivery-prefs';
  *   `landing` — logo à gauche, actions à droite. L'adresse n'apparaît qu'une
  *               fois le héros dépassé : tant qu'on voit le grand champ du
  *               héros, un second champ dans l'entête ferait doublon.
- *   `feed`    — la barre de travail : bascule Livraison/Retrait, adresse,
- *               recherche, panier.
+ *   `feed`    — la barre de travail : adresse, recherche, panier.
  *
  * Hauteur 64 px (56 en mobile) et `inset 0 -1px 0 #F3F3F3` en guise de
  * séparateur : deux valeurs relevées telles quelles sur le site d'origine.
@@ -34,6 +34,10 @@ import { setDeliveryPrefs, useDeliveryPrefs } from '@/lib/delivery-prefs';
  * L'adresse et le mode viennent du magasin `delivery-prefs`, pas de props :
  * l'entête, la modale de livraison et le panier doivent afficher la même
  * chose quel que soit l'endroit où elle a été changée.
+ *
+ * Le clic sur le panier n'a pas besoin d'être passé : le tiroir est monté par
+ * la coquille de la vitrine et s'ouvre par contexte. `onCartClick` reste
+ * accepté pour un appelant qui voudrait s'intercaler.
  */
 export function StoreHeader({
   variant = 'landing',
@@ -54,6 +58,8 @@ export function StoreHeader({
 
   const prefs = useDeliveryPrefs();
   const itemCount = useCartStore(selectItemCount);
+  const openCart = useStoreCart();
+  const cartClick = onCartClick ?? openCart ?? undefined;
 
   useEffect(() => {
     if (variant !== 'landing') return;
@@ -86,25 +92,31 @@ export function StoreHeader({
           </button>
 
           <Link href="/" className="shrink-0" aria-label="Istanbul Fast Food, accueil">
-            <Wordmark />
+            {/* Sur le feed, le mot-logo cède la place à l'adresse en dessous
+                de 768 px : c'est elle qu'on relit et qu'on change, pas le nom
+                de l'enseigne sur laquelle on vient justement de cliquer. */}
+            <Wordmark textClassName={isFeed ? 'hidden md:inline-block' : undefined} />
           </Link>
 
           {isFeed ? (
             <>
-              <ModeToggle
-                mode={prefs.mode}
-                onChange={(mode) => setDeliveryPrefs({ mode })}
-              />
-              <div className="hidden md:block">
+              {/* Sous 1024 px, l'adresse prend toute la place restante et se
+                  tronque : à 375 px il lui reste ~165 px, de quoi lire le
+                  début de la rue. Elle ne descend plus sur une seconde ligne
+                  où elle se battait avec la recherche pour la moitié de
+                  l'écran. Au-delà, `flex-none` lui rend sa largeur fixe et
+                  c'est la recherche, remontée dans l'entête, qui occupe le
+                  reste. */}
+              <div className="min-w-0 flex-1 lg:flex-none">
                 <AddressPill address={prefs.address} onClick={onAddressClick} />
               </div>
 
-              <div className="ml-auto flex min-w-0 flex-1 items-center justify-end gap-2 md:ml-4 md:gap-3">
+              <div className="flex shrink-0 items-center gap-2 md:gap-3 lg:ml-auto lg:min-w-0 lg:flex-1 lg:shrink lg:justify-end">
                 <div className="hidden min-w-0 flex-1 lg:block">
                   <SearchField value={search} onChange={onSearchChange} />
                 </div>
 
-                <CartButton count={itemCount} onClick={onCartClick} />
+                <CartButton count={itemCount} onClick={cartClick} />
                 <AuthButtons compact />
               </div>
             </>
@@ -129,26 +141,20 @@ export function StoreHeader({
                 >
                   Voir la carte
                 </Link>
-                {itemCount > 0 ? <CartButton count={itemCount} onClick={onCartClick} /> : null}
+                {itemCount > 0 ? <CartButton count={itemCount} onClick={cartClick} /> : null}
                 <AuthButtons />
               </div>
             </>
           )}
         </div>
 
-        {/* Seconde ligne du feed en mobile.
-            Adresse et recherche ne tiennent pas sur 375 px à côté du logo et
-            du panier ; Uber les descend d'un cran plutôt que de les tronquer,
-            et c'est la bonne réponse — ce sont les deux commandes qu'on
-            utilise le plus sur ce téléphone posé à côté de l'assiette. */}
+        {/* Seconde ligne du feed en dessous de 1024 px : la recherche, pleine
+            largeur. Elle partageait cette ligne avec l'adresse, chacune sur la
+            moitié de 375 px — deux champs illisibles là où il n'en fallait
+            qu'un. L'adresse est remontée sur la première ligne. */}
         {isFeed ? (
-          <div className="flex items-center gap-2 px-4 pb-3 lg:hidden">
-            <div className="min-w-0 max-w-[50%] md:hidden">
-              <AddressPill address={prefs.address} onClick={onAddressClick} className="!px-2.5" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <SearchField value={search} onChange={onSearchChange} />
-            </div>
+          <div className="px-4 pb-3 lg:hidden">
+            <SearchField value={search} onChange={onSearchChange} />
           </div>
         ) : null}
       </header>
@@ -166,17 +172,19 @@ export function StoreHeader({
  * L'ovale de l'enseigne le précède — le texte reste, car l'ovale n'est plus
  * lisible à cette taille.
  */
-function Wordmark() {
+function Wordmark({ textClassName = '' }: { textClassName?: string }) {
   return (
     <span className="flex items-center gap-2">
       <Logo height={34} priority />
       <span
-        className="whitespace-nowrap text-xl leading-none md:text-[22px]"
+        className={['whitespace-nowrap text-xl leading-none md:text-[22px]', textClassName]
+          .filter(Boolean)
+          .join(' ')}
         style={{ fontFamily: 'var(--ue-font-display)', letterSpacing: '-0.03em' }}
       >
         <span style={{ fontWeight: 800 }}>Istanbul</span>
-        {/* « Fast Food » saute sous 640 px : sur le feed, la place gagnée va à
-            l'adresse et au panier. */}
+        {/* « Fast Food » saute sous 640 px : la place gagnée va à l'adresse et
+            au panier. */}
         <span style={{ fontWeight: 500 }} className="hidden sm:inline">
           {' '}
           Fast Food
@@ -269,47 +277,6 @@ function AddressPill({
     <Link href="/" className={classes} title={title}>
       {content}
     </Link>
-  );
-}
-
-/** Bascule Livraison / Retrait : le segmented control noir sur gris d'Uber. */
-function ModeToggle({
-  mode,
-  onChange,
-}: {
-  mode: 'delivery' | 'pickup';
-  onChange: (mode: 'delivery' | 'pickup') => void;
-}) {
-  return (
-    <div
-      className="hidden shrink-0 items-center rounded-[var(--ue-pill)] bg-[var(--ue-surface-sunken)] p-1 sm:flex"
-      role="group"
-      aria-label="Mode de retrait"
-    >
-      {(
-        [
-          ['delivery', 'Livraison'],
-          ['pickup', 'À emporter'],
-        ] as const
-      ).map(([value, label]) => {
-        const active = mode === value;
-        return (
-          <button
-            key={value}
-            type="button"
-            aria-pressed={active}
-            onClick={() => onChange(value)}
-            className="cursor-pointer rounded-[var(--ue-pill)] px-4 py-2 text-sm font-medium transition-colors duration-200"
-            style={{
-              background: active ? 'var(--ue-surface)' : 'transparent',
-              boxShadow: active ? 'var(--ue-shadow-card)' : 'none',
-            }}
-          >
-            {label}
-          </button>
-        );
-      })}
-    </div>
   );
 }
 
@@ -455,7 +422,8 @@ function StoreDrawer({ open, onClose }: { open: boolean; onClose: () => void }) 
             { href: '/feed?filtre=offres', label: 'Promotions du moment' },
             { href: '/#zones', label: 'Zones de livraison' },
             { href: '/#livreur', label: 'Devenir livreur' },
-            { href: '/admin', label: 'Espace restaurant' },
+            // Pas d'entrée vers le backoffice ici : ce tiroir est celui du
+            // client. On entre dans l'espace restaurant en tapant /admin.
           ].map((item) => (
             <Link
               key={item.href}

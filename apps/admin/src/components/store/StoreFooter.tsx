@@ -7,9 +7,8 @@ import { Logo } from '@/components/Logo';
  * colonnes de liens à droite, badges d'application, puis une ligne légale
  * séparée par un filet.
  *
- * L'entrée « Espace restaurant » est le seul point d'accès visible au
- * backoffice depuis la vitrine — c'est aussi ce qui remplace le « Add your
- * restaurant » d'Uber, sans objet pour un établissement unique.
+ * Aucun lien vers le backoffice : la vitrine est la façade client, elle n'a
+ * pas à annoncer la porte de service. Le gérant entre par /admin, qu'il tape.
  */
 export function StoreFooter({ phone, city }: { phone?: string | null; city?: string | null }) {
   const columns: { title: string; links: { href: string; label: string }[] }[] = [
@@ -27,7 +26,6 @@ export function StoreFooter({ phone, city }: { phone?: string | null; city?: str
       links: [
         { href: '/#a-propos', label: 'À propos' },
         { href: '/#livreur', label: 'Devenir livreur' },
-        { href: '/admin', label: 'Espace restaurant' },
         { href: phone ? `tel:${phone}` : '/#a-propos', label: 'Nous contacter' },
       ],
     },
