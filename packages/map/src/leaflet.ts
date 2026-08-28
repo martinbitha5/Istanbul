@@ -68,9 +68,6 @@ export function buildLeafletHtml(options: MapHtmlOptions): string {
   .pin.home { border-radius: 50%; }
   .pin.driver { border-radius: 50%; border-color: ${colors.trail}; }
   .leaflet-control-attribution { font-size: 8px; }
-  /* Sélecteur Plan / Satellite dimensionné pour le pouce. */
-  .leaflet-control-layers-toggle { width: 40px !important; height: 40px !important; }
-  .leaflet-control-layers label { font-size: 14px; padding: 4px 6px; }
 </style>
 </head>
 <body>
@@ -99,24 +96,15 @@ export function buildLeafletHtml(options: MapHtmlOptions): string {
     keyboard: INTERACTIVE,
   });
 
-  var plan = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19, attribution: '&copy; OpenStreetMap contributors',
+  // Un seul fond, la vue satellite : imagerie Esri (gratuite, sans clé) plus
+  // les étiquettes des rues par-dessus — une photo aérienne sans un seul nom
+  // ne sert à rien. Le mode « Plan » OSM et son sélecteur ont été retirés.
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+    maxZoom: 19, attribution: '&copy; Esri &mdash; Maxar, Earthstar Geographics',
   }).addTo(map);
-
-  // Vue satellite : imagerie Esri (gratuite, sans clé) plus les étiquettes des
-  // rues par-dessus — une photo aérienne sans un seul nom ne sert à rien.
-  var satellite = L.layerGroup([
-    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-      maxZoom: 19, attribution: '&copy; Esri &mdash; Maxar, Earthstar Geographics',
-    }),
-    L.tileLayer('https://basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}.png', { maxZoom: 19, opacity: 0.9 }),
-  ]);
-
-  if (INTERACTIVE) {
-    L.control.layers({ 'Plan': plan, 'Satellite': satellite }, null, {
-      position: 'topright', collapsed: false,
-    }).addTo(map);
-  }
+  L.tileLayer('https://basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}.png', {
+    maxZoom: 19, opacity: 0.9,
+  }).addTo(map);
 
   function icon(glyph, extra) {
     return L.divIcon({

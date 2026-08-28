@@ -9,8 +9,6 @@ import type { MapHtmlOptions } from './types';
  * mobile, l'app livreur et le back-office — même style, même tracé, même puck.
  *
  * Ce qu'on emprunte à Uber, et pourquoi :
- *   - style `navigation-day` : routes larges, gris désaturés, étiquettes rares.
- *     Une carte de livraison sert à lire un trajet, pas à explorer un quartier ;
  *   - tracé noir épais posé sur un liseré blanc — lisible sur l'asphalte gris
  *     comme sur la végétation ;
  *   - un « puck » orienté dans le sens de la marche plutôt qu'une épingle :
@@ -27,10 +25,12 @@ import type { MapHtmlOptions } from './types';
 /** Version épinglée : une carte qui change de rendu au gré d'un CDN, non. */
 const GL_VERSION = 'v3.9.0';
 
-export const MAPBOX_STYLES = {
-  navigation: 'mapbox://styles/mapbox/navigation-day-v1',
-  satellite: 'mapbox://styles/mapbox/satellite-streets-v12',
-} as const;
+/**
+ * Un seul style, la vue satellite : imagerie plus les rues et leurs noms
+ * par-dessus. Le mode « Plan » façon Uber (navigation-day) a été retiré —
+ * même carte pour le client, le livreur et la vitrine, sans sélecteur.
+ */
+export const MAPBOX_STYLE = 'mapbox://styles/mapbox/satellite-streets-v12';
 
 export function buildMapboxHtml(options: MapHtmlOptions): string {
   const {
@@ -51,8 +51,7 @@ export function buildMapboxHtml(options: MapHtmlOptions): string {
   // script lisible d'un bout à l'autre.
   const constants = [
     ['TOKEN', token],
-    ['STYLE_PLAN', MAPBOX_STYLES.navigation],
-    ['STYLE_SAT', MAPBOX_STYLES.satellite],
+    ['STYLE', MAPBOX_STYLE],
     ['RESTAURANT', [restaurant.longitude, restaurant.latitude]],
     ['DESTINATION', destination ? [destination.longitude, destination.latitude] : null],
     ['INTERACTIVE', interactive],
@@ -129,16 +128,6 @@ export function buildMapboxHtml(options: MapHtmlOptions): string {
     display: none; position: absolute; right: 10px; top: 10px;
     flex-direction: column; align-items: flex-end; gap: 8px; z-index: 2;
   }
-  .seg {
-    display: flex; overflow: hidden;
-    border-radius: 999px; background: #fff;
-    box-shadow: 0 2px 10px rgba(0,0,0,.22);
-  }
-  .seg button {
-    appearance: none; border: 0; background: transparent;
-    padding: 9px 15px; font: inherit; color: ${colors.route}; cursor: pointer;
-  }
-  .seg button.on { background: ${colors.route}; color: #fff; }
   #recenter {
     appearance: none; border: 0; cursor: pointer;
     display: flex; align-items: center; justify-content: center;
@@ -162,10 +151,6 @@ export function buildMapboxHtml(options: MapHtmlOptions): string {
 <div id="map"></div>
 
 <div id="ctrl">
-  <div class="seg">
-    <button id="btn-plan" class="on" type="button">Plan</button>
-    <button id="btn-sat" type="button">Satellite</button>
-  </div>
   <button id="recenter" type="button" aria-label="Recentrer la carte">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="${colors.route}" stroke-width="2">
       <circle cx="12" cy="12" r="4" /><circle cx="12" cy="12" r="9" stroke-opacity=".35" />
@@ -202,7 +187,7 @@ export function buildMapboxHtml(options: MapHtmlOptions): string {
 
   var map = new mapboxgl.Map({
     container: 'map',
-    style: STYLE_PLAN,
+    style: STYLE,
     center: RESTAURANT,
     zoom: 14,
     pitch: NAV ? 55 : 0,
@@ -237,7 +222,6 @@ export function buildMapboxHtml(options: MapHtmlOptions): string {
   var trailCoords = [];
   var routeGeo = null;
   var userMoved = false;
-  var base = 'plan';
 
   function line(coords) {
     return { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: coords || [] } };
@@ -280,12 +264,9 @@ export function buildMapboxHtml(options: MapHtmlOptions): string {
     return undefined;
   }
 
-  // Le style navigation embarque le trafic en direct et les incidents. Sur la
-  // carte d'une livraison, ce vert fluo mange tout l'écran, entre en collision
-  // avec la couleur de la trace, et à Kinshasa il ne dit rien de vrai : la
-  // couverture y est nulle, tout s'affiche en « fluide » par défaut. Les tuiles
-  // d'incidents répondaient d'ailleurs 404 à chaque déplacement. On éteint les
-  // deux sources : moins de bruit visuel, et quatre requêtes de moins par vue.
+  // Trafic et incidents : le style satellite-streets n'en embarque pas, on
+  // éteint quand même toute source de ce type par prudence — à Kinshasa la
+  // couverture est nulle et ce vert fluo entrerait en collision avec la trace.
   // L'ETA, lui, garde bien le trafic — il vient de l'API Directions.
   function hideTrafficLayers() {
     var layers = map.getStyle().layers || [];
@@ -324,23 +305,8 @@ export function buildMapboxHtml(options: MapHtmlOptions): string {
       }, before);
     }
 
-    // Relief bâti : utile seulement en vue inclinée, où il donne les repères
-    // visuels qu'on a réellement par le pare-brise.
-    if (NAV && !map.getLayer('buildings-3d')) {
-      try {
-        map.addLayer({
-          id: 'buildings-3d', type: 'fill-extrusion',
-          source: 'composite', 'source-layer': 'building',
-          filter: ['==', 'extrude', 'true'], minzoom: 15,
-          paint: {
-            'fill-extrusion-color': '#E4E4E4',
-            'fill-extrusion-height': ['get', 'height'],
-            'fill-extrusion-base': ['get', 'min_height'],
-            'fill-extrusion-opacity': 0.55,
-          },
-        }, before);
-      } catch (e) { /* style sans couche bâtiment : on s'en passe */ }
-    }
+    // Pas de relief bâti en extrusion : sur l'imagerie satellite, les toits
+    // sont déjà là — des volumes gris par-dessus ne feraient que les masquer.
 
     pushData();
   }
@@ -580,22 +546,6 @@ export function buildMapboxHtml(options: MapHtmlOptions): string {
   // --- Commandes ----------------------------------------------------------
   if (INTERACTIVE) {
     document.getElementById('ctrl').style.display = 'flex';
-
-    var planButton = document.getElementById('btn-plan');
-    var satButton = document.getElementById('btn-sat');
-
-    var setBase = function (kind) {
-      if (base === kind) return;
-      base = kind;
-      planButton.className = kind === 'plan' ? 'on' : '';
-      satButton.className = kind === 'sat' ? 'on' : '';
-      // setStyle vide les sources : l'evenement style.load rappelle applyOverlays, qui
-      // les recrée à partir de routeGeo / trailCoords conservés en mémoire.
-      map.setStyle(kind === 'sat' ? STYLE_SAT : STYLE_PLAN);
-    };
-
-    planButton.addEventListener('click', function () { setBase('plan'); });
-    satButton.addEventListener('click', function () { setBase('sat'); });
 
     document.getElementById('recenter').addEventListener('click', function () {
       userMoved = false;

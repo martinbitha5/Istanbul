@@ -9,7 +9,7 @@
 
 export * from './types';
 export * from './token';
-export { MAPBOX_STYLES } from './mapbox';
+export { MAPBOX_STYLE } from './mapbox';
 
 import { buildLeafletHtml } from './leaflet';
 import { buildMapboxHtml } from './mapbox';
